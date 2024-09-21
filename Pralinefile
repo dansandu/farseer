@@ -1,0 +1,11 @@
+organization: dansandu
+artifact: farseer
+version: 1.0.0.SNAPSHOT
+dependencies:
+- organization: dansandu
+  artifact: ballotin
+  version: 1.0.0.SNAPSHOT
+- organization: catchorg
+  artifact: catch
+  version: 2.+0.+0
+  scope: test
