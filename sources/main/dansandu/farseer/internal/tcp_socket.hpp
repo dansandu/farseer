@@ -5,6 +5,7 @@
 
 #include <mswsock.h>
 #include <winsock2.h>
+#undef min
 
 #include <string>
 

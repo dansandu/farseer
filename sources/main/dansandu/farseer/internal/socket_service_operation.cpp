@@ -1,13 +1,13 @@
 #include "dansandu/farseer/internal/socket_service_operation.hpp"
 #include "dansandu/ballotin/exception.hpp"
-#include "dansandu/ballotin/logging.hpp"
+#include "dansandu/journey/logger.hpp"
 
 #include <winsock2.h>
 
 #include <stdexcept>
 
-using dansandu::ballotin::logging::LogDebug;
-using dansandu::ballotin::logging::LogError;
+using dansandu::journey::logger::LogDebug;
+using dansandu::journey::logger::LogError;
 
 namespace dansandu::farseer::internal::socket_service_operation
 {

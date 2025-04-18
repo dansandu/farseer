@@ -1,20 +1,20 @@
 #include "dansandu/farseer/internal/tcp_socket.hpp"
 #include "dansandu/ballotin/exception.hpp"
-#include "dansandu/ballotin/logging.hpp"
 #include "dansandu/farseer/internal/error.hpp"
 #include "dansandu/farseer/internal/internal_socket_service_exception.hpp"
+#include "dansandu/journey/logger.hpp"
 
 #include <ioapiset.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-using dansandu::ballotin::logging::LogCritical;
 using dansandu::farseer::internal::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::error::getLastErrorMessage;
 using dansandu::farseer::internal::error::getLastWsaErrorMessage;
 using dansandu::farseer::internal::internal_socket_service_exception::InternalSocketServiceException;
 using dansandu::farseer::internal::socket_service_operation::SocketServiceOperation;
 using dansandu::farseer::internal::socket_service_operation::socketServiceOperationBufferSize;
+using dansandu::journey::logger::LogCritical;
 
 namespace dansandu::farseer::internal::tcp_socket
 {
