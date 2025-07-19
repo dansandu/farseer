@@ -2,7 +2,7 @@
 #include "dansandu/ballotin/exception.hpp"
 #include "dansandu/farseer/internal/error.hpp"
 #include "dansandu/farseer/internal/internal_socket_service_exception.hpp"
-#include "dansandu/journey/logger.hpp"
+#include "dansandu/journey/logging.hpp"
 
 #include <ioapiset.h>
 #include <winsock2.h>
@@ -14,7 +14,7 @@ using dansandu::farseer::internal::error::getLastWsaErrorMessage;
 using dansandu::farseer::internal::internal_socket_service_exception::InternalSocketServiceException;
 using dansandu::farseer::internal::socket_service_operation::SocketServiceOperation;
 using dansandu::farseer::internal::socket_service_operation::socketServiceOperationBufferSize;
-using dansandu::journey::logger::LogCritical;
+using dansandu::journey::logging::LogCritical;
 
 namespace dansandu::farseer::internal::tcp_socket
 {

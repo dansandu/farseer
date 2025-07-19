@@ -6,7 +6,7 @@
 #include "dansandu/farseer/internal/socket_service_operation.hpp"
 #include "dansandu/farseer/internal/tcp_socket.hpp"
 #include "dansandu/farseer/internal/wsa_scope_guard.hpp"
-#include "dansandu/journey/logger.hpp"
+#include "dansandu/journey/logging.hpp"
 
 #include <mswsock.h>
 #include <windows.h>
@@ -28,9 +28,9 @@ using dansandu::farseer::internal::socket_service_operation::SocketServiceOperat
 using dansandu::farseer::internal::socket_service_operation::toString;
 using dansandu::farseer::internal::tcp_socket::TcpSocket;
 using dansandu::farseer::internal::wsa_scope_guard::WsaScopeGuard;
-using dansandu::journey::logger::LogCritical;
-using dansandu::journey::logger::LogError;
-using dansandu::journey::logger::LogInfo;
+using dansandu::journey::logging::LogCritical;
+using dansandu::journey::logging::LogError;
+using dansandu::journey::logging::LogInfo;
 
 namespace dansandu::farseer::socket_service_provider
 {

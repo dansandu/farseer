@@ -1,14 +1,14 @@
 #include "dansandu/farseer/internal/error.hpp"
 #include "dansandu/ballotin/string.hpp"
-#include "dansandu/journey/logger.hpp"
+#include "dansandu/journey/logging.hpp"
 
 #include <strsafe.h>
 #include <windows.h>
 
 using dansandu::ballotin::string::format;
 using dansandu::ballotin::string::trim;
-using dansandu::journey::logger::LogError;
-using dansandu::journey::logger::LogWarning;
+using dansandu::journey::logging::LogError;
+using dansandu::journey::logging::LogWarning;
 
 namespace dansandu::farseer::internal::error
 {
