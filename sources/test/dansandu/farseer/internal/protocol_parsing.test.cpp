@@ -3,8 +3,8 @@
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::ballotin::file_system::readAsciiFile;
-using dansandu::farseer::internal::protocol_definition::ProtocolFile;
-using dansandu::farseer::internal::protocol_parsing::parseProtocolFile;
+using dansandu::farseer::internal::protocol::Protocol;
+using dansandu::farseer::internal::protocol_parsing::parseProtocol;
 
 TEST_CASE("protocol_parsing")
 {
@@ -12,17 +12,17 @@ TEST_CASE("protocol_parsing")
     {
         const auto text = readAsciiFile("resources/test/dansandu/farseer/message.far");
 
-        const auto protocolFile = parseProtocolFile(text);
+        const auto protocol = parseProtocol(text);
 
-        REQUIRE(protocolFile.toString() == text);
+        REQUIRE(protocol.toString() == text);
     }
 
     SECTION("request parsing")
     {
         const auto text = readAsciiFile("resources/test/dansandu/farseer/request.far");
 
-        const auto protocolFile = parseProtocolFile(text);
+        const auto protocol = parseProtocol(text);
 
-        REQUIRE(protocolFile.toString() == text);
+        REQUIRE(protocol.toString() == text);
     }
 }

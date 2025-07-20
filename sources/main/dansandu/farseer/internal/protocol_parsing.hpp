@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dansandu/farseer/internal/protocol_definition.hpp"
+#include "dansandu/farseer/internal/protocol.hpp"
 
 #include <memory>
 #include <string>
@@ -26,6 +26,6 @@ private:
     std::string message_;
 };
 
-dansandu::farseer::internal::protocol_definition::ProtocolFile parseProtocolFile(const std::string_view text);
+dansandu::farseer::internal::protocol::Protocol parseProtocol(const std::string_view text);
 
 }

@@ -6,23 +6,23 @@
 
 using dansandu::ballotin::string::join;
 using dansandu::ballotin::string::split;
-using dansandu::farseer::internal::protocol_definition::ProtocolFile;
+using dansandu::farseer::internal::protocol::Protocol;
 
 namespace dansandu::farseer::internal::cpp_protocol
 {
 
-std::string generateCppProtocol(const ProtocolFile& protocolFile)
+std::string generateCppProtocol(const Protocol& protocol)
 {
     auto stream = std::ostringstream{};
 
-    const auto cppNamespace = join(split(protocolFile.fileNamespace, "."), "::");
+    const auto cppNamespace = join(split(protocol.fileNamespace, "."), "::");
 
     stream << "#include <cstdint>\n"
            << "#include <string>\n"
            << "#include <vector>\n\n"
            << "namespace " << cppNamespace << "\n{\n\n";
 
-    for (auto messagePosition = protocolFile.messages.cbegin(); messagePosition != protocolFile.messages.cend();
+    for (auto messagePosition = protocol.messages.cbegin(); messagePosition != protocol.messages.cend();
          ++messagePosition)
     {
         stream << "struct " << messagePosition->identifier << "\n{\n";
@@ -34,18 +34,18 @@ std::string generateCppProtocol(const ProtocolFile& protocolFile)
 
         stream << "};\n";
 
-        if (messagePosition + 1 != protocolFile.messages.cend())
+        if (messagePosition + 1 != protocol.messages.cend())
         {
             stream << std::endl;
         }
     }
 
-    if (!protocolFile.messages.empty() && !protocolFile.requests.empty())
+    if (!protocol.messages.empty() && !protocol.requests.empty())
     {
         stream << std::endl;
     }
 
-    for (auto requestPosition = protocolFile.requests.cbegin(); requestPosition != protocolFile.requests.cend();
+    for (auto requestPosition = protocol.requests.cbegin(); requestPosition != protocol.requests.cend();
          ++requestPosition)
     {
         stream << "struct " << requestPosition->identifier << "\n{\n";
@@ -64,7 +64,7 @@ std::string generateCppProtocol(const ProtocolFile& protocolFile)
 
         stream << "    };\n};\n";
 
-        if (requestPosition + 1 != protocolFile.requests.cend())
+        if (requestPosition + 1 != protocol.requests.cend())
         {
             stream << std::endl;
         }

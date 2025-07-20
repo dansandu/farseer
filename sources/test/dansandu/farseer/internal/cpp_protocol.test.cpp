@@ -1,23 +1,21 @@
 #include "dansandu/farseer/internal/cpp_protocol.hpp"
 #include "dansandu/ballotin/file_system.hpp"
-#include "dansandu/journey/logging.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::ballotin::file_system::readAsciiFile;
 using dansandu::farseer::internal::cpp_protocol::generateCppProtocol;
-using dansandu::farseer::internal::protocol_definition::Field;
-using dansandu::farseer::internal::protocol_definition::MessageProtocol;
-using dansandu::farseer::internal::protocol_definition::ProtocolFile;
-using dansandu::farseer::internal::protocol_definition::RequestProtocol;
-using dansandu::farseer::internal::protocol_definition::Type;
-using dansandu::farseer::internal::protocol_definition::TypeEnum;
-using dansandu::journey::logging::LogWarning;
+using dansandu::farseer::internal::protocol::Field;
+using dansandu::farseer::internal::protocol::MessageProtocol;
+using dansandu::farseer::internal::protocol::Protocol;
+using dansandu::farseer::internal::protocol::RequestProtocol;
+using dansandu::farseer::internal::protocol::Type;
+using dansandu::farseer::internal::protocol::TypeEnum;
 
 TEST_CASE("cpp_protocol")
 {
     SECTION("message protocol")
     {
-        const auto protocolFile = ProtocolFile{
+        const auto protocol = Protocol{
             .fileNamespace = "org.art",
             .messages =
                 {
@@ -38,15 +36,31 @@ TEST_CASE("cpp_protocol")
                 },
         };
 
-        const auto cppProtocol = generateCppProtocol(protocolFile);
+        const auto expected = R"(#include <cstdint>
+#include <string>
+#include <vector>
 
-        LogWarning("\n", cppProtocol);
+namespace org::art
+{
+
+struct MyMessage
+{
+    int64_t number;
+    std::string myString;
+};
+
+}
+)";
+
+        const auto cppProtocol = generateCppProtocol(protocol);
+
+        REQUIRE(cppProtocol == expected);
     }
 
     SECTION("request protocol")
     {
-        const auto protocolFile = ProtocolFile{
-            .fileNamespace = "org.art",
+        const auto protocol = Protocol{
+            .fileNamespace = "someorg.someart.module.folder",
             .requests =
                 {
                     RequestProtocol{
@@ -54,31 +68,53 @@ TEST_CASE("cpp_protocol")
                         .requestFields =
                             {
                                 Field{
-                                    .type = Type::fromSimple(TypeEnum::int64),
-                                    .identifier = "number",
+                                    .type = Type::fromSimple(TypeEnum::string),
+                                    .identifier = "password",
                                 },
                                 Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "myString",
+                                    .type = Type::fromSimple(TypeEnum::boolean),
+                                    .identifier = "canExecute",
                                 },
                             },
                         .responseFields =
                             {
                                 Field{
                                     .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "number",
+                                    .identifier = "hash",
                                 },
                                 Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "myString",
+                                    .type = Type::fromList(Type::fromList(Type::fromSimple(TypeEnum::string))),
+                                    .identifier = "stringTable",
                                 },
                             },
                     },
                 },
         };
 
-        const auto cppProtocol = generateCppProtocol(protocolFile);
+        const auto expected = R"(#include <cstdint>
+#include <string>
+#include <vector>
 
-        LogWarning("\n", cppProtocol);
+namespace someorg::someart::module::folder
+{
+
+struct MyRequest
+{
+    std::string password;
+    bool canExecute;
+
+    struct response
+    {
+        std::string hash;
+        std::vector<std::vector<std::string>> stringTable;
+    };
+};
+
+}
+)";
+
+        const auto cppProtocol = generateCppProtocol(protocol);
+
+        REQUIRE(cppProtocol == expected);
     }
 }

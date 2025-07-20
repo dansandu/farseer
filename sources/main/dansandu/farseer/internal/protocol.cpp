@@ -1,9 +1,9 @@
-#include "dansandu/farseer/internal/protocol_definition.hpp"
+#include "dansandu/farseer/internal/protocol.hpp"
 #include "dansandu/ballotin/exception.hpp"
 
 #include <sstream>
 
-namespace dansandu::farseer::internal::protocol_definition
+namespace dansandu::farseer::internal::protocol
 {
 
 const char* toString(const TypeEnum typeEnum)
@@ -139,11 +139,11 @@ std::string Type::toString() const
     }
     else
     {
-        return dansandu::farseer::internal::protocol_definition::toString(typeEnum_);
+        return dansandu::farseer::internal::protocol::toString(typeEnum_);
     }
 }
 
-std::string ProtocolFile::toString() const
+std::string Protocol::toString() const
 {
     auto stream = std::ostringstream{};
 

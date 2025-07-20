@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace dansandu::farseer::internal::protocol_definition
+namespace dansandu::farseer::internal::protocol
 {
 
 enum class TypeEnum
@@ -75,7 +75,7 @@ struct RequestProtocol
     std::vector<Field> responseFields;
 };
 
-struct ProtocolFile
+struct Protocol
 {
     std::string toString() const;
 

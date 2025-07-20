@@ -9,12 +9,12 @@
 #include <string_view>
 #include <vector>
 
-using dansandu::farseer::internal::protocol_definition::Field;
-using dansandu::farseer::internal::protocol_definition::MessageProtocol;
-using dansandu::farseer::internal::protocol_definition::ProtocolFile;
-using dansandu::farseer::internal::protocol_definition::RequestProtocol;
-using dansandu::farseer::internal::protocol_definition::Type;
-using dansandu::farseer::internal::protocol_definition::TypeEnum;
+using dansandu::farseer::internal::protocol::Field;
+using dansandu::farseer::internal::protocol::MessageProtocol;
+using dansandu::farseer::internal::protocol::Protocol;
+using dansandu::farseer::internal::protocol::RequestProtocol;
+using dansandu::farseer::internal::protocol::Type;
+using dansandu::farseer::internal::protocol::TypeEnum;
 using dansandu::glyph::node::Node;
 using dansandu::glyph::parser::Parser;
 using dansandu::glyph::regex_tokenizer::RegexTokenizer;
@@ -28,8 +28,8 @@ namespace
 {
 
 constexpr auto protocolsGrammar = R"(
-    /* 0*/ Start -> ProtocolFile
-    /* 1*/ ProtocolFile -> NamespaceDefinition ProtocolDefinitions
+    /* 0*/ Start -> Protocol
+    /* 1*/ Protocol -> NamespaceDefinition ProtocolDefinitions
     /* 2*/ NamespaceDefinition -> namespace module semicolon
     /* 3*/ ProtocolDefinitions -> ProtocolDefinitions MessageDefinition
     /* 4*/ ProtocolDefinitions -> ProtocolDefinitions RequestDefinition
@@ -105,11 +105,11 @@ auto pop(std::vector<T>& stack)
     return value;
 }
 
-void validateProtocolFile(const ProtocolFile& protocolFile)
+void validateProtocol(const Protocol& protocol)
 {
     auto customTypes = std::set<std::string>{};
 
-    for (const auto& message : protocolFile.messages)
+    for (const auto& message : protocol.messages)
     {
         if (customTypes.contains(message.identifier))
         {
@@ -120,7 +120,7 @@ void validateProtocolFile(const ProtocolFile& protocolFile)
         customTypes.insert(message.identifier);
     }
 
-    for (const auto& message : protocolFile.messages)
+    for (const auto& message : protocol.messages)
     {
         auto usedIdentifiers = std::set<std::string>{};
 
@@ -166,7 +166,7 @@ void validateProtocolFile(const ProtocolFile& protocolFile)
 
 }
 
-ProtocolFile parseProtocolFile(const std::string_view text)
+Protocol parseProtocol(const std::string_view text)
 {
     static const ProtocolParser parser;
 
@@ -180,7 +180,7 @@ ProtocolFile parseProtocolFile(const std::string_view text)
 
     auto requestFields = std::vector<Field>{};
 
-    auto protocolFile = ProtocolFile{};
+    auto protocol = Protocol{};
 
     const auto getTokenText = [text](const auto& token)
     { return std::string(text.cbegin() + token.begin(), text.cbegin() + token.end()); };
@@ -203,20 +203,20 @@ ProtocolFile parseProtocolFile(const std::string_view text)
             case 2:
             {
                 const auto token = pop(stack);
-                protocolFile.fileNamespace = getTokenText(token);
+                protocol.fileNamespace = getTokenText(token);
                 break;
             }
             case 6:
             {
                 const auto token = pop(stack);
-                protocolFile.messages.push_back(
+                protocol.messages.push_back(
                     MessageProtocol{.identifier = getTokenText(token), .fields = std::move(fields)});
                 break;
             }
             case 7:
             {
                 const auto token = pop(stack);
-                protocolFile.requests.push_back(RequestProtocol{
+                protocol.requests.push_back(RequestProtocol{
                     .identifier = getTokenText(token),
                     .requestFields = std::move(requestFields),
                     .responseFields = std::move(fields),
@@ -291,9 +291,9 @@ ProtocolFile parseProtocolFile(const std::string_view text)
         }
     }
 
-    validateProtocolFile(protocolFile);
+    validateProtocol(protocol);
 
-    return protocolFile;
+    return protocol;
 }
 
 }
