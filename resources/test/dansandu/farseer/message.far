@@ -8,7 +8,7 @@ message Person
 
 message MyMessage
 {
-    int64 mySignedNumber;
+    int64 myInteger;
     Person parent;
     list<Person> children;
 }

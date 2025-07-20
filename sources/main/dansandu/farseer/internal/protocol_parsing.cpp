@@ -8,6 +8,12 @@
 #include <string_view>
 #include <vector>
 
+using dansandu::farseer::internal::protocol_definition::Field;
+using dansandu::farseer::internal::protocol_definition::MessageProtocol;
+using dansandu::farseer::internal::protocol_definition::ProtocolFile;
+using dansandu::farseer::internal::protocol_definition::RequestProtocol;
+using dansandu::farseer::internal::protocol_definition::Type;
+using dansandu::farseer::internal::protocol_definition::TypeEnum;
 using dansandu::glyph::node::Node;
 using dansandu::glyph::parser::Parser;
 using dansandu::glyph::regex_tokenizer::RegexTokenizer;
@@ -21,25 +27,26 @@ namespace
 {
 
 constexpr auto protocolsGrammar = R"(
-        /* 0*/ Start -> ProtocolFile
-        /* 1*/ ProtocolFile -> NamespaceDefinition ProtocolDefinitions
-        /* 2*/ NamespaceDefinition -> namespace module semicolon
-        /* 3*/ ProtocolDefinitions -> ProtocolDefinitions MessageDefinition
-        /* 4*/ ProtocolDefinitions -> ProtocolDefinitions RequestDefinition
-        /* 5*/ ProtocolDefinitions -> 
-        /* 6*/ MessageDefinition -> message identifier bracesBegin Fields bracesEnd
-        /* 7*/ RequestDefinition -> request identifier bracesBegin Fields response bracesBegin Fields bracesEnd bracesEnd
-        /* 8*/ Fields -> Fields Type identifier semicolon
-        /* 9*/ Fields -> 
-        /*10*/ Type -> int32
-        /*11*/ Type -> int64
-        /*12*/ Type -> uint32
-        /*13*/ Type -> uint64
-        /*14*/ Type -> string
-        /*15*/ Type -> boolean
-        /*16*/ Type -> list angleBracketBegin Type angleBracketEnd
-        /*17*/ Type -> identifier
-    )";
+    /* 0*/ Start -> ProtocolFile
+    /* 1*/ ProtocolFile -> NamespaceDefinition ProtocolDefinitions
+    /* 2*/ NamespaceDefinition -> namespace module semicolon
+    /* 3*/ ProtocolDefinitions -> ProtocolDefinitions MessageDefinition
+    /* 4*/ ProtocolDefinitions -> ProtocolDefinitions RequestDefinition
+    /* 5*/ ProtocolDefinitions -> 
+    /* 6*/ MessageDefinition -> message identifier bracesBegin Fields bracesEnd
+    /* 7*/ RequestDefinition -> request identifier bracesBegin RequestFields response bracesBegin Fields bracesEnd bracesEnd
+    /* 8*/ RequestFields -> Fields
+    /* 9*/ Fields -> Fields Type identifier semicolon
+    /*10*/ Fields -> 
+    /*11*/ Type -> int32
+    /*12*/ Type -> int64
+    /*13*/ Type -> uint32
+    /*14*/ Type -> uint64
+    /*15*/ Type -> string
+    /*16*/ Type -> boolean
+    /*17*/ Type -> list angleBracketBegin Type angleBracketEnd
+    /*18*/ Type -> identifier
+)";
 
 // clang-format off
 struct ProtocolParser
@@ -99,77 +106,6 @@ auto pop(std::vector<T>& stack)
 
 }
 
-const char* toString(const TypeEnum typeEnum)
-{
-    switch (typeEnum)
-    {
-    case TypeEnum::int32:
-        return "int32";
-    case TypeEnum::int64:
-        return "int64";
-    case TypeEnum::uint32:
-        return "uint32";
-    case TypeEnum::uint64:
-        return "uint64";
-    case TypeEnum::string:
-        return "string";
-    case TypeEnum::boolean:
-        return "boolean";
-    case TypeEnum::list:
-        return "list";
-    case TypeEnum::custom:
-        return "custom";
-    default:
-        THROW(std::logic_error, "unrecognized TypeEnum");
-    }
-}
-
-std::string Type::toString() const
-{
-    if (typeEnum == TypeEnum::custom)
-    {
-        return identifier;
-    }
-    else if (typeEnum == TypeEnum::list)
-    {
-        if (!subtype)
-        {
-            THROW(std::logic_error, "subtype cannot be nullptr when type is list");
-        }
-        return "list<" + subtype->toString() + ">";
-    }
-    else
-    {
-        return dansandu::farseer::internal::protocol_parsing::toString(typeEnum);
-    }
-}
-
-std::string ProtocolFile::toString() const
-{
-    auto stream = std::ostringstream{};
-
-    stream << "namespace " << fileNamespace << ";\n\n";
-
-    for (auto messagePosition = messages.cbegin(); messagePosition != messages.cend(); ++messagePosition)
-    {
-        stream << "message " << messagePosition->identifier << "\n{\n";
-
-        for (const auto& field : messagePosition->fields)
-        {
-            stream << "    " << field.type.toString() << " " << field.identifier << ";\n";
-        }
-
-        stream << "}\n";
-
-        if (messagePosition + 1 != messages.cend())
-        {
-            stream << std::endl;
-        }
-    }
-
-    return stream.str();
-}
-
 ProtocolFile parseProtocolFile(const std::string_view text)
 {
     static const ProtocolParser parser;
@@ -181,6 +117,8 @@ ProtocolFile parseProtocolFile(const std::string_view text)
     auto type = Type{};
 
     auto fields = std::vector<Field>{};
+
+    auto requestFields = std::vector<Field>{};
 
     auto protocolFile = ProtocolFile{};
 
@@ -215,7 +153,22 @@ ProtocolFile parseProtocolFile(const std::string_view text)
                     MessageProtocol{.identifier = getTokenText(token), .fields = std::move(fields)});
                 break;
             }
+            case 7:
+            {
+                const auto token = pop(stack);
+                protocolFile.requests.push_back(RequestProtocol{
+                    .identifier = getTokenText(token),
+                    .requestFields = std::move(requestFields),
+                    .responseFields = std::move(fields),
+                });
+                break;
+            }
             case 8:
+            {
+                requestFields = std::move(fields);
+                break;
+            }
+            case 9:
             {
                 const auto token = pop(stack);
                 fields.push_back(Field{
@@ -224,49 +177,49 @@ ProtocolFile parseProtocolFile(const std::string_view text)
                 });
                 break;
             }
-            case 10:
+            case 11:
             {
                 type.typeEnum = TypeEnum::int32;
                 type.identifier.clear();
                 type.subtype.reset();
                 break;
             }
-            case 11:
+            case 12:
             {
                 type.typeEnum = TypeEnum::int64;
                 type.identifier.clear();
                 type.subtype.reset();
                 break;
             }
-            case 12:
+            case 13:
             {
                 type.typeEnum = TypeEnum::uint32;
                 type.identifier.clear();
                 type.subtype.reset();
                 break;
             }
-            case 13:
+            case 14:
             {
                 type.typeEnum = TypeEnum::uint64;
                 type.identifier.clear();
                 type.subtype.reset();
                 break;
             }
-            case 14:
+            case 15:
             {
                 type.typeEnum = TypeEnum::string;
                 type.identifier.clear();
                 type.subtype.reset();
                 break;
             }
-            case 15:
+            case 16:
             {
                 type.typeEnum = TypeEnum::boolean;
                 type.identifier.clear();
                 type.subtype.reset();
                 break;
             }
-            case 16:
+            case 17:
             {
                 auto subtype = std::move(type);
                 type.typeEnum = TypeEnum::list;
@@ -274,7 +227,7 @@ ProtocolFile parseProtocolFile(const std::string_view text)
                 type.subtype = std::make_unique<Type>(std::move(subtype));
                 break;
             }
-            case 17:
+            case 18:
             {
                 const auto token = pop(stack);
                 type.typeEnum = TypeEnum::custom;
@@ -287,7 +240,7 @@ ProtocolFile parseProtocolFile(const std::string_view text)
             case 3:
             case 4:
             case 5:
-            case 9:
+            case 10:
                 break;
             default:
                 THROW(std::logic_error, "production rule ", node.getRuleIndex(), " was not exhausted");

@@ -2,10 +2,12 @@ namespace organization.artifact;
 
 request MyRequest
 {
-    uint64 myUnsignedNumber;
+    uint64 myUnsignedInteger;
+    string myString;
 
     response
     {
         boolean myBoolean;
+        int64 myInteger;
     }
 }
