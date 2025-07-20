@@ -5,6 +5,7 @@
 #include "dansandu/glyph/symbol.hpp"
 #include "dansandu/glyph/token.hpp"
 
+#include <set>
 #include <string_view>
 #include <vector>
 
@@ -104,6 +105,65 @@ auto pop(std::vector<T>& stack)
     return value;
 }
 
+void validateProtocolFile(const ProtocolFile& protocolFile)
+{
+    auto customTypes = std::set<std::string>{};
+
+    for (const auto& message : protocolFile.messages)
+    {
+        if (customTypes.contains(message.identifier))
+        {
+            THROW(ProtocolValidationError, "the message identifier ", message.identifier,
+                  " is already used by another message");
+        }
+
+        customTypes.insert(message.identifier);
+    }
+
+    for (const auto& message : protocolFile.messages)
+    {
+        auto usedIdentifiers = std::set<std::string>{};
+
+        for (const auto& field : message.fields)
+        {
+            auto typePointer = &field.type;
+
+            while (typePointer != nullptr)
+            {
+                if (typePointer->getTypeEnum() == TypeEnum::custom)
+                {
+                    if (!customTypes.contains(typePointer->getIdentifier()))
+                    {
+                        THROW(ProtocolValidationError, "the identifier ", typePointer->getIdentifier(),
+                              " was not defined");
+                    }
+
+                    if (message.identifier == typePointer->getIdentifier())
+                    {
+                        THROW(ProtocolValidationError, "message ", message.identifier,
+                              " field cannot reference itself");
+                    }
+                }
+                typePointer = typePointer->getSubtype();
+            }
+
+            if (usedIdentifiers.contains(field.identifier))
+            {
+                THROW(ProtocolValidationError, "the field identifier ", field.identifier,
+                      " is already used by another field");
+            }
+
+            usedIdentifiers.insert(field.identifier);
+
+            if (customTypes.contains(field.identifier))
+            {
+                THROW(ProtocolValidationError, "the field identifier ", field.identifier,
+                      " is already used as a message identifier");
+            }
+        }
+    }
+}
+
 }
 
 ProtocolFile parseProtocolFile(const std::string_view text)
@@ -179,60 +239,43 @@ ProtocolFile parseProtocolFile(const std::string_view text)
             }
             case 11:
             {
-                type.typeEnum = TypeEnum::int32;
-                type.identifier.clear();
-                type.subtype.reset();
+                type = Type::fromSimple(TypeEnum::int32);
                 break;
             }
             case 12:
             {
-                type.typeEnum = TypeEnum::int64;
-                type.identifier.clear();
-                type.subtype.reset();
+                type = Type::fromSimple(TypeEnum::int64);
                 break;
             }
             case 13:
             {
-                type.typeEnum = TypeEnum::uint32;
-                type.identifier.clear();
-                type.subtype.reset();
+                type = Type::fromSimple(TypeEnum::uint32);
                 break;
             }
             case 14:
             {
-                type.typeEnum = TypeEnum::uint64;
-                type.identifier.clear();
-                type.subtype.reset();
+                type = Type::fromSimple(TypeEnum::uint64);
                 break;
             }
             case 15:
             {
-                type.typeEnum = TypeEnum::string;
-                type.identifier.clear();
-                type.subtype.reset();
+                type = Type::fromSimple(TypeEnum::string);
                 break;
             }
             case 16:
             {
-                type.typeEnum = TypeEnum::boolean;
-                type.identifier.clear();
-                type.subtype.reset();
+                type = Type::fromSimple(TypeEnum::boolean);
                 break;
             }
             case 17:
             {
-                auto subtype = std::move(type);
-                type.typeEnum = TypeEnum::list;
-                type.identifier.clear();
-                type.subtype = std::make_unique<Type>(std::move(subtype));
+                type = Type::fromList(std::move(type));
                 break;
             }
             case 18:
             {
                 const auto token = pop(stack);
-                type.typeEnum = TypeEnum::custom;
-                type.identifier = getTokenText(token);
-                type.subtype.reset();
+                type = Type::fromCustom(getTokenText(token));
                 break;
             }
             case 0:
@@ -247,6 +290,8 @@ ProtocolFile parseProtocolFile(const std::string_view text)
             }
         }
     }
+
+    validateProtocolFile(protocolFile);
 
     return protocolFile;
 }

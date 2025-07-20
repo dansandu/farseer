@@ -31,23 +31,115 @@ const char* toString(const TypeEnum typeEnum)
     }
 }
 
-std::string Type::toString() const
+Type Type::fromSimple(const TypeEnum typeEnum)
 {
-    if (typeEnum == TypeEnum::custom)
+    if (typeEnum == TypeEnum::list || typeEnum == TypeEnum::custom)
     {
-        return identifier;
+        THROW(std::logic_error, "this constructor cannot be used for list or custom types");
     }
-    else if (typeEnum == TypeEnum::list)
+    auto type = Type{};
+    type.typeEnum_ = typeEnum;
+    return type;
+}
+
+Type Type::fromCustom(const std::string& identifier)
+{
+    auto type = Type{};
+    type.typeEnum_ = TypeEnum::custom;
+    type.identifier_ = identifier;
+    return type;
+}
+
+Type Type::fromList(Type subtype)
+{
+    auto type = Type{};
+    type.typeEnum_ = TypeEnum::list;
+    type.subtype_ = std::make_unique<Type>(std::move(subtype));
+    return type;
+}
+
+Type::Type() : typeEnum_{TypeEnum::int32}
+{
+}
+
+Type::Type(const Type& other)
+    : typeEnum_{other.typeEnum_},
+      identifier_{other.identifier_},
+      subtype_{other.subtype_ ? std::make_unique<Type>(*other.subtype_) : nullptr}
+{
+}
+
+Type& Type::operator=(const Type& other)
+{
+    typeEnum_ = other.typeEnum_;
+    identifier_ = other.identifier_;
+    subtype_ = other.subtype_ ? std::make_unique<Type>(*other.subtype_) : nullptr;
+    return *this;
+}
+
+TypeEnum Type::getTypeEnum() const
+{
+    return typeEnum_;
+}
+
+std::string Type::getIdentifier() const
+{
+    return identifier_;
+}
+
+const Type* Type::getSubtype() const
+{
+    return subtype_.get();
+}
+
+std::string Type::getCppType() const
+{
+    switch (typeEnum_)
     {
-        if (!subtype)
+    case TypeEnum::int32:
+        return "int32_t";
+    case TypeEnum::int64:
+        return "int64_t";
+    case TypeEnum::uint32:
+        return "uint32_t";
+    case TypeEnum::uint64:
+        return "uint64_t";
+    case TypeEnum::string:
+        return "std::string";
+    case TypeEnum::boolean:
+        return "bool";
+    case TypeEnum::list:
+    {
+        if (!subtype_)
         {
             THROW(std::logic_error, "subtype cannot be nullptr when type is list");
         }
-        return "list<" + subtype->toString() + ">";
+        return "std::vector<" + subtype_->getCppType() + ">";
+    }
+    case TypeEnum::custom:
+        return identifier_;
+    default:
+        THROW(std::logic_error, "unrecognized TypeEnum");
+    }
+}
+
+std::string Type::toString() const
+{
+    if (typeEnum_ == TypeEnum::custom)
+    {
+        return identifier_;
+    }
+    else if (typeEnum_ == TypeEnum::list)
+    {
+        if (!subtype_)
+        {
+            THROW(std::logic_error, "subtype cannot be nullptr when type is list");
+        }
+        return "list<" + subtype_->toString() + ">";
     }
     else
     {
-        return dansandu::farseer::internal::protocol_definition::toString(typeEnum);
+        return dansandu::farseer::internal::protocol_definition::toString(typeEnum_);
     }
 }
 

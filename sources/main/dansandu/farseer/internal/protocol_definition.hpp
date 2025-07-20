@@ -21,13 +21,39 @@ enum class TypeEnum
 
 const char* toString(const TypeEnum typeEnum);
 
-struct Type
+class Type
 {
+public:
+    static Type fromSimple(const TypeEnum typeEnum);
+
+    static Type fromCustom(const std::string& identifier);
+
+    static Type fromList(Type subtype);
+
+    Type();
+
+    Type(const Type& other);
+
+    Type(Type&& other) noexcept = default;
+
+    Type& operator=(const Type& other);
+
+    Type& operator=(Type&& other) = default;
+
+    TypeEnum getTypeEnum() const;
+
+    std::string getIdentifier() const;
+
+    const Type* getSubtype() const;
+
+    std::string getCppType() const;
+
     std::string toString() const;
 
-    TypeEnum typeEnum = TypeEnum::int32;
-    std::string identifier;
-    std::unique_ptr<Type> subtype;
+private:
+    TypeEnum typeEnum_;
+    std::string identifier_;
+    std::unique_ptr<Type> subtype_;
 };
 
 struct Field

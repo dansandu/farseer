@@ -1,12 +1,10 @@
 #include "dansandu/farseer/internal/protocol_parsing.hpp"
 #include "dansandu/ballotin/file_system.hpp"
-#include "dansandu/journey/logging.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::ballotin::file_system::readAsciiFile;
 using dansandu::farseer::internal::protocol_definition::ProtocolFile;
 using dansandu::farseer::internal::protocol_parsing::parseProtocolFile;
-using dansandu::journey::logging::LogCritical;
 
 TEST_CASE("protocol_parsing")
 {
