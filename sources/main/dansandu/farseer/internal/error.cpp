@@ -1,14 +1,14 @@
 #include "dansandu/farseer/internal/error.hpp"
-#include "dansandu/ballotin/logging.hpp"
 #include "dansandu/ballotin/string.hpp"
+#include "dansandu/journey/logging.hpp"
 
 #include <strsafe.h>
 #include <windows.h>
 
-using dansandu::ballotin::logging::LogError;
-using dansandu::ballotin::logging::LogWarn;
 using dansandu::ballotin::string::format;
 using dansandu::ballotin::string::trim;
+using dansandu::journey::logging::LogError;
+using dansandu::journey::logging::LogWarning;
 
 namespace dansandu::farseer::internal::error
 {
@@ -43,7 +43,7 @@ std::string getLastErrorMessage()
     const auto errorCode = ::GetLastError();
     if (errorCode == ERROR_SUCCESS)
     {
-        LogWarn("getLastErrorMessage was called but there are no errors");
+        LogWarning("getLastErrorMessage was called but there are no errors");
         return {};
     }
 
@@ -55,7 +55,7 @@ std::string getLastWsaErrorMessage()
     const auto errorCode = ::WSAGetLastError();
     if (errorCode == ERROR_SUCCESS)
     {
-        LogWarn("getLastWsaErrorMessage was called but there are no errors");
+        LogWarning("getLastWsaErrorMessage was called but there are no errors");
         return {};
     }
 

@@ -1,11 +1,22 @@
 organization: dansandu
 artifact: farseer
 version: 1.0.0.SNAPSHOT
+test_service_runner: dansandu-service_runner
 dependencies:
 - organization: dansandu
   artifact: ballotin
   version: 1.0.0.SNAPSHOT
-- organization: catchorg
-  artifact: catch
-  version: 2.+0.+0
+- organization: dansandu
+  artifact: glyph
+  version: 1.0.0.SNAPSHOT
+- organization: dansandu
+  artifact: journey
+  version: 1.0.0.SNAPSHOT
+- organization: dansandu
+  artifact: radiance
+  version: 1.0.0.SNAPSHOT
+  scope: test
+- organization: dansandu
+  artifact: service_runner
+  version: 1.0.0.SNAPSHOT
   scope: test

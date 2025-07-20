@@ -1,12 +1,12 @@
 #include "dansandu/farseer/socket_service_provider.hpp"
 #include "dansandu/ballotin/exception.hpp"
-#include "dansandu/ballotin/logging.hpp"
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/internal/error.hpp"
 #include "dansandu/farseer/internal/internal_socket_service_exception.hpp"
 #include "dansandu/farseer/internal/socket_service_operation.hpp"
 #include "dansandu/farseer/internal/tcp_socket.hpp"
 #include "dansandu/farseer/internal/wsa_scope_guard.hpp"
+#include "dansandu/journey/logging.hpp"
 
 #include <mswsock.h>
 #include <windows.h>
@@ -20,9 +20,6 @@
 #include <string>
 #include <vector>
 
-using dansandu::ballotin::logging::LogCritical;
-using dansandu::ballotin::logging::LogError;
-using dansandu::ballotin::logging::LogInfo;
 using dansandu::farseer::internal::error::getLastErrorMessage;
 using dansandu::farseer::internal::internal_socket_service_exception::InternalSocketServiceException;
 using dansandu::farseer::internal::socket_service_operation::SocketServiceOperation;
@@ -31,6 +28,9 @@ using dansandu::farseer::internal::socket_service_operation::SocketServiceOperat
 using dansandu::farseer::internal::socket_service_operation::toString;
 using dansandu::farseer::internal::tcp_socket::TcpSocket;
 using dansandu::farseer::internal::wsa_scope_guard::WsaScopeGuard;
+using dansandu::journey::logging::LogCritical;
+using dansandu::journey::logging::LogError;
+using dansandu::journey::logging::LogInfo;
 
 namespace dansandu::farseer::socket_service_provider
 {

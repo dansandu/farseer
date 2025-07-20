@@ -1,9 +1,9 @@
 #pragma once
 
-#include "dansandu/ballotin/logging.hpp"
 #include "dansandu/farseer/common.hpp"
 
 #include <winsock2.h>
+#undef min
 
 #include <map>
 #include <memory>
