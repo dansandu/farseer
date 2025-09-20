@@ -1,17 +1,54 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
+#include <ostream>
+#include <string>
 #include <vector>
 
 namespace dansandu::farseer
 {
+
+class ProtocolIdentifier
+{
+public:
+    friend constexpr auto operator<=>(const ProtocolIdentifier& left, const ProtocolIdentifier& right) = default;
+
+    friend std::ostream& operator<<(std::ostream& stream, const ProtocolIdentifier protocolIdentifier)
+    {
+        return stream << protocolIdentifier.identifier_;
+    }
+
+    using ValueType = uint32_t;
+
+    constexpr ProtocolIdentifier() : identifier_{0}
+    {
+    }
+
+    constexpr explicit ProtocolIdentifier(const ValueType identifier) : identifier_{identifier}
+    {
+    }
+
+    constexpr ValueType getValue() const
+    {
+        return identifier_;
+    }
+
+    std::string toString() const
+    {
+        return std::to_string(identifier_);
+    }
+
+private:
+    ValueType identifier_;
+};
 
 class SocketServiceId
 {
 public:
     friend constexpr auto operator<=>(const SocketServiceId& left, const SocketServiceId& right) = default;
 
-    using IntegerType = unsigned long long;
+    using IntegerType = unsigned long;
 
     constexpr SocketServiceId() : integer_{0}
     {
@@ -38,19 +75,17 @@ enum class SocketServiceEvent
     serverClosed,
     serverAborted,
     clientOpen,
-    clientMessageReceived,
-    clientMessageSent,
+    clientBytesReceived,
+    clientBytesSent,
     clientClosed,
     clientAborted,
 };
 
 PRALINE_EXPORT const char* toString(const SocketServiceEvent event);
 
-using ByteType = char;
-
-using BytesType = std::vector<ByteType>;
+using BytesType = std::vector<uint8_t>;
 
 using CallbackType = std::function<void(const SocketServiceEvent event, const SocketServiceId serverId,
-                                        const SocketServiceId clientId, BytesType message)>;
+                                        const SocketServiceId clientId, BytesType bytes)>;
 
 }

@@ -16,17 +16,19 @@ enum class TypeEnum
     string,
     boolean,
     list,
-    custom,
+    message,
 };
 
 const char* toString(const TypeEnum typeEnum);
+
+uint64_t getNumberOfBits(const TypeEnum typeEnum);
 
 class Type
 {
 public:
     static Type fromSimple(const TypeEnum typeEnum);
 
-    static Type fromCustom(const std::string& identifier);
+    static Type fromMessage(const std::string& identifier, bool hasStaticSize, uint64_t numberOfBits);
 
     static Type fromList(Type subtype);
 
@@ -34,15 +36,15 @@ public:
 
     Type(const Type& other);
 
-    Type(Type&& other) noexcept = default;
+    Type(Type&& other) noexcept;
 
     Type& operator=(const Type& other);
 
-    Type& operator=(Type&& other) = default;
+    Type& operator=(Type&& other) noexcept;
 
     TypeEnum getTypeEnum() const;
 
-    std::string getIdentifier() const;
+    const std::string& getIdentifier() const;
 
     const Type* getSubtype() const;
 
@@ -50,26 +52,44 @@ public:
 
     std::string toString() const;
 
+    uint32_t getHashCode() const;
+
+    bool hasStaticSize() const;
+
+    uint64_t getNumberOfBits() const;
+
 private:
     TypeEnum typeEnum_;
     std::string identifier_;
     std::unique_ptr<Type> subtype_;
+    bool hasStaticSize_;
+    uint64_t numberOfBits_;
 };
 
 struct Field
 {
+    uint32_t getHashCode() const;
+
     Type type;
     std::string identifier;
+    bool hasStaticSize;
+    uint64_t numberOfBits;
 };
 
 struct MessageProtocol
 {
+    uint32_t getHashCode() const;
+
     std::string identifier;
     std::vector<Field> fields;
+    bool hasStaticSize;
+    uint64_t numberOfBits;
 };
 
 struct RequestProtocol
 {
+    uint32_t getHashCode() const;
+
     std::string identifier;
     std::vector<Field> requestFields;
     std::vector<Field> responseFields;

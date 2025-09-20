@@ -23,6 +23,25 @@ public:
         }
     }
 
+    WsaScopeGuard(const WsaScopeGuard&) = delete;
+
+    WsaScopeGuard(WsaScopeGuard&& other) noexcept : initializeWsa_{other.initializeWsa_}
+    {
+        other.initializeWsa_ = false;
+    }
+
+    WsaScopeGuard& operator=(const WsaScopeGuard&) = delete;
+
+    WsaScopeGuard& operator=(WsaScopeGuard&& other) noexcept
+    {
+        if (this != &other)
+        {
+            initializeWsa_ = other.initializeWsa_;
+            other.initializeWsa_ = false;
+        }
+        return *this;
+    }
+
     ~WsaScopeGuard() noexcept
     {
         if (initializeWsa_)
@@ -32,7 +51,7 @@ public:
     }
 
 private:
-    const bool initializeWsa_;
+    bool initializeWsa_;
 };
 
 }

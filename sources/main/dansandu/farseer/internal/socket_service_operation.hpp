@@ -5,6 +5,7 @@
 #include <winsock2.h>
 #undef min
 
+#include <any>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -21,9 +22,10 @@ enum class SocketServiceOperationType
     pendingAccept,
     connect,
     pendingConnect,
-    pendingReceiveMessage,
-    sendMessage,
-    pendingSendMessage,
+    pendingReceiveBytes,
+    sendBytes,
+    pendingSendBytes,
+    registerMessageConsumer,
     close,
 };
 
@@ -35,8 +37,10 @@ struct SocketServiceOperation : public WSAOVERLAPPED
     SocketServiceId serviceId;
     std::wstring ipAddress;
     int port;
-    BytesType message;
+    BytesType bytes;
     CallbackType callback;
+    ProtocolIdentifier protocolIdentifier;
+    std::function<void(std::any)> messageConsumer;
     DWORD numberOfBytes;
     char buffer[socketServiceOperationBufferSize];
 };

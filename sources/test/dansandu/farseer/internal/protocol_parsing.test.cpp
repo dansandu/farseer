@@ -1,16 +1,29 @@
 #include "dansandu/farseer/internal/protocol_parsing.hpp"
-#include "dansandu/ballotin/file_system.hpp"
+#include "dansandu/farseer/exception.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
-using dansandu::ballotin::file_system::readAsciiFile;
-using dansandu::farseer::internal::protocol::Protocol;
+using dansandu::farseer::exception::ReservedIdentifierNameError;
 using dansandu::farseer::internal::protocol_parsing::parseProtocol;
 
 TEST_CASE("protocol_parsing")
 {
     SECTION("message parsing")
     {
-        const auto text = readAsciiFile("resources/test/dansandu/farseer/message.far");
+        const auto text = R"(namespace organization.artifact.module;
+
+message Person
+{
+    string name;
+    uint32 age;
+}
+
+message MyMessage
+{
+    int64 myInteger;
+    Person parent;
+    list<Person> children;
+}
+)";
 
         const auto protocol = parseProtocol(text);
 
@@ -19,10 +32,37 @@ TEST_CASE("protocol_parsing")
 
     SECTION("request parsing")
     {
-        const auto text = readAsciiFile("resources/test/dansandu/farseer/request.far");
+        const auto text = R"(namespace organization.artifact;
+
+request MyRequest
+{
+    uint64 myUnsignedInteger;
+    string myString;
+
+    response
+    {
+        bool myBoolean;
+        int64 myInteger;
+    }
+}
+)";
 
         const auto protocol = parseProtocol(text);
 
         REQUIRE(protocol.toString() == text);
+    }
+
+    SECTION("parsing reserved identifier")
+    {
+        const auto text = R"(namespace organization.artifact.module;
+
+message Person
+{
+    string name;
+    uint32 static;
+}
+)";
+
+        REQUIRE_THROW(parseProtocol(text), ReservedIdentifierNameError);
     }
 }

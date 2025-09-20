@@ -1,7 +1,10 @@
 #pragma once
 
 #include "dansandu/farseer/common.hpp"
+#include "dansandu/farseer/packet_serialization.hpp"
+#include "dansandu/farseer/protocol_metadata.hpp"
 
+#include <any>
 #include <memory>
 #include <string>
 
@@ -19,11 +22,32 @@ public:
 
     void connect(std::wstring ipAddress, const int port, CallbackType callback) const;
 
-    void send(const SocketServiceId serviceId, BytesType message) const;
+    template<typename Message>
+    void sendMessage(const SocketServiceId serviceId, const Message& message) const
+    {
+        using dansandu::farseer::packet_serialization::serializeMessagePacket;
+        sendBytes(serviceId, serializeMessagePacket(message));
+    }
+
+    template<typename Message>
+    void registerMessageConsumer(const SocketServiceId serviceId, std::function<void(Message)> messageConsumer) const
+    {
+        const auto protocolIdentifier =
+            dansandu::farseer::protocol_metadata::ProtocolMetadata<Message>::getProtocolIdentifier();
+
+        registerMessageConsumer(serviceId, protocolIdentifier,
+                                [messageConsumer = std::move(messageConsumer)](std::any message)
+                                { messageConsumer(std::any_cast<Message>(std::move(message))); });
+    }
 
     void close(const SocketServiceId serviceId) const;
 
 private:
+    void sendBytes(const SocketServiceId serviceId, std::vector<uint8_t> bytes) const;
+
+    void registerMessageConsumer(const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
+                                 std::function<void(std::any)> messageConsumer) const;
+
     std::shared_ptr<void> implementation_;
 };
 
