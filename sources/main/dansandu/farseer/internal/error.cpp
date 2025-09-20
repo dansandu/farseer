@@ -7,8 +7,6 @@
 
 using dansandu::ballotin::string::format;
 using dansandu::ballotin::string::trim;
-using dansandu::journey::logging::LogError;
-using dansandu::journey::logging::LogWarning;
 
 namespace dansandu::farseer::internal::error
 {
@@ -27,7 +25,7 @@ std::string getErrorMessageFromCode(DWORD errorCode)
         ::FormatMessageA(flags, source, errorCode, languageId, (LPSTR)&messageBuffer, size, nullptr);
     if (formatResult == 0)
     {
-        LogError("FormatMessageA failed with error code ", ::GetLastError());
+        LOG_ERROR("FormatMessageA failed with error code ", ::GetLastError());
         return {};
     }
 
@@ -43,7 +41,7 @@ std::string getLastErrorMessage()
     const auto errorCode = ::GetLastError();
     if (errorCode == ERROR_SUCCESS)
     {
-        LogWarning("getLastErrorMessage was called but there are no errors");
+        LOG_WARNING("getLastErrorMessage was called but there are no errors");
         return {};
     }
 
@@ -55,7 +53,7 @@ std::string getLastWsaErrorMessage()
     const auto errorCode = ::WSAGetLastError();
     if (errorCode == ERROR_SUCCESS)
     {
-        LogWarning("getLastWsaErrorMessage was called but there are no errors");
+        LOG_WARNING("getLastWsaErrorMessage was called but there are no errors");
         return {};
     }
 

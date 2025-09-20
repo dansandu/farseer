@@ -16,10 +16,10 @@ const char* toString(const SocketServiceEvent event)
         return "serverAborted";
     case SocketServiceEvent::clientOpen:
         return "clientOpen";
-    case SocketServiceEvent::clientMessageReceived:
-        return "clientMessageReceived";
-    case SocketServiceEvent::clientMessageSent:
-        return "clientMessageSent";
+    case SocketServiceEvent::clientBytesReceived:
+        return "clientBytesReceived";
+    case SocketServiceEvent::clientBytesSent:
+        return "clientBytesSent";
     case SocketServiceEvent::clientClosed:
         return "clientClosed";
     case SocketServiceEvent::clientAborted:

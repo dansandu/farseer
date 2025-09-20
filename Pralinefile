@@ -1,7 +1,6 @@
 organization: dansandu
 artifact: farseer
 version: 1.0.0.SNAPSHOT
-test_service_runner: dansandu-service_runner
 dependencies:
 - organization: dansandu
   artifact: ballotin

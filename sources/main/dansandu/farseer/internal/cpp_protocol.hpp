@@ -7,6 +7,8 @@
 namespace dansandu::farseer::internal::cpp_protocol
 {
 
-std::string generateCppProtocol(const dansandu::farseer::internal::protocol::Protocol& protocol);
+std::string generateProtocolCppHeader(const dansandu::farseer::internal::protocol::Protocol& protocol);
+
+std::string generateProtocolCppSource(const dansandu::farseer::internal::protocol::Protocol& protocol);
 
 }

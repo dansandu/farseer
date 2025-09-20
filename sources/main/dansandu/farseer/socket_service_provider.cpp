@@ -3,6 +3,7 @@
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/internal/error.hpp"
 #include "dansandu/farseer/internal/internal_socket_service_exception.hpp"
+#include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/socket_service_operation.hpp"
 #include "dansandu/farseer/internal/tcp_socket.hpp"
 #include "dansandu/farseer/internal/wsa_scope_guard.hpp"
@@ -22,20 +23,21 @@
 
 using dansandu::farseer::internal::error::getLastErrorMessage;
 using dansandu::farseer::internal::internal_socket_service_exception::InternalSocketServiceException;
+using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::socket_service_operation::SocketServiceOperation;
 using dansandu::farseer::internal::socket_service_operation::SocketServiceOperationContainer;
 using dansandu::farseer::internal::socket_service_operation::SocketServiceOperationType;
 using dansandu::farseer::internal::socket_service_operation::toString;
 using dansandu::farseer::internal::tcp_socket::TcpSocket;
 using dansandu::farseer::internal::wsa_scope_guard::WsaScopeGuard;
-using dansandu::journey::logging::LogCritical;
-using dansandu::journey::logging::LogError;
-using dansandu::journey::logging::LogInfo;
 
 namespace dansandu::farseer::socket_service_provider
 {
 
-static HANDLE initializeIoCompletionPort(const u_long initialCompletionKey)
+namespace
+{
+
+HANDLE initializeIoCompletionPort(const u_long initialCompletionKey)
 {
     const auto handle = HANDLE{INVALID_HANDLE_VALUE};
     const auto existingCompletionPort = HANDLE{nullptr};
@@ -52,7 +54,7 @@ static HANDLE initializeIoCompletionPort(const u_long initialCompletionKey)
     return completionPort;
 }
 
-static DWORD WINAPI socketServiceProviderLoop(LPVOID parameter);
+DWORD WINAPI socketServiceProviderLoop(LPVOID parameter);
 
 struct SocketServiceProviderImplementation
 {
@@ -60,6 +62,7 @@ struct SocketServiceProviderImplementation
         : wsaScopeGuard{initializeWsa},
           initialCompletionKey{InvalidServiceId.integer()},
           completionPort{initializeIoCompletionPort(initialCompletionKey)},
+          serviceIdSequenceKey{initialCompletionKey + 1},
           thread{nullptr}
     {
         // Wrap completionPort and thread with RAII. Move to separate headers in internal folder. Make thread const.
@@ -87,10 +90,12 @@ struct SocketServiceProviderImplementation
             ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, initialCompletionKey, overlapped);
         if (postResult == 0)
         {
-            LogError("Posting abort operation to SocketServiceProvider failed with error ", getLastErrorMessage());
+            LOG_ERROR("Posting abort operation to SocketServiceProvider failed with error ", getLastErrorMessage());
         }
-
-        LogInfo("Posted abort operation to SocketServiceProvider thread");
+        else
+        {
+            LOG_INFO("Posted abort operation to SocketServiceProvider thread");
+        }
 
         const auto waitTimeout = INFINITE;
         ::WaitForSingleObject(thread, waitTimeout);
@@ -101,6 +106,7 @@ struct SocketServiceProviderImplementation
     const WsaScopeGuard wsaScopeGuard;
     const u_long initialCompletionKey;
     const HANDLE completionPort;
+    std::atomic<SocketServiceId::IntegerType> serviceIdSequenceKey;
     SocketServiceOperationContainer operations;
     HANDLE thread;
 };
@@ -110,12 +116,13 @@ struct SocketService
     TcpSocket socket;
     SocketServiceId listeningServiceId;
     CallbackType callback;
+    ProtocolReader protocolReader;
 };
 
 using SocketServiceIterator = std::map<SocketServiceId, SocketService>::iterator;
 
-static SocketServiceIterator getServiceOrThrow(std::map<SocketServiceId, SocketService>& services,
-                                               const SocketServiceId serviceId)
+SocketServiceIterator getServiceOrThrow(std::map<SocketServiceId, SocketService>& services,
+                                        const SocketServiceId serviceId)
 {
     if (const auto servicePosition = services.find(serviceId); servicePosition != services.end())
     {
@@ -124,36 +131,33 @@ static SocketServiceIterator getServiceOrThrow(std::map<SocketServiceId, SocketS
     WTHROW(InternalSocketServiceException, "Couldn't find service with ID ", serviceId.integer());
 }
 
-static void invokeSocketMessageReceivedCallback(std::map<SocketServiceId, SocketService>& services,
-                                                const SocketServiceIterator servicePosition, BytesType&& message)
+void invokeSocketBytesReceivedCallback(std::map<SocketServiceId, SocketService>& services,
+                                       const SocketServiceIterator servicePosition, BytesType bytes)
 {
     const auto& tcpSocket = servicePosition->second.socket;
 
-    LogInfo("Socket with ID ", servicePosition->first.integer(), " and address ", tcpSocket.getIpAddress(), ':',
-            tcpSocket.getPort(), " received ", message.size(), " bytes");
+    LOG_INFO("Socket with ID ", servicePosition->first.integer(), " and address ", tcpSocket.getIpAddress(), ':',
+             tcpSocket.getPort(), " received ", bytes.size(), " bytes");
 
     if (servicePosition->second.listeningServiceId != InvalidServiceId)
     {
         const auto listeningServicePosition = getServiceOrThrow(services, servicePosition->second.listeningServiceId);
 
-        listeningServicePosition->second.callback(SocketServiceEvent::clientMessageReceived,
-                                                  listeningServicePosition->first, servicePosition->first,
-                                                  std::move(message));
+        listeningServicePosition->second.protocolReader.read(bytes);
     }
     else
     {
-        servicePosition->second.callback(SocketServiceEvent::clientMessageReceived, InvalidServiceId,
-                                         servicePosition->first, std::move(message));
+        servicePosition->second.protocolReader.read(bytes);
     }
 }
 
-static void invokeSocketClosedCallback(std::map<SocketServiceId, SocketService>& services,
-                                       const SocketServiceIterator servicePosition)
+void invokeSocketClosedCallback(std::map<SocketServiceId, SocketService>& services,
+                                const SocketServiceIterator servicePosition)
 {
     const auto& tcpSocket = servicePosition->second.socket;
 
-    LogInfo("Socket with ID ", servicePosition->first.integer(), " and address ", tcpSocket.getIpAddress(), ':',
-            tcpSocket.getPort(), " was closed");
+    LOG_INFO("Socket with ID ", servicePosition->first.integer(), " and address ", tcpSocket.getIpAddress(), ':',
+             tcpSocket.getPort(), " was closed");
 
     if (servicePosition->second.listeningServiceId != InvalidServiceId)
     {
@@ -171,12 +175,10 @@ static void invokeSocketClosedCallback(std::map<SocketServiceId, SocketService>&
     services.erase(servicePosition->first);
 }
 
-static void postAcceptOperation(SocketServiceProviderImplementation* impl,
-                                std::map<SocketServiceId, SocketService>& services,
-                                SocketServiceId::IntegerType& sequenceKey,
-                                const SocketServiceIterator listeningServicePosition)
+void postAcceptOperation(SocketServiceProviderImplementation* impl, std::map<SocketServiceId, SocketService>& services,
+                         const SocketServiceIterator listeningServicePosition)
 {
-    const auto pendingAcceptServiceId = SocketServiceId{sequenceKey++};
+    const auto pendingAcceptServiceId = SocketServiceId{impl->serviceIdSequenceKey++};
 
     const auto pendingAcceptOperation = impl->operations.push({
         .operationType = SocketServiceOperationType::pendingAccept,
@@ -197,12 +199,11 @@ static void postAcceptOperation(SocketServiceProviderImplementation* impl,
     }
 }
 
-static void handleListenOperation(SocketServiceProviderImplementation* impl,
-                                  std::map<SocketServiceId, SocketService>& services,
-                                  SocketServiceId::IntegerType& sequenceKey,
-                                  std::unique_ptr<SocketServiceOperation> listenOperation)
+void handleListenOperation(SocketServiceProviderImplementation* impl,
+                           std::map<SocketServiceId, SocketService>& services,
+                           std::unique_ptr<SocketServiceOperation> listenOperation)
 {
-    const auto listeningServiceId = SocketServiceId{sequenceKey++};
+    const auto listeningServiceId = listenOperation->serviceId;
 
     auto listeningSocket = TcpSocket{impl->completionPort, listeningServiceId};
 
@@ -222,33 +223,32 @@ static void handleListenOperation(SocketServiceProviderImplementation* impl,
               " because the ID is used by another service");
     }
 
-    postAcceptOperation(impl, services, sequenceKey, listeningServicePosition);
+    postAcceptOperation(impl, services, listeningServicePosition);
 
     listeningServicePosition->second.callback(SocketServiceEvent::serverOpen, listeningServiceId, InvalidServiceId, {});
 
-    LogInfo("Opened listening socket with ID ", listeningServiceId.integer(), " address ",
-            listeningServicePosition->second.socket.getIpAddress(), ':',
-            listeningServicePosition->second.socket.getPort());
+    LOG_INFO("Opened listening socket with ID ", listeningServiceId.integer(), " address ",
+             listeningServicePosition->second.socket.getIpAddress(), ':',
+             listeningServicePosition->second.socket.getPort());
 }
 
-static void postReceiveMessageOperation(SocketServiceProviderImplementation* impl,
-                                        std::map<SocketServiceId, SocketService>& services,
-                                        const SocketServiceIterator servicePosition)
+void postReceiveBytesOperation(SocketServiceProviderImplementation* impl,
+                               std::map<SocketServiceId, SocketService>& services,
+                               const SocketServiceIterator servicePosition)
 {
-    auto pendingReceiveMessageOperation = impl->operations.push({
-        .operationType = SocketServiceOperationType::pendingReceiveMessage,
+    const auto pendingReceiveBytesOperation = impl->operations.push({
+        .operationType = SocketServiceOperationType::pendingReceiveBytes,
         .serviceId = servicePosition->first,
     });
 
-    servicePosition->second.socket.postReceive(pendingReceiveMessageOperation);
+    servicePosition->second.socket.postReceive(pendingReceiveBytesOperation);
 }
 
-static void handlePendingAcceptOperation(SocketServiceProviderImplementation* impl,
-                                         std::map<SocketServiceId, SocketService>& services,
-                                         SocketServiceId::IntegerType& sequenceKey,
-                                         std::unique_ptr<SocketServiceOperation> pendingAcceptOperation)
+void handleFinishedAcceptOperation(SocketServiceProviderImplementation* impl,
+                                   std::map<SocketServiceId, SocketService>& services,
+                                   std::unique_ptr<SocketServiceOperation> finishedAcceptOperation)
 {
-    const auto acceptedServicePosition = getServiceOrThrow(services, pendingAcceptOperation->serviceId);
+    const auto acceptedServicePosition = getServiceOrThrow(services, finishedAcceptOperation->serviceId);
 
     const auto listeningServicePosition =
         getServiceOrThrow(services, acceptedServicePosition->second.listeningServiceId);
@@ -257,22 +257,21 @@ static void handlePendingAcceptOperation(SocketServiceProviderImplementation* im
 
     acceptedSocket.accept(listeningServicePosition->second.socket);
 
-    postAcceptOperation(impl, services, sequenceKey, listeningServicePosition);
+    postAcceptOperation(impl, services, listeningServicePosition);
 
-    postReceiveMessageOperation(impl, services, acceptedServicePosition);
+    postReceiveBytesOperation(impl, services, acceptedServicePosition);
 
     listeningServicePosition->second.callback(SocketServiceEvent::clientOpen, listeningServicePosition->first,
                                               acceptedServicePosition->first, {});
 
-    LogInfo("Accepted client socket with address ", acceptedSocket.getIpAddress(), ':', acceptedSocket.getPort());
+    LOG_INFO("Accepted client socket with address ", acceptedSocket.getIpAddress(), ':', acceptedSocket.getPort());
 }
 
-static void handleConnectOperation(SocketServiceProviderImplementation* impl,
-                                   std::map<SocketServiceId, SocketService>& services,
-                                   SocketServiceId::IntegerType& sequenceKey,
-                                   std::unique_ptr<SocketServiceOperation> connectOperation)
+void handleConnectOperation(SocketServiceProviderImplementation* impl,
+                            std::map<SocketServiceId, SocketService>& services,
+                            std::unique_ptr<SocketServiceOperation> connectOperation)
 {
-    const auto pendingConnectServiceId = SocketServiceId{sequenceKey++};
+    const auto pendingConnectServiceId = connectOperation->serviceId;
 
     auto pendingConnectSocket = TcpSocket{impl->completionPort, pendingConnectServiceId};
 
@@ -300,11 +299,11 @@ static void handleConnectOperation(SocketServiceProviderImplementation* impl,
     }
 }
 
-static void handlePendingConnectOperation(SocketServiceProviderImplementation* impl,
-                                          std::map<SocketServiceId, SocketService>& services,
-                                          std::unique_ptr<SocketServiceOperation> pendingConnectOperation)
+void handleFinishedConnectOperation(SocketServiceProviderImplementation* impl,
+                                    std::map<SocketServiceId, SocketService>& services,
+                                    std::unique_ptr<SocketServiceOperation> finishedConnectOperation)
 {
-    const auto connectedServicePosition = getServiceOrThrow(services, pendingConnectOperation->serviceId);
+    const auto connectedServicePosition = getServiceOrThrow(services, finishedConnectOperation->serviceId);
 
     auto& connectedSocket = connectedServicePosition->second.socket;
 
@@ -313,26 +312,26 @@ static void handlePendingConnectOperation(SocketServiceProviderImplementation* i
     connectedServicePosition->second.callback(SocketServiceEvent::clientOpen, InvalidServiceId,
                                               connectedServicePosition->first, {});
 
-    postReceiveMessageOperation(impl, services, connectedServicePosition);
+    postReceiveBytesOperation(impl, services, connectedServicePosition);
 
-    LogInfo("Connected to socket with address ", connectedSocket.getIpAddress(), ':', connectedSocket.getPort());
+    LOG_INFO("Connected to socket with address ", connectedSocket.getIpAddress(), ':', connectedSocket.getPort());
 }
 
-static void handlePendingReceiveMessageOperation(SocketServiceProviderImplementation* impl,
-                                                 std::map<SocketServiceId, SocketService>& services,
-                                                 DWORD numberOfBytesTransferred,
-                                                 std::unique_ptr<SocketServiceOperation> pendingReceiveOperation)
+void handleFinishedReceiveBytesOperation(SocketServiceProviderImplementation* impl,
+                                         std::map<SocketServiceId, SocketService>& services,
+                                         DWORD numberOfBytesTransferred,
+                                         std::unique_ptr<SocketServiceOperation> finishedReceiveOperation)
 {
-    const auto servicePosition = getServiceOrThrow(services, pendingReceiveOperation->serviceId);
+    const auto servicePosition = getServiceOrThrow(services, finishedReceiveOperation->serviceId);
 
     if (numberOfBytesTransferred > 0)
     {
         auto receivedBytes =
-            BytesType(pendingReceiveOperation->buffer, pendingReceiveOperation->buffer + numberOfBytesTransferred);
+            BytesType(finishedReceiveOperation->buffer, finishedReceiveOperation->buffer + numberOfBytesTransferred);
 
-        invokeSocketMessageReceivedCallback(services, servicePosition, std::move(receivedBytes));
+        invokeSocketBytesReceivedCallback(services, servicePosition, std::move(receivedBytes));
 
-        postReceiveMessageOperation(impl, services, servicePosition);
+        postReceiveBytesOperation(impl, services, servicePosition);
     }
     else
     {
@@ -340,32 +339,44 @@ static void handlePendingReceiveMessageOperation(SocketServiceProviderImplementa
     }
 }
 
-static void handleSendMessageOperation(SocketServiceProviderImplementation* impl,
-                                       std::map<SocketServiceId, SocketService>& services,
-                                       std::unique_ptr<SocketServiceOperation> sendMessageOperation)
+void handleSendBytesOperation(SocketServiceProviderImplementation* impl,
+                              std::map<SocketServiceId, SocketService>& services,
+                              std::unique_ptr<SocketServiceOperation> sendBytesOperation)
 {
-    const auto servicePosition = getServiceOrThrow(services, sendMessageOperation->serviceId);
+    const auto servicePosition = getServiceOrThrow(services, sendBytesOperation->serviceId);
 
     // Reuse original send operation if possible
-    const auto pendingSendMessageOperation = impl->operations.push({
-        .operationType = SocketServiceOperationType::pendingSendMessage,
-        .serviceId = sendMessageOperation->serviceId,
-        .message = std::move(sendMessageOperation->message),
+    const auto pendingSendBytesOperation = impl->operations.push({
+        .operationType = SocketServiceOperationType::pendingSendBytes,
+        .serviceId = sendBytesOperation->serviceId,
+        .bytes = std::move(sendBytesOperation->bytes),
     });
 
-    servicePosition->second.socket.postSend(pendingSendMessageOperation);
+    servicePosition->second.socket.postSend(pendingSendBytesOperation);
 }
 
-static void handlePendingSendMessageOperation(std::unique_ptr<SocketServiceOperation> pendingSendMessageOperation)
+void handleFinishedSendBytesOperation(std::unique_ptr<SocketServiceOperation> finishedSendBytesOperation)
 {
-    LogInfo("Sent message to service ID ", pendingSendMessageOperation->serviceId.integer());
+    LOG_INFO("Sent bytes to service ID ", finishedSendBytesOperation->serviceId.integer());
+}
+
+void handleRegisterMessageConsumerOperation(std::map<SocketServiceId, SocketService>& services,
+                                            std::unique_ptr<SocketServiceOperation> registerMessageOperation)
+{
+    // register to listening socket or to accepted socket
+    const auto socketServicePosition = getServiceOrThrow(services, registerMessageOperation->serviceId);
+
+    socketServicePosition->second.protocolReader.registerProtocolConsumer(
+        registerMessageOperation->protocolIdentifier, std::move(registerMessageOperation->messageConsumer));
+
+    LOG_INFO("Registered consumer for message with ID ", registerMessageOperation->protocolIdentifier.getValue(),
+             " and socket service ID ", registerMessageOperation->serviceId.integer());
 }
 
 DWORD WINAPI socketServiceProviderLoop(LPVOID parameter)
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(parameter);
 
-    auto sequenceKey = SocketServiceId::IntegerType{impl->initialCompletionKey + 1};
     auto services = std::map<SocketServiceId, SocketService>{};
 
     while (true)
@@ -381,15 +392,15 @@ DWORD WINAPI socketServiceProviderLoop(LPVOID parameter)
         {
             if (completionKey == impl->initialCompletionKey && overlapped == nullptr)
             {
-                LogInfo("Closing SocketServiceProvider thread");
+                LOG_INFO("Closing SocketServiceProvider thread");
                 return 0;
             }
 
             auto operation = impl->operations.pop(overlapped);
             if (!operation)
             {
-                LogError("Unknown successful operation dequeued from completion queue with memory address: ",
-                         overlapped);
+                LOG_ERROR("Unknown successful operation dequeued from completion queue with memory address: ",
+                          overlapped);
                 continue;
             }
 
@@ -399,41 +410,43 @@ DWORD WINAPI socketServiceProviderLoop(LPVOID parameter)
                 switch (operationType)
                 {
                 case SocketServiceOperationType::listen:
-                    handleListenOperation(impl, services, sequenceKey, std::move(operation));
+                    handleListenOperation(impl, services, std::move(operation));
                     break;
                 case SocketServiceOperationType::pendingAccept:
-                    handlePendingAcceptOperation(impl, services, sequenceKey, std::move(operation));
+                    handleFinishedAcceptOperation(impl, services, std::move(operation));
                     break;
                 case SocketServiceOperationType::connect:
-                    handleConnectOperation(impl, services, sequenceKey, std::move(operation));
+                    handleConnectOperation(impl, services, std::move(operation));
                     break;
                 case SocketServiceOperationType::pendingConnect:
-                    handlePendingConnectOperation(impl, services, std::move(operation));
+                    handleFinishedConnectOperation(impl, services, std::move(operation));
                     break;
-                case SocketServiceOperationType::pendingReceiveMessage:
-                    handlePendingReceiveMessageOperation(impl, services, numberOfBytesTransferred,
-                                                         std::move(operation));
+                case SocketServiceOperationType::pendingReceiveBytes:
+                    handleFinishedReceiveBytesOperation(impl, services, numberOfBytesTransferred, std::move(operation));
                     break;
-                case SocketServiceOperationType::sendMessage:
-                    handleSendMessageOperation(impl, services, std::move(operation));
+                case SocketServiceOperationType::sendBytes:
+                    handleSendBytesOperation(impl, services, std::move(operation));
                     break;
-                case SocketServiceOperationType::pendingSendMessage:
-                    handlePendingSendMessageOperation(std::move(operation));
+                case SocketServiceOperationType::pendingSendBytes:
+                    handleFinishedSendBytesOperation(std::move(operation));
+                    break;
+                case SocketServiceOperationType::registerMessageConsumer:
+                    handleRegisterMessageConsumerOperation(services, std::move(operation));
                     break;
                 case SocketServiceOperationType::close:
                     break;
                 default:
-                    LogError("Unknown SocketServiceOperationType");
+                    LOG_ERROR("Unknown SocketServiceOperationType");
                     break;
                 }
             }
             catch (const InternalSocketServiceException& exception)
             {
-                LogError(exception.getMessage());
+                LOG_ERROR(exception.getMessage());
             }
             catch (const std::exception& exception)
             {
-                LogCritical("Closing SocketServiceProvider thread due to critial error: ", exception.what());
+                LOG_CRITICAL("Closing SocketServiceProvider thread due to critial error: ", exception.what());
                 return 0;
             }
         }
@@ -441,23 +454,27 @@ DWORD WINAPI socketServiceProviderLoop(LPVOID parameter)
         {
             if (overlapped == nullptr)
             {
-                LogError("Could not dequeue operation from completion queue -- closing SocketServiceProvider thread");
+                LOG_ERROR("Could not dequeue operation from completion queue -- closing SocketServiceProvider thread");
                 return 0;
             }
 
-            auto operation = impl->operations.pop(overlapped);
+            const auto operation = impl->operations.pop(overlapped);
+
             if (!operation)
             {
-                LogError("Unknown failed operation dequeued from completion queue with memory address: ", overlapped);
-                continue;
+                LOG_ERROR("Unknown failed operation dequeued from completion queue with memory address: ", overlapped);
             }
-
-            LogError("Operation ", toString(operation->operationType), " with service ID ",
-                     operation->serviceId.integer(), " failed with error ", getLastErrorMessage());
+            else
+            {
+                LOG_ERROR("Operation ", toString(operation->operationType), " with service ID ",
+                          operation->serviceId.integer(), " failed with error ", getLastErrorMessage());
+            }
         }
     }
 
     return 0;
+}
+
 }
 
 SocketServiceProvider::SocketServiceProvider(bool initializeWsa)
@@ -473,8 +490,9 @@ void SocketServiceProvider::listen(std::wstring ipAddress, const int port, Callb
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-    auto listenOperation = impl->operations.push({
+    const auto listenOperation = impl->operations.push({
         .operationType = SocketServiceOperationType::listen,
+        .serviceId = SocketServiceId{impl->serviceIdSequenceKey++},
         .ipAddress = std::move(ipAddress),
         .port = port,
         .callback = std::move(callback),
@@ -494,8 +512,9 @@ void SocketServiceProvider::connect(std::wstring ipAddress, const int port, Call
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-    auto connectOperation = impl->operations.push({
+    const auto connectOperation = impl->operations.push({
         .operationType = SocketServiceOperationType::connect,
+        .serviceId = SocketServiceId{impl->serviceIdSequenceKey++},
         .ipAddress = std::move(ipAddress),
         .port = std::move(port),
         .callback = std::move(callback),
@@ -511,27 +530,55 @@ void SocketServiceProvider::connect(std::wstring ipAddress, const int port, Call
     }
 }
 
-void SocketServiceProvider::send(const SocketServiceId serviceId, BytesType message) const
+void SocketServiceProvider::sendBytes(const SocketServiceId serviceId, std::vector<uint8_t> bytes) const
 {
     if (serviceId == InvalidServiceId)
     {
-        THROW(std::logic_error, "Cannot send message using an InvalidServiceId");
+        THROW(std::logic_error, "Cannot send bytes using an InvalidServiceId");
     }
 
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-    auto sendMessageOperation = impl->operations.push({
-        .operationType = SocketServiceOperationType::sendMessage,
+    const auto sendBytesOperation = impl->operations.push({
+        .operationType = SocketServiceOperationType::sendBytes,
         .serviceId = serviceId,
-        .message = std::move(message),
+        .bytes = std::move(bytes),
     });
 
     const auto numberOfBytesTransferred = 0;
     const auto postResult = ::PostQueuedCompletionStatus(impl->completionPort, numberOfBytesTransferred,
-                                                         impl->initialCompletionKey, sendMessageOperation);
+                                                         impl->initialCompletionKey, sendBytesOperation);
     if (postResult == 0)
     {
-        THROW(std::runtime_error, "Posting send message operation to SocketServiceProvider failed with error ",
+        THROW(std::runtime_error, "Posting send bytes operation to SocketServiceProvider failed with error ",
+              getLastErrorMessage());
+    }
+}
+
+void SocketServiceProvider::registerMessageConsumer(const SocketServiceId serviceId,
+                                                    const ProtocolIdentifier protocolIdentifier,
+                                                    std::function<void(std::any)> messageConsumer) const
+{
+    if (serviceId == InvalidServiceId)
+    {
+        THROW(std::logic_error, "Cannot send bytes using an InvalidServiceId");
+    }
+
+    const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+
+    const auto registerMessageOperation = impl->operations.push({
+        .operationType = SocketServiceOperationType::registerMessageConsumer,
+        .serviceId = serviceId,
+        .protocolIdentifier = protocolIdentifier,
+        .messageConsumer = std::move(messageConsumer),
+    });
+
+    const auto numberOfBytesTransferred = 0;
+    const auto postResult = ::PostQueuedCompletionStatus(impl->completionPort, numberOfBytesTransferred,
+                                                         impl->initialCompletionKey, registerMessageOperation);
+    if (postResult == 0)
+    {
+        THROW(std::runtime_error, "Posting register message operation to SocketServiceProvider failed with error ",
               getLastErrorMessage());
     }
 }

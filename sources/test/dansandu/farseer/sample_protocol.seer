@@ -1,0 +1,17 @@
+namespace dansandu.farseer.sample_protocol;
+
+message StaticMessage
+{
+    int32 integer;
+    bool boolean;
+}
+
+message EmptyMessage
+{
+}
+
+message DynamicMessage
+{
+    list<StaticMessage> messages;
+    string name;
+}

@@ -14,7 +14,6 @@ using dansandu::farseer::internal::error::getLastWsaErrorMessage;
 using dansandu::farseer::internal::internal_socket_service_exception::InternalSocketServiceException;
 using dansandu::farseer::internal::socket_service_operation::SocketServiceOperation;
 using dansandu::farseer::internal::socket_service_operation::socketServiceOperationBufferSize;
-using dansandu::journey::logging::LogCritical;
 
 namespace dansandu::farseer::internal::tcp_socket
 {
@@ -25,7 +24,7 @@ static void closeSocketOrLog(SOCKET socket)
 {
     if (socket != INVALID_SOCKET && ::closesocket(socket) != 0)
     {
-        LogCritical("Closing socket failed with error ", getLastWsaErrorMessage());
+        LOG_CRITICAL("Closing socket failed with error ", getLastWsaErrorMessage());
     }
 }
 
@@ -70,19 +69,22 @@ TcpSocket::TcpSocket(TcpSocket&& other) noexcept
 
 TcpSocket& TcpSocket::operator=(TcpSocket&& other) noexcept
 {
-    closeSocketOrLog(socket_);
+    if (this != &other)
+    {
+        closeSocketOrLog(socket_);
 
-    socket_ = std::move(other.socket_);
-    acceptFunction_ = std::move(other.acceptFunction_);
-    connectFunction_ = std::move(other.connectFunction_);
-    ipAddress_ = std::move(other.ipAddress_);
-    port_ = std::move(other.port_);
+        socket_ = std::move(other.socket_);
+        acceptFunction_ = std::move(other.acceptFunction_);
+        connectFunction_ = std::move(other.connectFunction_);
+        ipAddress_ = std::move(other.ipAddress_);
+        port_ = std::move(other.port_);
 
-    other.socket_ = INVALID_SOCKET;
-    other.acceptFunction_ = nullptr;
-    other.connectFunction_ = nullptr;
-    other.ipAddress_.clear();
-    other.port_ = 0;
+        other.socket_ = INVALID_SOCKET;
+        other.acceptFunction_ = nullptr;
+        other.connectFunction_ = nullptr;
+        other.ipAddress_.clear();
+        other.port_ = 0;
+    }
 
     return *this;
 }
@@ -424,7 +426,8 @@ void TcpSocket::postSend(SocketServiceOperation* operation) const
         THROW(std::logic_error, "Cannot post send on a listening socket");
     }
 
-    auto buffer = WSABUF{.len = static_cast<ULONG>(operation->message.size()), .buf = operation->message.data()};
+    auto buffer = WSABUF{.len = static_cast<ULONG>(operation->bytes.size()),
+                         .buf = reinterpret_cast<char*>(operation->bytes.data())};
     auto numberOfBytesSent = DWORD{0};
 
     const auto bufferCount = DWORD{1};

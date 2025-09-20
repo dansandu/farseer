@@ -6,9 +6,6 @@
 
 #include <stdexcept>
 
-using dansandu::journey::logging::LogDebug;
-using dansandu::journey::logging::LogError;
-
 namespace dansandu::farseer::internal::socket_service_operation
 {
 
@@ -24,12 +21,14 @@ const char* toString(const SocketServiceOperationType operationType)
         return "connect";
     case SocketServiceOperationType::pendingConnect:
         return "pendingConnect";
-    case SocketServiceOperationType::pendingReceiveMessage:
-        return "pendingReceiveMessage";
-    case SocketServiceOperationType::sendMessage:
-        return "sendMessage";
-    case SocketServiceOperationType::pendingSendMessage:
-        return "pendingSendMessage";
+    case SocketServiceOperationType::pendingReceiveBytes:
+        return "pendingReceiveBytes";
+    case SocketServiceOperationType::sendBytes:
+        return "sendBytes";
+    case SocketServiceOperationType::pendingSendBytes:
+        return "pendingSendBytes";
+    case SocketServiceOperationType::registerMessageConsumer:
+        return "registerMessageConsumer";
     case SocketServiceOperationType::close:
         return "close";
     default:
@@ -48,8 +47,8 @@ SocketServiceOperation* SocketServiceOperationContainer::push(SocketServiceOpera
         operations_.insert({key, std::move(value)});
     }
 
-    LogDebug("Pushed ", toString(key->operationType), " operation with memory address ", key, " and service ID ",
-             key->serviceId.integer());
+    LOG_DEBUG("Pushed ", toString(key->operationType), " operation with memory address ", key, " and service ID ",
+              key->serviceId.integer());
 
     return key;
 }
@@ -70,12 +69,12 @@ std::unique_ptr<SocketServiceOperation> SocketServiceOperationContainer::pop(LPO
 
     if (operation)
     {
-        LogDebug("Popped ", toString(operation->operationType), " operation with memory address ", operation.get(),
-                 " and service ID ", operation->serviceId.integer());
+        LOG_DEBUG("Popped ", toString(operation->operationType), " operation with memory address ", operation.get(),
+                  " and service ID ", operation->serviceId.integer());
     }
     else
     {
-        LogError("Couldn't pop unknown operation with memory address ", overlapped);
+        LOG_ERROR("Couldn't pop unknown operation with memory address ", overlapped);
     }
 
     return operation;
