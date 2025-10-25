@@ -1,4 +1,4 @@
-#include "dansandu/farseer/internal/error.hpp"
+#include "dansandu/farseer/internal/windows/error.hpp"
 #include "dansandu/ballotin/string.hpp"
 #include "dansandu/journey/logging.hpp"
 
@@ -8,7 +8,7 @@
 using dansandu::ballotin::string::format;
 using dansandu::ballotin::string::trim;
 
-namespace dansandu::farseer::internal::error
+namespace dansandu::farseer::internal::windows::error
 {
 
 std::string getErrorMessageFromCode(DWORD errorCode)

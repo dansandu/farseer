@@ -1,10 +1,10 @@
 #pragma once
 
-#include <winsock2.h>
-
 #include <stdexcept>
 
-namespace dansandu::farseer::internal::wsa_scope_guard
+#include <winsock2.h>
+
+namespace dansandu::farseer::internal::windows::wsa_scope_guard
 {
 
 class WsaScopeGuard

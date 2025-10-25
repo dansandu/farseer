@@ -18,9 +18,9 @@ public:
 
     ~SocketServiceProvider();
 
-    void listen(std::wstring ipAddress, const int port, CallbackType callback) const;
+    SocketServiceId listen(std::wstring ipAddress, const int port, ConnectionCallbackType connectionCallback) const;
 
-    void connect(std::wstring ipAddress, const int port, CallbackType callback) const;
+    SocketServiceId connect(std::wstring ipAddress, const int port, ConnectionCallbackType connectionCallback) const;
 
     template<typename Message>
     void sendMessage(const SocketServiceId serviceId, const Message& message) const

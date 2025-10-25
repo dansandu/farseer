@@ -31,11 +31,8 @@ public:
     ProtocolRegistry() = default;
 
     ProtocolRegistry(const ProtocolRegistry& other) = delete;
-
     ProtocolRegistry(ProtocolRegistry&& other) noexcept = delete;
-
     ProtocolRegistry& operator=(const ProtocolRegistry& other) = delete;
-
     ProtocolRegistry& operator=(ProtocolRegistry&& other) noexcept = delete;
 
     template<typename T>

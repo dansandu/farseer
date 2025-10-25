@@ -53,12 +53,12 @@ struct BinarySerializer<ProtocolIdentifier>
 {
     static ProtocolIdentifier deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        return ProtocolIdentifier{BinarySerializer<ProtocolIdentifier::ValueType>::deserialize(bytes, bitsOffset)};
+        return ProtocolIdentifier{BinarySerializer<ProtocolIdentifier::IntegerType>::deserialize(bytes, bitsOffset)};
     }
 
     static void serialize(const ProtocolIdentifier value, std::vector<uint8_t>& bytes, size_t& bitsCount)
     {
-        BinarySerializer<ProtocolIdentifier::ValueType>::serialize(value.getValue(), bytes, bitsCount);
+        BinarySerializer<ProtocolIdentifier::IntegerType>::serialize(value.getInteger(), bytes, bitsCount);
     }
 };
 

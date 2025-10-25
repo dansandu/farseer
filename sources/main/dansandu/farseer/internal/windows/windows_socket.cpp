@@ -1,24 +1,12 @@
-#include "dansandu/farseer/internal/tcp_socket.hpp"
-#include "dansandu/ballotin/exception.hpp"
-#include "dansandu/farseer/internal/error.hpp"
-#include "dansandu/farseer/internal/internal_socket_service_exception.hpp"
-#include "dansandu/journey/logging.hpp"
+#include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
-#include <ioapiset.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+using dansandu::farseer::exception::InternalSocketServiceException;
+using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
+using dansandu::farseer::internal::windows::error::getLastErrorMessage;
+using dansandu::farseer::internal::windows::error::getLastWsaErrorMessage;
 
-using dansandu::farseer::internal::error::getErrorMessageFromCode;
-using dansandu::farseer::internal::error::getLastErrorMessage;
-using dansandu::farseer::internal::error::getLastWsaErrorMessage;
-using dansandu::farseer::internal::internal_socket_service_exception::InternalSocketServiceException;
-using dansandu::farseer::internal::socket_service_operation::SocketServiceOperation;
-using dansandu::farseer::internal::socket_service_operation::socketServiceOperationBufferSize;
-
-namespace dansandu::farseer::internal::tcp_socket
+namespace dansandu::farseer::internal::windows::windows_socket
 {
-
-static constexpr auto maximumListeningQueueSize = 100;
 
 static void closeSocketOrLog(SOCKET socket)
 {
@@ -28,7 +16,12 @@ static void closeSocketOrLog(SOCKET socket)
     }
 }
 
-TcpSocket::TcpSocket(const HANDLE completionPort, const SocketServiceId serviceId)
+WindowsSocket::WindowsSocket()
+    : socket_{INVALID_SOCKET}, acceptFunction_{nullptr}, connectFunction_{nullptr}, ipAddress_{}, port_{}
+{
+}
+
+WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketServiceId serviceId)
     : socket_{::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
       acceptFunction_{nullptr},
       connectFunction_{nullptr},
@@ -39,7 +32,7 @@ TcpSocket::TcpSocket(const HANDLE completionPort, const SocketServiceId serviceI
     {
         const auto numberOfConcurrentThreads = 0;
         const auto completionPortResult = ::CreateIoCompletionPort(reinterpret_cast<HANDLE>(socket_), completionPort,
-                                                                   serviceId.integer(), numberOfConcurrentThreads);
+                                                                   serviceId.getInteger(), numberOfConcurrentThreads);
         if (completionPortResult == nullptr)
         {
             ::closesocket(socket_);
@@ -53,7 +46,7 @@ TcpSocket::TcpSocket(const HANDLE completionPort, const SocketServiceId serviceI
     }
 }
 
-TcpSocket::TcpSocket(TcpSocket&& other) noexcept
+WindowsSocket::WindowsSocket(WindowsSocket&& other) noexcept
     : socket_{std::move(other.socket_)},
       acceptFunction_{std::move(other.acceptFunction_)},
       connectFunction_{std::move(other.connectFunction_)},
@@ -67,7 +60,7 @@ TcpSocket::TcpSocket(TcpSocket&& other) noexcept
     other.port_ = 0;
 }
 
-TcpSocket& TcpSocket::operator=(TcpSocket&& other) noexcept
+WindowsSocket& WindowsSocket::operator=(WindowsSocket&& other) noexcept
 {
     if (this != &other)
     {
@@ -89,41 +82,26 @@ TcpSocket& TcpSocket::operator=(TcpSocket&& other) noexcept
     return *this;
 }
 
-TcpSocket::~TcpSocket() noexcept
+WindowsSocket::~WindowsSocket() noexcept
 {
     closeSocketOrLog(socket_);
 }
 
-void TcpSocket::toggleBlocking(const bool block) const
+void WindowsSocket::listen(const std::wstring& ipAddress, const int port)
 {
     if (socket_ == INVALID_SOCKET)
     {
-        THROW(std::logic_error, "Cannot toggle blocking on an invalid socket");
-    }
-
-    auto nonBlocking = static_cast<u_long>(!block);
-    const auto result = ::ioctlsocket(socket_, FIONBIO, &nonBlocking);
-    if (result != 0)
-    {
-        WTHROW(InternalSocketServiceException, "Toggling socket blocking failed with error ", getLastWsaErrorMessage());
-    }
-}
-
-void TcpSocket::listen(std::wstring ipAddress, const int port)
-{
-    if (socket_ == INVALID_SOCKET)
-    {
-        THROW(std::logic_error, "Cannot listen on an invalid socket");
+        WTHROW(InternalSocketServiceException, "Cannot listen on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot listen on a connection socket");
+        WTHROW(InternalSocketServiceException, "Cannot listen on a connection socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Socket is already listening");
+        WTHROW(InternalSocketServiceException, "Socket is already listening");
     }
 
     auto localAddress = ::sockaddr_in{};
@@ -146,6 +124,8 @@ void TcpSocket::listen(std::wstring ipAddress, const int port)
         WTHROW(InternalSocketServiceException, "Binding to socket failed with error ", getLastWsaErrorMessage());
     }
 
+    const auto maximumListeningQueueSize = 100;
+
     const auto listenResult = ::listen(socket_, maximumListeningQueueSize);
     if (listenResult == SOCKET_ERROR)
     {
@@ -166,41 +146,45 @@ void TcpSocket::listen(std::wstring ipAddress, const int port)
         WTHROW(InternalSocketServiceException, "WSAIoctl failed with error ", getLastWsaErrorMessage());
     }
 
-    ipAddress_ = std::move(ipAddress);
-    port_ = std::move(port);
+    ipAddress_ = ipAddress;
+    port_ = port;
 }
 
-TcpSocket TcpSocket::postAccept(const HANDLE completionPort, SocketServiceOperation* operation) const
+WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD receiveBufferSize,
+                                        const SocketServiceId pendingAcceptServiceId, const HANDLE completionPort,
+                                        const LPWSAOVERLAPPED overlapped) const
 {
     if (socket_ == INVALID_SOCKET)
     {
-        THROW(std::logic_error, "Cannot post accept on an invalid socket");
+        WTHROW(InternalSocketServiceException, "Cannot post accept on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot post accept on a connection socket");
+        WTHROW(InternalSocketServiceException, "Cannot post accept on a connection socket");
     }
 
     if (acceptFunction_ == nullptr)
     {
-        THROW(std::logic_error, "Socket must first call listen before accepting connections");
+        WTHROW(InternalSocketServiceException, "Socket must first call listen before accepting connections");
     }
 
-    auto pendingAcceptSocket = TcpSocket{completionPort, operation->serviceId};
+    if (receiveBufferSize < 2 * (sizeof(::sockaddr_in) + 16))
+    {
+        WTHROW(InternalSocketServiceException,
+               "The receive buffer must have enough space to store the local and remote address of the connection");
+    }
 
-    static_assert(socketServiceOperationBufferSize >= 2 * (sizeof(::sockaddr_in) + 16));
+    auto pendingAcceptSocket = WindowsSocket{completionPort, pendingAcceptServiceId};
 
-    // Initial implementation: receiveDataLength = 0, asynchronous receive with GetQueuedCompletionStatus
-    // To consider later: receiveDataLength = socketServiceOperationBufferSize - 2 * (sizeof(sockaddr_in) + 16), can be
-    // synchronous
-    const auto receiveDataLength = 0;
+    // Force the operation to be asynchronous and do not wait to receive data.
+    const auto overrideReceiveBufferSize = 0;
 
     auto numberOfBytesReceived = DWORD{0};
 
     const auto acceptResult =
-        acceptFunction_(socket_, pendingAcceptSocket.socket_, operation->buffer, receiveDataLength,
-                        sizeof(::sockaddr_in) + 16, sizeof(::sockaddr_in) + 16, &numberOfBytesReceived, operation);
+        acceptFunction_(socket_, pendingAcceptSocket.socket_, receiveBuffer, overrideReceiveBufferSize,
+                        sizeof(::sockaddr_in) + 16, sizeof(::sockaddr_in) + 16, &numberOfBytesReceived, overlapped);
     if (acceptResult == FALSE)
     {
         const auto errorCode = ::WSAGetLastError();
@@ -214,26 +198,26 @@ TcpSocket TcpSocket::postAccept(const HANDLE completionPort, SocketServiceOperat
     return pendingAcceptSocket;
 }
 
-void TcpSocket::accept(const TcpSocket& listeningSocket)
+void WindowsSocket::accept(const WindowsSocket& listeningSocket)
 {
     if (socket_ == INVALID_SOCKET)
     {
-        THROW(std::logic_error, "Cannot accept on an invalid socket");
+        WTHROW(InternalSocketServiceException, "Cannot accept on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot accept on a connection socket");
+        WTHROW(InternalSocketServiceException, "Cannot accept on a connection socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot accept on a listening socket");
+        WTHROW(InternalSocketServiceException, "Cannot accept on a listening socket");
     }
 
     if (listeningSocket.acceptFunction_ == nullptr)
     {
-        THROW(std::logic_error, "Socket passed to accept is not a listening socket");
+        WTHROW(InternalSocketServiceException, "Socket passed to accept is not a listening socket");
     }
 
     const auto optionalValue = reinterpret_cast<const char*>(&listeningSocket.socket_);
@@ -277,21 +261,21 @@ void TcpSocket::accept(const TcpSocket& listeningSocket)
     port_ = ::ntohs(remoteAddress.sin_port);
 }
 
-void TcpSocket::postConnect(std::wstring ipAddress, const int port, SocketServiceOperation* operation)
+void WindowsSocket::postConnect(const std::wstring& ipAddress, const int port, const LPWSAOVERLAPPED overlapped)
 {
     if (socket_ == INVALID_SOCKET)
     {
-        THROW(std::logic_error, "Cannot post connect on an invalid socket");
+        WTHROW(InternalSocketServiceException, "Cannot post connect on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Socket is already connected");
+        WTHROW(InternalSocketServiceException, "Socket is already connected");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot post connect on a listening socket");
+        WTHROW(InternalSocketServiceException, "Cannot post connect on a listening socket");
     }
 
     auto localAddress = ::sockaddr_in{};
@@ -305,7 +289,7 @@ void TcpSocket::postConnect(std::wstring ipAddress, const int port, SocketServic
         WTHROW(InternalSocketServiceException, "Binding to socket failed with error ", getLastWsaErrorMessage());
     }
 
-    const auto overlapped = LPWSAOVERLAPPED{nullptr};
+    const auto ioOverlapped = LPWSAOVERLAPPED{nullptr};
     const auto completionRoutine = LPWSAOVERLAPPED_COMPLETION_ROUTINE{nullptr};
 
     auto connectExGuid = GUID(WSAID_CONNECTEX);
@@ -313,7 +297,7 @@ void TcpSocket::postConnect(std::wstring ipAddress, const int port, SocketServic
 
     const auto ioResult = ::WSAIoctl(socket_, SIO_GET_EXTENSION_FUNCTION_POINTER, &connectExGuid, sizeof(connectExGuid),
                                      static_cast<LPVOID>(&connectFunction_), sizeof(connectFunction_), &numberOfBytes,
-                                     overlapped, completionRoutine);
+                                     ioOverlapped, completionRoutine);
     if (ioResult == SOCKET_ERROR)
     {
         WTHROW(InternalSocketServiceException, "WSAIoctl failed with error ", getLastWsaErrorMessage());
@@ -338,7 +322,7 @@ void TcpSocket::postConnect(std::wstring ipAddress, const int port, SocketServic
 
     const auto connectResult =
         connectFunction_(socket_, reinterpret_cast<const SOCKADDR*>(&remoteAddress), sizeof(remoteAddress), sendBuffer,
-                         sendBufferSize, &numberOfBytes, operation);
+                         sendBufferSize, &numberOfBytes, overlapped);
     if (connectResult == FALSE)
     {
         const auto errorCode = ::WSAGetLastError();
@@ -349,25 +333,25 @@ void TcpSocket::postConnect(std::wstring ipAddress, const int port, SocketServic
         }
     }
 
-    ipAddress_ = std::move(ipAddress);
-    port_ = std::move(port);
+    ipAddress_ = ipAddress;
+    port_ = port;
 }
 
-void TcpSocket::connect()
+void WindowsSocket::connect()
 {
     if (socket_ == INVALID_SOCKET)
     {
-        THROW(std::logic_error, "Cannot connect on an invalid socket");
+        WTHROW(InternalSocketServiceException, "Cannot connect on an invalid socket");
     }
 
     if (connectFunction_ == nullptr)
     {
-        THROW(std::logic_error, "Socket must call postConnect before calling connect");
+        WTHROW(InternalSocketServiceException, "Socket must call postConnect before calling connect");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot connect on a listening socket");
+        WTHROW(InternalSocketServiceException, "Cannot connect on a listening socket");
     }
 
     const auto optionalValue = static_cast<const char*>(nullptr);
@@ -381,29 +365,30 @@ void TcpSocket::connect()
     }
 }
 
-void TcpSocket::postReceive(SocketServiceOperation* operation) const
+void WindowsSocket::postReceive(CHAR* const receiveBuffer, const ULONG receiveBufferSize,
+                                const LPWSAOVERLAPPED overlapped) const
 {
     if (socket_ == INVALID_SOCKET)
     {
-        THROW(std::logic_error, "Cannot post receive on an invalid socket");
+        WTHROW(InternalSocketServiceException, "Cannot post receive on an invalid socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot post receive on a listening socket");
+        WTHROW(InternalSocketServiceException, "Cannot post receive on a listening socket");
     }
 
-    auto buffer = WSABUF{.len = socketServiceOperationBufferSize, .buf = operation->buffer};
-    auto numberOfBytesReceived = DWORD{0};
+    auto wsaBuffer = WSABUF{.len = receiveBufferSize, .buf = receiveBuffer};
     auto flags = DWORD{0};
 
     const auto bufferCount = DWORD{1};
+    const auto numberOfBytesReceived = LPDWORD{nullptr};
     const auto completionRoutine = LPWSAOVERLAPPED_COMPLETION_ROUTINE{nullptr};
 
     // If WSARecv completes immediately the overlapped operation is also scheduled and will be processed in a future
     // call to GetQueuedCompletionStatus.
     const auto receiveResult =
-        ::WSARecv(socket_, &buffer, bufferCount, &numberOfBytesReceived, &flags, operation, completionRoutine);
+        ::WSARecv(socket_, &wsaBuffer, bufferCount, numberOfBytesReceived, &flags, overlapped, completionRoutine);
     if (receiveResult == SOCKET_ERROR)
     {
         const auto errorCode = ::WSAGetLastError();
@@ -414,20 +399,20 @@ void TcpSocket::postReceive(SocketServiceOperation* operation) const
     }
 }
 
-void TcpSocket::postSend(SocketServiceOperation* operation) const
+void WindowsSocket::postSend(CHAR* const bytesToSend, const ULONG numberOfBytesToSend,
+                             const LPWSAOVERLAPPED overlapped) const
 {
     if (socket_ == INVALID_SOCKET)
     {
-        THROW(std::logic_error, "Cannot post send on an invalid socket");
+        WTHROW(InternalSocketServiceException, "Cannot post send on an invalid socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        THROW(std::logic_error, "Cannot post send on a listening socket");
+        WTHROW(InternalSocketServiceException, "Cannot post send on a listening socket");
     }
 
-    auto buffer = WSABUF{.len = static_cast<ULONG>(operation->bytes.size()),
-                         .buf = reinterpret_cast<char*>(operation->bytes.data())};
+    auto wsaBuffer = WSABUF{.len = numberOfBytesToSend, .buf = bytesToSend};
     auto numberOfBytesSent = DWORD{0};
 
     const auto bufferCount = DWORD{1};
@@ -435,7 +420,7 @@ void TcpSocket::postSend(SocketServiceOperation* operation) const
     const auto completionRoutine = LPWSAOVERLAPPED_COMPLETION_ROUTINE{nullptr};
 
     const auto sendResult =
-        ::WSASend(socket_, &buffer, bufferCount, &numberOfBytesSent, flags, operation, completionRoutine);
+        ::WSASend(socket_, &wsaBuffer, bufferCount, &numberOfBytesSent, flags, overlapped, completionRoutine);
     if (sendResult == SOCKET_ERROR)
     {
         const auto errorCode = ::WSAGetLastError();
