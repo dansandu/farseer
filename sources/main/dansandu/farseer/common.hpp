@@ -16,37 +16,42 @@ public:
 
     friend std::ostream& operator<<(std::ostream& stream, const ProtocolIdentifier protocolIdentifier)
     {
-        return stream << protocolIdentifier.identifier_;
+        return stream << protocolIdentifier.integer_;
     }
 
-    using ValueType = uint32_t;
+    using IntegerType = uint32_t;
 
-    constexpr ProtocolIdentifier() : identifier_{0}
+    constexpr ProtocolIdentifier() : integer_{0}
     {
     }
 
-    constexpr explicit ProtocolIdentifier(const ValueType identifier) : identifier_{identifier}
+    constexpr explicit ProtocolIdentifier(const IntegerType integer) : integer_{integer}
     {
     }
 
-    constexpr ValueType getValue() const
+    constexpr IntegerType getInteger() const
     {
-        return identifier_;
+        return integer_;
     }
 
     std::string toString() const
     {
-        return std::to_string(identifier_);
+        return std::to_string(integer_);
     }
 
 private:
-    ValueType identifier_;
+    IntegerType integer_;
 };
 
 class SocketServiceId
 {
 public:
     friend constexpr auto operator<=>(const SocketServiceId& left, const SocketServiceId& right) = default;
+
+    friend std::ostream& operator<<(std::ostream& stream, const SocketServiceId serviceId)
+    {
+        return stream << serviceId.integer_;
+    }
 
     using IntegerType = unsigned long;
 
@@ -58,7 +63,7 @@ public:
     {
     }
 
-    constexpr IntegerType integer() const
+    constexpr IntegerType getInteger() const
     {
         return integer_;
     }
@@ -85,7 +90,7 @@ PRALINE_EXPORT const char* toString(const SocketServiceEvent event);
 
 using BytesType = std::vector<uint8_t>;
 
-using CallbackType = std::function<void(const SocketServiceEvent event, const SocketServiceId serverId,
-                                        const SocketServiceId clientId, BytesType bytes)>;
+using ConnectionCallbackType =
+    std::function<void(const SocketServiceEvent event, const SocketServiceId serverId, const SocketServiceId clientId)>;
 
 }

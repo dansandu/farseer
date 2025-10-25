@@ -19,7 +19,7 @@ const ProtocolRegistry::Entry& ProtocolRegistry::getProtocol(const ProtocolIdent
     {
         return position->second;
     }
-    THROW(ProtocolNotRegisteredError, "no protocol with identifier '", identifier, "' was registered");
+    THROW(ProtocolNotRegisteredError, "No protocol is registered with identifier '", identifier, "'");
 }
 
 }

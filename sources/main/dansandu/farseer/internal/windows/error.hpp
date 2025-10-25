@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace dansandu::farseer::internal::error
+namespace dansandu::farseer::internal::windows::error
 {
 
 std::string getErrorMessageFromCode(DWORD errorCode);

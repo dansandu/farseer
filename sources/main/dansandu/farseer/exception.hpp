@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dansandu/journey/exception.hpp"
+
 #include <stdexcept>
 
 namespace dansandu::farseer::exception
@@ -57,6 +59,12 @@ class DuplicateFieldIdentifierError : public ProtocolValidationError
 {
 public:
     using ProtocolValidationError::ProtocolValidationError;
+};
+
+class InternalSocketServiceException : public dansandu::journey::exception::Exception
+{
+public:
+    using Exception::Exception;
 };
 
 }
