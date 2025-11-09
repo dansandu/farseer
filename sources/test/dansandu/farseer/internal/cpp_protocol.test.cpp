@@ -10,14 +10,13 @@ TEST_CASE("cpp_protocol")
 {
     SECTION("message protocol")
     {
-        const auto text = R"(namespace organization.artifact;
+        const auto text = R"(namespace organization.artifact.protocol;
 
 message MyMessage
 {
     int32 integer;
     bool boolean;
 }
-
 )";
 
         const auto expectedHeader = R"(#pragma once
@@ -26,7 +25,7 @@ message MyMessage
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/protocol_metadata.hpp"
 
-namespace organization::artifact
+namespace organization::artifact::protocol
 {
 
 struct MyMessage
@@ -40,11 +39,11 @@ PRALINE_EXPORT dansandu::farseer::ProtocolIdentifier getMyMessageProtocolIdentif
 }
 
 template<>
-struct dansandu::farseer::protocol_metadata::ProtocolMetadata<organization::artifact::MyMessage>
+struct dansandu::farseer::protocol_metadata::ProtocolMetadata<organization::artifact::protocol::MyMessage>
 {
     static dansandu::farseer::ProtocolIdentifier getProtocolIdentifier()
     {
-        return organization::artifact::getMyMessageProtocolIdentifier();
+        return organization::artifact::protocol::getMyMessageProtocolIdentifier();
     }
 
     static constexpr auto hasStaticSize = true;
@@ -53,36 +52,34 @@ struct dansandu::farseer::protocol_metadata::ProtocolMetadata<organization::arti
 };
 
 template<>
-struct dansandu::farseer::binary_serialization::BinarySerializer<organization::artifact::MyMessage>
+struct dansandu::farseer::binary_serialization::BinarySerializer<organization::artifact::protocol::MyMessage>
 {
-    static organization::artifact::MyMessage deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    static organization::artifact::protocol::MyMessage deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        using namespace organization::artifact;
-        using dansandu::farseer::binary_serialization::BinarySerializer;
+        using namespace organization::artifact::protocol;
 
         auto message = MyMessage{};
-        message.integer = BinarySerializer<int32_t>::deserialize(bytes, bitsOffset);
-        message.boolean = BinarySerializer<bool>::deserialize(bytes, bitsOffset);
+        message.integer = dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::deserialize(bytes, bitsOffset);
+        message.boolean = dansandu::farseer::binary_serialization::BinarySerializer<bool>::deserialize(bytes, bitsOffset);
         return message;
     }
 
-    static void serialize(const organization::artifact::MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const organization::artifact::protocol::MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsCount)
     {
-        using namespace organization::artifact;
-        using dansandu::farseer::binary_serialization::BinarySerializer;
+        using namespace organization::artifact::protocol;
 
-        BinarySerializer<int32_t>::serialize(message.integer, bytes, bitsCount);
-        BinarySerializer<bool>::serialize(message.boolean, bytes, bitsCount);
+        dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::serialize(message.integer, bytes, bitsCount);
+        dansandu::farseer::binary_serialization::BinarySerializer<bool>::serialize(message.boolean, bytes, bitsCount);
     }
 };
 
 )";
 
-        const auto expectedSource = R"(#include "organization/artifact.hpp"
+        const auto expectedSource = R"(#include "organization/artifact/protocol.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"
 #include "dansandu/journey/macro.hpp"
 
-namespace organization::artifact
+namespace organization::artifact::protocol
 {
 
 dansandu::farseer::ProtocolIdentifier getMyMessageProtocolIdentifier()
@@ -90,13 +87,13 @@ dansandu::farseer::ProtocolIdentifier getMyMessageProtocolIdentifier()
     return dansandu::farseer::ProtocolIdentifier{477867811U};
 }
 
+}
+
 namespace
 {
 
 const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = 
-    dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerProtocol<MyMessage>();
-
-}
+    dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerProtocol<organization::artifact::protocol::MyMessage>();
 
 }
 )";
