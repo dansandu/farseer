@@ -178,7 +178,11 @@ bool AsynchronousOperationContainer::waitAndConsumeAsynchronousOperation()
                 return false;
             }
 
+            const auto message = getLastErrorMessage();
+
             handleFailedAsynchronousOperation(overlapped);
+
+            LOG_ERROR(message);
         }
     }
     catch (const InternalSocketServiceException& exception)
@@ -228,8 +232,6 @@ void AsynchronousOperationContainer::handleSuccessfulAsynchronousOperation(const
 
 void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped)
 {
-    const auto message = getLastErrorMessage();
-
     const auto lock = std::lock_guard<std::recursive_mutex>{operationsMutex_};
     const auto position = operations_.find(overlapped);
 
@@ -238,13 +240,13 @@ void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPW
         const auto name = position->second->getName();
         const auto serviceId = position->second->getServiceId().getInteger();
 
-        operations_.erase(position);
+        LOG_ERROR(name, " with service ID ", serviceId, " and address ", overlapped, " failed");
 
-        LOG_ERROR(name, " with service ID ", serviceId, " and address ", overlapped, " failed: ", message);
+        operations_.erase(position);
     }
     else
     {
-        LOG_ERROR("Unknown operation with address ", overlapped, " failed: ", message);
+        LOG_ERROR("Unknown operation with address ", overlapped, " failed");
     }
 }
 
