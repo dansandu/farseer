@@ -61,10 +61,10 @@ public:
     using ProtocolValidationError::ProtocolValidationError;
 };
 
-class InternalSocketServiceException : public dansandu::journey::exception::Exception
+class InternalSocketServiceException : public dansandu::journey::exception::WideException
 {
 public:
-    using Exception::Exception;
+    using WideException::WideException;
 };
 
 }

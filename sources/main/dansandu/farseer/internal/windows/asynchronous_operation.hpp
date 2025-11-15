@@ -17,7 +17,24 @@ namespace dansandu::farseer::internal::windows::asynchronous_operation
 
 constexpr auto initialCompletionKey = InvalidServiceId.getInteger();
 
-class IAsynchronousOperationsFactory;
+class IAsynchronousOperationsFactory
+{
+public:
+    IAsynchronousOperationsFactory() = default;
+
+    IAsynchronousOperationsFactory(const IAsynchronousOperationsFactory& other) = delete;
+    IAsynchronousOperationsFactory(IAsynchronousOperationsFactory&& other) noexcept = delete;
+    IAsynchronousOperationsFactory& operator=(const IAsynchronousOperationsFactory& other) = delete;
+    IAsynchronousOperationsFactory& operator=(IAsynchronousOperationsFactory&& other) noexcept = delete;
+
+    virtual ~IAsynchronousOperationsFactory() noexcept
+    {
+    }
+
+    virtual void createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId) = 0;
+
+    virtual void createReceiveAsynchronousOperation(const SocketServiceId serviceId) = 0;
+};
 
 class AsynchronousOperation
 {
@@ -61,28 +78,6 @@ public:
 protected:
     SocketServiceId serviceId_;
     WSAOVERLAPPED overlapped_;
-};
-
-class IAsynchronousOperationsFactory
-{
-public:
-    IAsynchronousOperationsFactory() = default;
-
-    IAsynchronousOperationsFactory(const IAsynchronousOperationsFactory& other) = delete;
-
-    IAsynchronousOperationsFactory(IAsynchronousOperationsFactory&& other) noexcept = delete;
-
-    IAsynchronousOperationsFactory& operator=(const IAsynchronousOperationsFactory& other) = delete;
-
-    IAsynchronousOperationsFactory& operator=(IAsynchronousOperationsFactory&& other) noexcept = delete;
-
-    virtual ~IAsynchronousOperationsFactory() noexcept
-    {
-    }
-
-    virtual void createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId) = 0;
-
-    virtual void createReceiveAsynchronousOperation(const SocketServiceId serviceId) = 0;
 };
 
 class AsynchronousOperationContainer : public IAsynchronousOperationsFactory
