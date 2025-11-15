@@ -1,7 +1,6 @@
 #include "dansandu/ballotin/file_system.hpp"
 #include "dansandu/farseer/internal/cpp_protocol.hpp"
 #include "dansandu/farseer/internal/protocol_parsing.hpp"
-#include "dansandu/journey/exception.hpp"
 #include "dansandu/service_runner/service_registry.hpp"
 
 #include <iostream>
@@ -11,7 +10,6 @@ using dansandu::ballotin::file_system::writeAsciiFile;
 using dansandu::farseer::internal::cpp_protocol::generateProtocolCppHeader;
 using dansandu::farseer::internal::cpp_protocol::generateProtocolCppSource;
 using dansandu::farseer::internal::protocol_parsing::parseProtocol;
-using dansandu::journey::exception::Exception;
 
 namespace dansandu::farseer::service
 {

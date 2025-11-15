@@ -187,7 +187,7 @@ bool AsynchronousOperationContainer::waitAndConsumeAsynchronousOperation()
     }
     catch (const InternalSocketServiceException& exception)
     {
-        LOG_ERROR(exception.message());
+        LOG_ERROR(exception.getMessage());
     }
     catch (const std::exception& exception)
     {

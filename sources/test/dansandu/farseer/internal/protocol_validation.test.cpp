@@ -36,7 +36,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), MessageIdentifierNotDefinedError);
+        REQUIRE_THROW(MessageIdentifierNotDefinedError, validateProtocol(protocol));
     }
 
     SECTION("message defined after usage")
@@ -61,7 +61,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), MessageIdentifierNotDefinedError);
+        REQUIRE_THROW(MessageIdentifierNotDefinedError, validateProtocol(protocol));
     }
 
     SECTION("duplicate message identifier")
@@ -93,7 +93,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), DuplicateProtocolIdentifierError);
+        REQUIRE_THROW(DuplicateProtocolIdentifierError, validateProtocol(protocol));
     }
 
     SECTION("message field self reference")
@@ -119,7 +119,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), ProtocolFieldSelfReferenceError);
+        REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocol(protocol));
     }
 
     SECTION("message duplicate field identifier")
@@ -149,7 +149,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), DuplicateFieldIdentifierError);
+        REQUIRE_THROW(DuplicateFieldIdentifierError, validateProtocol(protocol));
     }
 
     SECTION("request undefined message type")
@@ -171,7 +171,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), MessageIdentifierNotDefinedError);
+        REQUIRE_THROW(MessageIdentifierNotDefinedError, validateProtocol(protocol));
     }
 
     SECTION("request duplicate message identifier")
@@ -206,7 +206,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), DuplicateProtocolIdentifierError);
+        REQUIRE_THROW(DuplicateProtocolIdentifierError, validateProtocol(protocol));
     }
 
     SECTION("request field self reference")
@@ -232,7 +232,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), ProtocolFieldSelfReferenceError);
+        REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocol(protocol));
     }
 
     SECTION("duplicate request fields identifier")
@@ -262,7 +262,7 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), DuplicateFieldIdentifierError);
+        REQUIRE_THROW(DuplicateFieldIdentifierError, validateProtocol(protocol));
     }
 
     SECTION("duplicate response fields identifier")
@@ -292,6 +292,6 @@ TEST_CASE("protocol_validation")
                 },
         };
 
-        REQUIRE_THROW(validateProtocol(protocol), DuplicateFieldIdentifierError);
+        REQUIRE_THROW(DuplicateFieldIdentifierError, validateProtocol(protocol));
     }
 }

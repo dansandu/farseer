@@ -63,6 +63,6 @@ message Person
 }
 )";
 
-        REQUIRE_THROW(parseProtocol(text), ReservedIdentifierNameError);
+        REQUIRE_THROW(ReservedIdentifierNameError, parseProtocol(text));
     }
 }
