@@ -2,7 +2,7 @@
 
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsFactory;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
 namespace dansandu::farseer::internal::windows::accept_asynchronous_operation
@@ -37,7 +37,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& services,
-                  IAsynchronousOperationsFactory& asynchronousOperationsFactory, const HANDLE completionPort,
+                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         const auto servicePosition = getServiceOrThrow(services, serviceId_);
@@ -48,9 +48,9 @@ public:
 
         socket.accept(listeningServicePosition->second.socket);
 
-        asynchronousOperationsFactory.createAcceptAsynchronousOperation(listeningServiceId_);
+        asynchronousOperationsRegistry.createAcceptAsynchronousOperation(listeningServiceId_);
 
-        asynchronousOperationsFactory.createReceiveAsynchronousOperation(serviceId_);
+        asynchronousOperationsRegistry.createReceiveAsynchronousOperation(serviceId_);
 
         listeningServicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, listeningServiceId_,
                                                             serviceId_);

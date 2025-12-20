@@ -5,7 +5,7 @@
 
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsFactory;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
 using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
@@ -40,7 +40,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsFactory& asynchronousOperationsFactory, const HANDLE completionPort,
+                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         if (!connectionPending_)
@@ -79,7 +79,7 @@ public:
 
             servicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, InvalidServiceId, serviceId_);
 
-            asynchronousOperationsFactory.createReceiveAsynchronousOperation(serviceId_);
+            asynchronousOperationsRegistry.createReceiveAsynchronousOperation(serviceId_);
 
             LOG_INFO("Connected to socket with address ", socket.getIpAddress(), ':', socket.getPort());
 
