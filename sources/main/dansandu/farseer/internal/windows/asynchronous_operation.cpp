@@ -1,5 +1,6 @@
 #include "dansandu/farseer/internal/windows/asynchronous_operation.hpp"
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/ballotin/string.hpp"
 #include "dansandu/farseer/internal/windows/accept_asynchronous_operation.hpp"
 #include "dansandu/farseer/internal/windows/close_asynchronous_operation.hpp"
 #include "dansandu/farseer/internal/windows/connect_asynchronous_operation.hpp"
@@ -9,6 +10,7 @@
 #include "dansandu/farseer/internal/windows/register_message_consumer_asynchronous_operation.hpp"
 #include "dansandu/farseer/internal/windows/send_bytes_asynchronous_operation.hpp"
 
+using dansandu::ballotin::string::toWideString;
 using dansandu::farseer::exception::InternalSocketServiceException;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 
@@ -165,8 +167,6 @@ bool AsynchronousOperationContainer::waitAndConsumeAsynchronousOperation()
                 return false;
             }
 
-            SCOPE_FAILURE([&]() { handleFailedAsynchronousOperation(overlapped); });
-
             handleSuccessfulAsynchronousOperation(overlapped, numberOfBytesTransferred);
         }
         else
@@ -178,20 +178,16 @@ bool AsynchronousOperationContainer::waitAndConsumeAsynchronousOperation()
                 return false;
             }
 
-            const auto message = getLastErrorMessage();
-
-            handleFailedAsynchronousOperation(overlapped);
-
-            LOG_ERROR(message);
+            handleFailedAsynchronousOperation(overlapped, toWideString(getLastErrorMessage()));
         }
     }
     catch (const InternalSocketServiceException& exception)
     {
-        LOG_ERROR(exception.getMessage());
+        handleFailedAsynchronousOperation(overlapped, exception.getMessage());
     }
     catch (const std::exception& exception)
     {
-        LOG_ERROR(exception.what());
+        handleFailedAsynchronousOperation(overlapped, toWideString(exception.what()));
     }
 
     return true;
@@ -230,7 +226,8 @@ void AsynchronousOperationContainer::handleSuccessfulAsynchronousOperation(const
     }
 }
 
-void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped)
+void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
+                                                                       const std::wstring_view message)
 {
     const auto lock = std::lock_guard<std::recursive_mutex>{operationsMutex_};
     const auto position = operations_.find(overlapped);
@@ -240,13 +237,27 @@ void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPW
         const auto name = position->second->getName();
         const auto serviceId = position->second->getServiceId().getInteger();
 
-        LOG_ERROR(name, " with service ID ", serviceId, " and address ", overlapped, " failed");
+        if (message.empty())
+        {
+            LOG_ERROR(name, " with service ID ", serviceId, " and address ", overlapped, " failed");
+        }
+        else
+        {
+            LOG_ERROR(name, " with service ID ", serviceId, " and address ", overlapped, " failed: ", message);
+        }
 
         operations_.erase(position);
     }
     else
     {
-        LOG_ERROR("Unknown operation with address ", overlapped, " failed");
+        if (message.empty())
+        {
+            LOG_ERROR("Unknown operation with address ", overlapped, " failed");
+        }
+        else
+        {
+            LOG_ERROR("Unknown operation with address ", overlapped, " failed: ", message);
+        }
     }
 }
 

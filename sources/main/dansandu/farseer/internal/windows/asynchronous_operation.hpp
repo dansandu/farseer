@@ -17,17 +17,17 @@ namespace dansandu::farseer::internal::windows::asynchronous_operation
 
 constexpr auto initialCompletionKey = InvalidServiceId.getInteger();
 
-class IAsynchronousOperationsFactory
+class IAsynchronousOperationsRegistry
 {
 public:
-    IAsynchronousOperationsFactory() = default;
+    IAsynchronousOperationsRegistry() = default;
 
-    IAsynchronousOperationsFactory(const IAsynchronousOperationsFactory& other) = delete;
-    IAsynchronousOperationsFactory(IAsynchronousOperationsFactory&& other) noexcept = delete;
-    IAsynchronousOperationsFactory& operator=(const IAsynchronousOperationsFactory& other) = delete;
-    IAsynchronousOperationsFactory& operator=(IAsynchronousOperationsFactory&& other) noexcept = delete;
+    IAsynchronousOperationsRegistry(const IAsynchronousOperationsRegistry& other) = delete;
+    IAsynchronousOperationsRegistry(IAsynchronousOperationsRegistry&& other) noexcept = delete;
+    IAsynchronousOperationsRegistry& operator=(const IAsynchronousOperationsRegistry& other) = delete;
+    IAsynchronousOperationsRegistry& operator=(IAsynchronousOperationsRegistry&& other) noexcept = delete;
 
-    virtual ~IAsynchronousOperationsFactory() noexcept
+    virtual ~IAsynchronousOperationsRegistry() noexcept
     {
     }
 
@@ -60,7 +60,7 @@ public:
 
     virtual bool finalize(dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId>& sequencer,
                           dansandu::farseer::internal::windows::socket_service::SocketServiceContainer& services,
-                          IAsynchronousOperationsFactory& asynchronousOperationsFactory, const HANDLE completionPort,
+                          IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
                           const DWORD numberOfBytesTransferred) = 0;
 
     virtual const char* getName() const = 0;
@@ -80,7 +80,7 @@ protected:
     WSAOVERLAPPED overlapped_;
 };
 
-class AsynchronousOperationContainer : public IAsynchronousOperationsFactory
+class AsynchronousOperationContainer : public IAsynchronousOperationsRegistry
 {
 public:
     AsynchronousOperationContainer();
@@ -114,7 +114,7 @@ private:
 
     void handleSuccessfulAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const DWORD numberOfBytesTransferred);
 
-    void handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped);
+    void handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const std::wstring_view message = L"");
 
     const HANDLE completionPort_;
     dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId> serviceIdSequencer_;

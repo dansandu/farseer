@@ -6,7 +6,7 @@
 
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsFactory;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
 using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
@@ -40,7 +40,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsFactory& asynchronousOperationsFactory, const HANDLE completionPort,
+                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         auto socket = WindowsSocket{completionPort, serviceId_};
@@ -63,7 +63,7 @@ public:
 
         SCOPE_FAILURE([&]() { socketServiceContainer.erase(servicePosition); });
 
-        asynchronousOperationsFactory.createAcceptAsynchronousOperation(serviceId_);
+        asynchronousOperationsRegistry.createAcceptAsynchronousOperation(serviceId_);
 
         servicePosition->second.connectionCallback(SocketServiceEvent::serverOpen, serviceId_, InvalidServiceId);
 

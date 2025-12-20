@@ -3,7 +3,7 @@
 
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsFactory;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
 namespace dansandu::farseer::internal::windows::receive_asynchronous_operation
@@ -26,7 +26,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsFactory& asynchronousOperationsFactory, const HANDLE completionPort,
+                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         if (numberOfBytesTransferred > 0)
