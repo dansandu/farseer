@@ -1,5 +1,5 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
-#include "dansandu/farseer/sample_protocol.hpp"
+#include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::ProtocolIdentifier;

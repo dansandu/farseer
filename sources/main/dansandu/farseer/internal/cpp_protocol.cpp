@@ -155,7 +155,7 @@ std::string generateProtocolCppSource(const Protocol& protocol)
 
     auto stream = std::ostringstream{};
 
-    stream << "#include \"" << cppInclude << ".hpp\"\n"
+    stream << "#include \"" << cppInclude << ".g.hpp\"\n"
            << "#include \"dansandu/farseer/protocol_registry.hpp\"\n"
            << "#include \"dansandu/journey/macro.hpp\"\n\n"
            << "namespace " << cppNamespace << "\n{\n\n";

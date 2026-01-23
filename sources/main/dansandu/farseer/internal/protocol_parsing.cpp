@@ -32,7 +32,7 @@ namespace dansandu::farseer::internal::protocol_parsing
 namespace
 {
 
-constexpr auto protocolsGrammar = R"(
+constexpr auto protocolGrammar = R"(
     /* 0*/ Start -> Protocol
     /* 1*/ Protocol -> NamespaceDefinition ProtocolDefinitions
     /* 2*/ NamespaceDefinition -> namespace module semicolon
@@ -58,7 +58,7 @@ constexpr auto protocolsGrammar = R"(
 struct ProtocolParser
 {
     ProtocolParser()
-        : parser{protocolsGrammar},
+        : parser{protocolGrammar},
           moduleSymbol{parser.getTerminalSymbol("module")},
           identifier{parser.getTerminalSymbol("identifier")},
           tokenizer{{
@@ -68,7 +68,7 @@ struct ProtocolParser
             {parser.getTerminalSymbol("bracesEnd"),         "\\}"},
             {parser.getTerminalSymbol("angleBracketBegin"), "\\<"},
             {parser.getTerminalSymbol("angleBracketEnd"),   "\\>"},
-            {moduleSymbol,                                  "([a-zA-Z]\\w*\\.)+[a-zA-Z]\\w*"},
+            {moduleSymbol,                                  "(\\b[a-zA-Z]\\w*\\b\\.)+\\b[a-zA-Z]\\w*\\b"},
             {parser.getTerminalSymbol("namespace"),         "\\bnamespace\\b"},
             {parser.getTerminalSymbol("message"),           "\\bmessage\\b"},
             {parser.getTerminalSymbol("request"),           "\\brequest\\b"},
@@ -80,7 +80,7 @@ struct ProtocolParser
             {parser.getTerminalSymbol("string"),            "\\bstring\\b"},
             {parser.getTerminalSymbol("bool"),              "\\bbool\\b"},
             {parser.getTerminalSymbol("list"),              "\\blist\\b"},
-            {identifier,                                    "[a-zA-Z]\\w*"},
+            {identifier,                                    "\\b[a-zA-Z]\\w*\\b"},
           }}
     {
     }

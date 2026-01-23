@@ -75,7 +75,7 @@ struct dansandu::farseer::binary_serialization::BinarySerializer<organization::a
 
 )";
 
-        const auto expectedSource = R"(#include "organization/artifact/protocol.hpp"
+        const auto expectedSource = R"(#include "organization/artifact/protocol.g.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"
 #include "dansandu/journey/macro.hpp"
 
