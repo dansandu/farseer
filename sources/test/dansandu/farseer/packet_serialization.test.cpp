@@ -1,5 +1,5 @@
 #include "dansandu/farseer/packet_serialization.hpp"
-#include "dansandu/farseer/sample_protocol.hpp"
+#include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::packet_serialization::serializeMessagePacket;
