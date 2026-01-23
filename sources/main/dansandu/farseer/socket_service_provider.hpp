@@ -2,7 +2,6 @@
 
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/packet_serialization.hpp"
-#include "dansandu/farseer/protocol_metadata.hpp"
 
 #include <any>
 #include <memory>
@@ -32,10 +31,7 @@ public:
     template<typename Message>
     void registerMessageConsumer(const SocketServiceId serviceId, std::function<void(Message)> messageConsumer) const
     {
-        const auto protocolIdentifier =
-            dansandu::farseer::protocol_metadata::ProtocolMetadata<Message>::getProtocolIdentifier();
-
-        registerMessageConsumer(serviceId, protocolIdentifier,
+        registerMessageConsumer(serviceId, Message::Metadata::getProtocolIdentifier(),
                                 [messageConsumer = std::move(messageConsumer)](std::any message)
                                 { messageConsumer(std::any_cast<Message>(std::move(message))); });
     }

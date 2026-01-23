@@ -23,56 +23,30 @@ message MyMessage
 
 #include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/protocol_metadata.hpp"
 
 namespace organization::artifact::protocol
 {
 
-struct MyMessage
+struct PRALINE_EXPORT MyMessage
 {
+    struct PRALINE_EXPORT Metadata
+    {
+        static dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
+
+        static MyMessage deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+
+        static void serialize(const MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsCount);
+
+        static constexpr auto hasStaticSize = true;
+
+        static constexpr auto numberOfBits = uint64_t{33ULL};
+    };
+
     int32_t integer;
     bool boolean;
 };
 
-PRALINE_EXPORT dansandu::farseer::ProtocolIdentifier getMyMessageProtocolIdentifier();
-
 }
-
-template<>
-struct dansandu::farseer::protocol_metadata::ProtocolMetadata<organization::artifact::protocol::MyMessage>
-{
-    static dansandu::farseer::ProtocolIdentifier getProtocolIdentifier()
-    {
-        return organization::artifact::protocol::getMyMessageProtocolIdentifier();
-    }
-
-    static constexpr auto hasStaticSize = true;
-
-    static constexpr auto numberOfBits = uint64_t{33ULL};
-};
-
-template<>
-struct dansandu::farseer::binary_serialization::BinarySerializer<organization::artifact::protocol::MyMessage>
-{
-    static organization::artifact::protocol::MyMessage deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
-    {
-        using namespace organization::artifact::protocol;
-
-        auto message = MyMessage{};
-        message.integer = dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::deserialize(bytes, bitsOffset);
-        message.boolean = dansandu::farseer::binary_serialization::BinarySerializer<bool>::deserialize(bytes, bitsOffset);
-        return message;
-    }
-
-    static void serialize(const organization::artifact::protocol::MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsCount)
-    {
-        using namespace organization::artifact::protocol;
-
-        dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::serialize(message.integer, bytes, bitsCount);
-        dansandu::farseer::binary_serialization::BinarySerializer<bool>::serialize(message.boolean, bytes, bitsCount);
-    }
-};
-
 )";
 
         const auto expectedSource = R"(#include "organization/artifact/protocol.g.hpp"
@@ -82,9 +56,23 @@ struct dansandu::farseer::binary_serialization::BinarySerializer<organization::a
 namespace organization::artifact::protocol
 {
 
-dansandu::farseer::ProtocolIdentifier getMyMessageProtocolIdentifier()
+dansandu::farseer::ProtocolIdentifier MyMessage::Metadata::getProtocolIdentifier()
 {
     return dansandu::farseer::ProtocolIdentifier{477867811U};
+}
+
+MyMessage MyMessage::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+{
+    auto message = MyMessage{};
+    message.integer = dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::deserialize(bytes, bitsOffset);
+    message.boolean = dansandu::farseer::binary_serialization::BinarySerializer<bool>::deserialize(bytes, bitsOffset);
+    return message;
+}
+
+void MyMessage::Metadata::serialize(const MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsCount)
+{
+    dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::serialize(message.integer, bytes, bitsCount);
+    dansandu::farseer::binary_serialization::BinarySerializer<bool>::serialize(message.boolean, bytes, bitsCount);
 }
 
 }

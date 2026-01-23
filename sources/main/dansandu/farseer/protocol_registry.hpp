@@ -4,7 +4,6 @@
 #include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/exception.hpp"
-#include "dansandu/farseer/protocol_metadata.hpp"
 
 #include <any>
 #include <map>
@@ -35,22 +34,21 @@ public:
     ProtocolRegistry& operator=(const ProtocolRegistry& other) = delete;
     ProtocolRegistry& operator=(ProtocolRegistry&& other) noexcept = delete;
 
-    template<typename T>
+    template<typename Protocol>
     int registerProtocol()
     {
-        using ProtocolMetadataType = dansandu::farseer::protocol_metadata::ProtocolMetadata<T>;
-        using BinarySerializerType = dansandu::farseer::binary_serialization::BinarySerializer<T>;
+        using BinarySerializerType = dansandu::farseer::binary_serialization::BinarySerializer<Protocol>;
 
-        const auto protocolIdentifier = ProtocolMetadataType::getProtocolIdentifier();
+        const auto protocolIdentifier = Protocol::Metadata::getProtocolIdentifier();
 
         const auto lock = std::lock_guard<std::mutex>{mutex_};
         const auto [position, inserted] = entries_.insert(
             {protocolIdentifier, Entry{
                                      .deserializer = [](const std::vector<uint8_t>& bytes, size_t& offset)
                                      { return std::any(BinarySerializerType::deserialize(bytes, offset)); },
-                                     .numberOfBits = ProtocolMetadataType::numberOfBits,
+                                     .numberOfBits = Protocol::Metadata::numberOfBits,
                                      .identifier = protocolIdentifier,
-                                     .hasStaticSize = ProtocolMetadataType::hasStaticSize,
+                                     .hasStaticSize = Protocol::Metadata::hasStaticSize,
                                  }});
 
         if (!inserted)

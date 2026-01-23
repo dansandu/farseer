@@ -3,7 +3,6 @@
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::binary_serialization::BinarySerializer;
-using dansandu::farseer::protocol_metadata::ProtocolMetadata;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::StaticMessage;
@@ -203,13 +202,13 @@ TEST_CASE("binary_serialization")
             .boolean = false,
         };
 
-        REQUIRE(ProtocolMetadata<StaticMessage>::hasStaticSize);
+        REQUIRE(StaticMessage::Metadata::hasStaticSize);
 
-        REQUIRE(ProtocolMetadata<StaticMessage>::numberOfBits == 33);
+        REQUIRE(StaticMessage::Metadata::numberOfBits == 33);
 
         BinarySerializer<StaticMessage>::serialize(message, bytes, bitsCount);
 
-        REQUIRE(ProtocolMetadata<StaticMessage>::numberOfBits == bitsCount);
+        REQUIRE(StaticMessage::Metadata::numberOfBits == bitsCount);
 
         const auto copy = BinarySerializer<StaticMessage>::deserialize(bytes, bitsOffset);
 
@@ -217,22 +216,22 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(message.boolean == copy.boolean);
 
-        REQUIRE(ProtocolMetadata<StaticMessage>::numberOfBits == bitsOffset);
+        REQUIRE(StaticMessage::Metadata::numberOfBits == bitsOffset);
     }
 
     SECTION("empty message")
     {
         const auto message = EmptyMessage{};
 
-        REQUIRE(ProtocolMetadata<EmptyMessage>::hasStaticSize);
+        REQUIRE(EmptyMessage::Metadata::hasStaticSize);
 
-        REQUIRE(ProtocolMetadata<EmptyMessage>::numberOfBits == 0);
+        REQUIRE(EmptyMessage::Metadata::numberOfBits == 0);
 
         BinarySerializer<EmptyMessage>::serialize(message, bytes, bitsCount);
 
         BinarySerializer<EmptyMessage>::deserialize(bytes, bitsOffset);
 
-        REQUIRE(ProtocolMetadata<EmptyMessage>::numberOfBits == bitsOffset);
+        REQUIRE(EmptyMessage::Metadata::numberOfBits == bitsOffset);
     }
 
     SECTION("dynamic message")
@@ -252,7 +251,7 @@ TEST_CASE("binary_serialization")
             .name = "my string",
         };
 
-        REQUIRE(!ProtocolMetadata<DynamicMessage>::hasStaticSize);
+        REQUIRE(!DynamicMessage::Metadata::hasStaticSize);
 
         BinarySerializer<DynamicMessage>::serialize(message, bytes, bitsCount);
 

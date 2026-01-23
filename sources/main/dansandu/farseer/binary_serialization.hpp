@@ -3,8 +3,8 @@
 #include "dansandu/ballotin/binary.hpp"
 #include "dansandu/ballotin/type_traits.hpp"
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/internal/protocol.hpp"
 
+#include <concepts>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -12,7 +12,7 @@
 namespace dansandu::farseer::binary_serialization
 {
 
-using AssociatedUnsignedType =
+using AssociatedUnsignedTypes =
     dansandu::ballotin::type_traits::TypeDictionary<dansandu::ballotin::type_traits::TypeEntry<int8_t, uint8_t>,
                                                     dansandu::ballotin::type_traits::TypeEntry<int16_t, uint16_t>,
                                                     dansandu::ballotin::type_traits::TypeEntry<int32_t, uint32_t>,
@@ -23,13 +23,23 @@ using AssociatedUnsignedType =
                                                     dansandu::ballotin::type_traits::TypeEntry<uint64_t, uint64_t>,
                                                     dansandu::ballotin::type_traits::TypeEntry<char, unsigned char>>;
 
-template<typename T>
-struct BinarySerializer
-{
-    using DecayedType = std::decay_t<T>;
-    using UnsignedType = AssociatedUnsignedType::Get<DecayedType>;
+template<typename PrimitiveType>
+concept SerializablePrimitiveType = AssociatedUnsignedTypes::containsKey<PrimitiveType>;
 
-    static DecayedType deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+template<typename Protocol>
+concept SerializableProtocol =
+    std::is_same_v<decltype(Protocol::Metadata::deserialize), Protocol(const std::vector<uint8_t>&, size_t&)> &&
+    std::is_same_v<decltype(Protocol::Metadata::serialize), void(const Protocol&, std::vector<uint8_t>&, size_t&)>;
+
+template<typename T>
+struct BinarySerializer;
+
+template<SerializablePrimitiveType PrimitiveType>
+struct BinarySerializer<PrimitiveType>
+{
+    using UnsignedType = AssociatedUnsignedTypes::Get<PrimitiveType>;
+
+    static PrimitiveType deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
         using dansandu::ballotin::binary::bitsPerByte;
         using dansandu::ballotin::binary::getMostSignificantBits;
@@ -39,12 +49,26 @@ struct BinarySerializer
         return static_cast<UnsignedType>(bits);
     }
 
-    static void serialize(const DecayedType& value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const PrimitiveType& value, std::vector<uint8_t>& bytes, size_t& bitsCount)
     {
         using dansandu::ballotin::binary::bitsPerByte;
         using dansandu::ballotin::binary::pushBitsMostSignificant;
 
         pushBitsMostSignificant(bytes, bitsCount, static_cast<UnsignedType>(value), bitsPerByte * sizeof(UnsignedType));
+    }
+};
+
+template<SerializableProtocol Protocol>
+struct BinarySerializer<Protocol>
+{
+    static Protocol deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        return Protocol::Metadata::deserialize(bytes, bitsOffset);
+    }
+
+    static void serialize(const Protocol& value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    {
+        Protocol::Metadata::serialize(value, bytes, bitsCount);
     }
 };
 
