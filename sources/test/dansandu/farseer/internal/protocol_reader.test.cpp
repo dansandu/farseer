@@ -5,7 +5,6 @@
 using dansandu::farseer::ProtocolIdentifier;
 using dansandu::farseer::binary_serialization::BinarySerializer;
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
-using dansandu::farseer::protocol_metadata::ProtocolMetadata;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::StaticMessage;
@@ -25,14 +24,14 @@ TEST_CASE("protocol_reader")
             .boolean = true,
         };
 
-        BinarySerializer<ProtocolIdentifier>::serialize(ProtocolMetadata<StaticMessage>::getProtocolIdentifier(), bytes,
+        BinarySerializer<ProtocolIdentifier>::serialize(StaticMessage::Metadata::getProtocolIdentifier(), bytes,
                                                         bitsCount);
 
         BinarySerializer<StaticMessage>::serialize(expectedMessage, bytes, bitsCount);
 
         auto receivedProtocol = std::any{};
 
-        protocolReader.registerProtocolConsumer(ProtocolMetadata<StaticMessage>::getProtocolIdentifier(),
+        protocolReader.registerProtocolConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
                                                 [&receivedProtocol](std::any protocol)
                                                 { receivedProtocol = protocol; });
 
@@ -54,14 +53,14 @@ TEST_CASE("protocol_reader")
             .boolean = false,
         };
 
-        BinarySerializer<ProtocolIdentifier>::serialize(ProtocolMetadata<StaticMessage>::getProtocolIdentifier(), bytes,
+        BinarySerializer<ProtocolIdentifier>::serialize(StaticMessage::Metadata::getProtocolIdentifier(), bytes,
                                                         bitsCount);
 
         BinarySerializer<StaticMessage>::serialize(expectedMessage, bytes, bitsCount);
 
         auto receivedProtocol = std::any{};
 
-        protocolReader.registerProtocolConsumer(ProtocolMetadata<StaticMessage>::getProtocolIdentifier(),
+        protocolReader.registerProtocolConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
                                                 [&receivedProtocol](std::any protocol)
                                                 { receivedProtocol = protocol; });
 

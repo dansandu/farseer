@@ -4,7 +4,6 @@
 #include "dansandu/ballotin/exception.hpp"
 #include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/protocol_metadata.hpp"
 
 namespace dansandu::farseer::packet_serialization
 {
@@ -14,15 +13,13 @@ std::vector<uint8_t> serializeMessagePacket(const Message& message)
 {
     using dansandu::ballotin::binary::bitsPerByte;
     using dansandu::farseer::binary_serialization::BinarySerializer;
-    using dansandu::farseer::protocol_metadata::ProtocolMetadata;
 
     auto bytes = std::vector<uint8_t>{};
     auto bitsCount = size_t{0};
 
-    BinarySerializer<ProtocolIdentifier>::serialize(ProtocolMetadata<Message>::getProtocolIdentifier(), bytes,
-                                                    bitsCount);
+    BinarySerializer<ProtocolIdentifier>::serialize(Message::Metadata::getProtocolIdentifier(), bytes, bitsCount);
 
-    if constexpr (ProtocolMetadata<Message>::hasStaticSize)
+    if constexpr (Message::Metadata::hasStaticSize)
     {
         BinarySerializer<Message>::serialize(message, bytes, bitsCount);
     }
