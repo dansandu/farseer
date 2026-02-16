@@ -31,8 +31,8 @@ WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketServiceId 
     if (socket_ != INVALID_SOCKET)
     {
         const auto numberOfConcurrentThreads = 0;
-        const auto completionPortResult = ::CreateIoCompletionPort(reinterpret_cast<HANDLE>(socket_), completionPort,
-                                                                   serviceId.getInteger(), numberOfConcurrentThreads);
+        const auto completionPortResult = ::CreateIoCompletionPort(
+            reinterpret_cast<HANDLE>(socket_), completionPort, serviceId.getUnderlying(), numberOfConcurrentThreads);
         if (completionPortResult == nullptr)
         {
             ::closesocket(socket_);

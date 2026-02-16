@@ -15,7 +15,7 @@
 namespace dansandu::farseer::internal::windows::asynchronous_operation
 {
 
-constexpr auto initialCompletionKey = InvalidServiceId.getInteger();
+constexpr auto initialCompletionKey = InvalidServiceId.getUnderlying();
 
 class IAsynchronousOperationsRegistry
 {
@@ -34,6 +34,9 @@ public:
     virtual void createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId) = 0;
 
     virtual void createReceiveAsynchronousOperation(const SocketServiceId serviceId) = 0;
+
+    virtual void createSendBytesAsynchronousOperation(const SocketServiceId serviceId,
+                                                      std::vector<uint8_t>&& bytes) = 0;
 };
 
 class AsynchronousOperation
@@ -56,6 +59,7 @@ public:
 
     virtual void
     postToCompletionPort(dansandu::farseer::internal::windows::socket_service::SocketServiceContainer& services,
+                         IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
                          const HANDLE completionPort) = 0;
 
     virtual bool finalize(dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId>& sequencer,
@@ -97,11 +101,20 @@ public:
 
     void createReceiveAsynchronousOperation(const SocketServiceId serviceId) override;
 
+    void createSendBytesAsynchronousOperation(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes) override;
+
+    void createSendRequestAsynchronousOperation(const SocketServiceId serviceId,
+                                                const ProtocolSequenceNumber sequenceNumber,
+                                                std::vector<uint8_t>&& bytes,
+                                                Function<void(std::any&&)>&& expectedResponseConsumer);
+
     void createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
                                                             const ProtocolIdentifier protocolIdentifier,
-                                                            std::function<void(std::any)> messageConsumer);
+                                                            Function<void(std::any&&)>&& messageConsumer);
 
-    void createSendBytesAsynchronousOperation(const SocketServiceId serviceId, std::vector<uint8_t> bytes);
+    void createRegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
+                                                            const ProtocolIdentifier protocolIdentifier,
+                                                            Function<std::any(std::any&&)>&& requestConsumer);
 
     void createCloseAsynchronousOperation(const SocketServiceId serviceId);
 

@@ -1,21 +1,43 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
+#include "dansandu/farseer/protocol_serialization.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::ProtocolIdentifier;
-using dansandu::farseer::binary_serialization::BinarySerializer;
+using dansandu::farseer::ProtocolSequenceNumber;
+using dansandu::farseer::SocketServiceId;
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
+using dansandu::farseer::protocol_serialization::serializeMessageProtocol;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::StaticMessage;
 
 TEST_CASE("protocol_reader")
 {
-    auto bytes = std::vector<uint8_t>{};
+    const auto receiverSocketServiceId = SocketServiceId{};
 
-    auto bitsCount = size_t{0};
+    auto outboundBuffer = std::vector<uint8_t>{};
 
-    auto protocolReader = ProtocolReader{};
+    auto protocolReader = ProtocolReader{[&](const SocketServiceId, std::vector<uint8_t>&& bytes)
+                                         { outboundBuffer.insert(outboundBuffer.end(), bytes.begin(), bytes.end()); }};
+
+    SECTION("empty message")
+    {
+        const auto bytes = serializeMessageProtocol(EmptyMessage{});
+
+        auto protocol = std::any{};
+
+        protocolReader.registerMessageConsumer(EmptyMessage::Metadata::getProtocolIdentifier(),
+                                               [&protocol](std::any&& message) { protocol = std::move(message); });
+
+        protocolReader.read(receiverSocketServiceId, bytes);
+
+        REQUIRE(protocol.has_value());
+
+        const auto& message = std::any_cast<const EmptyMessage&>(protocol);
+
+        static_cast<void>(message);
+    }
 
     SECTION("static message")
     {
@@ -24,26 +46,22 @@ TEST_CASE("protocol_reader")
             .boolean = true,
         };
 
-        BinarySerializer<ProtocolIdentifier>::serialize(StaticMessage::Metadata::getProtocolIdentifier(), bytes,
-                                                        bitsCount);
+        const auto bytes = serializeMessageProtocol(expectedMessage);
 
-        BinarySerializer<StaticMessage>::serialize(expectedMessage, bytes, bitsCount);
+        auto protocol = std::any{};
 
-        auto receivedProtocol = std::any{};
+        protocolReader.registerMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
+                                               [&protocol](std::any&& message) { protocol = std::move(message); });
 
-        protocolReader.registerProtocolConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
-                                                [&receivedProtocol](std::any protocol)
-                                                { receivedProtocol = protocol; });
+        protocolReader.read(receiverSocketServiceId, bytes);
 
-        protocolReader.read(bytes);
+        REQUIRE(protocol.has_value());
 
-        REQUIRE(receivedProtocol.has_value());
+        const auto& message = std::any_cast<const StaticMessage&>(protocol);
 
-        const auto actualMessage = std::any_cast<StaticMessage>(receivedProtocol);
+        REQUIRE(message.integer == expectedMessage.integer);
 
-        REQUIRE(actualMessage.integer == expectedMessage.integer);
-
-        REQUIRE(actualMessage.boolean == expectedMessage.boolean);
+        REQUIRE(message.boolean == expectedMessage.boolean);
     }
 
     SECTION("partial static message")
@@ -53,35 +71,74 @@ TEST_CASE("protocol_reader")
             .boolean = false,
         };
 
-        BinarySerializer<ProtocolIdentifier>::serialize(StaticMessage::Metadata::getProtocolIdentifier(), bytes,
-                                                        bitsCount);
+        const auto bytes = serializeMessageProtocol(expectedMessage);
 
-        BinarySerializer<StaticMessage>::serialize(expectedMessage, bytes, bitsCount);
+        auto protocol = std::any{};
 
-        auto receivedProtocol = std::any{};
-
-        protocolReader.registerProtocolConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
-                                                [&receivedProtocol](std::any protocol)
-                                                { receivedProtocol = protocol; });
+        protocolReader.registerMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
+                                               [&protocol](std::any&& message) { protocol = std::move(message); });
 
         const auto halfBytesCount = bytes.size() / 2;
 
-        const auto firstHalfBytes = std::vector<uint8_t>(bytes.cbegin(), bytes.cbegin() + halfBytesCount);
+        const auto bytesFirstHalf = std::vector<uint8_t>(bytes.cbegin(), bytes.cbegin() + halfBytesCount);
 
-        const auto secondHalfBytes = std::vector<uint8_t>(bytes.cbegin() + halfBytesCount, bytes.cend());
+        const auto bytesSecondHalf = std::vector<uint8_t>(bytes.cbegin() + halfBytesCount, bytes.cend());
 
-        protocolReader.read(firstHalfBytes);
+        protocolReader.read(receiverSocketServiceId, bytesFirstHalf);
 
-        REQUIRE(!receivedProtocol.has_value());
+        REQUIRE(!protocol.has_value());
 
-        protocolReader.read(secondHalfBytes);
+        protocolReader.read(receiverSocketServiceId, bytesSecondHalf);
 
-        REQUIRE(receivedProtocol.has_value());
+        REQUIRE(protocol.has_value());
 
-        const auto actualMessage = std::any_cast<StaticMessage>(receivedProtocol);
+        const auto& message = std::any_cast<const StaticMessage&>(protocol);
 
-        REQUIRE(actualMessage.integer == expectedMessage.integer);
+        REQUIRE(message.integer == expectedMessage.integer);
 
-        REQUIRE(actualMessage.boolean == expectedMessage.boolean);
+        REQUIRE(message.boolean == expectedMessage.boolean);
+    }
+
+    SECTION("dynamic message")
+    {
+        const auto expectedMessage = DynamicMessage{
+            .messages =
+                {
+                    StaticMessage{
+                        .integer = 12345,
+                        .boolean = false,
+                    },
+                    StaticMessage{
+                        .integer = 67890,
+                        .boolean = true,
+                    },
+                },
+            .name = "dynamic message",
+        };
+
+        const auto bytes = serializeMessageProtocol(expectedMessage);
+
+        auto protocol = std::any{};
+
+        protocolReader.registerMessageConsumer(DynamicMessage::Metadata::getProtocolIdentifier(),
+                                               [&protocol](std::any&& message) { protocol = std::move(message); });
+
+        protocolReader.read(receiverSocketServiceId, bytes);
+
+        REQUIRE(protocol.has_value());
+
+        const auto& message = std::any_cast<const DynamicMessage&>(protocol);
+
+        REQUIRE(message.messages.size() == expectedMessage.messages.size());
+
+        REQUIRE(message.messages.at(0).integer == expectedMessage.messages.at(0).integer);
+
+        REQUIRE(message.messages.at(0).boolean == expectedMessage.messages.at(0).boolean);
+
+        REQUIRE(message.messages.at(1).integer == expectedMessage.messages.at(1).integer);
+
+        REQUIRE(message.messages.at(1).boolean == expectedMessage.messages.at(1).boolean);
+
+        REQUIRE(message.name == expectedMessage.name);
     }
 }

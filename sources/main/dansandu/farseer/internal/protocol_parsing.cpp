@@ -7,6 +7,8 @@
 #include "dansandu/glyph/symbol.hpp"
 #include "dansandu/glyph/token.hpp"
 
+#include <algorithm>
+#include <numeric>
 #include <set>
 #include <string_view>
 #include <vector>
@@ -38,12 +40,12 @@ constexpr auto protocolGrammar = R"(
     /* 2*/ NamespaceDefinition -> namespace module semicolon
     /* 3*/ ProtocolDefinitions -> ProtocolDefinitions MessageDefinition
     /* 4*/ ProtocolDefinitions -> ProtocolDefinitions RequestDefinition
-    /* 5*/ ProtocolDefinitions -> 
+    /* 5*/ ProtocolDefinitions ->
     /* 6*/ MessageDefinition -> message identifier bracesBegin Fields bracesEnd
     /* 7*/ RequestDefinition -> request identifier bracesBegin RequestFields response bracesBegin Fields bracesEnd bracesEnd
     /* 8*/ RequestFields -> Fields
     /* 9*/ Fields -> Fields Type identifier semicolon
-    /*10*/ Fields -> 
+    /*10*/ Fields ->
     /*11*/ Type -> int32
     /*12*/ Type -> int64
     /*13*/ Type -> uint32
@@ -116,9 +118,10 @@ Protocol parseProtocol(const std::string_view text)
 {
     static const ProtocolParser parser;
     static const std::set<std::string> reservedIdentifierNames = {
-        "Response", "static", "module", "namespace", "template",  "typename", "if",       "else",    "switch",
-        "while",    "for",    "class",  "struct",    "char",      "short",    "unsigned", "int",     "long",
-        "float",    "double", "const",  "constexpr", "consteval", "this",     "decltype", "default", "delete",
+        "Response", "static",  "module", "namespace", "template", "typename",  "if",        "else",
+        "switch",   "while",   "for",    "class",     "struct",   "char",      "short",     "unsigned",
+        "int",      "long",    "float",  "double",    "const",    "constexpr", "consteval", "this",
+        "decltype", "default", "delete", "Metadata",  "auto",     "std",
     };
 
     const auto nodes = parser.parse(text);
@@ -155,6 +158,9 @@ Protocol parseProtocol(const std::string_view text)
         }
         else
         {
+            const auto numberOfBitsAccumulator = [](const auto total, const auto& field)
+            { return total + field.staticNumberOfBits; };
+
             switch (node.getRuleIndex())
             {
             case 2:
@@ -168,26 +174,34 @@ Protocol parseProtocol(const std::string_view text)
                 const auto token = pop(stack);
                 const auto hasStaticSize =
                     std::all_of(fields.cbegin(), fields.cend(), [](const auto& field) { return field.hasStaticSize; });
-
-                auto numberOfBits = 0ull;
-                for (const auto& field : fields)
-                {
-                    numberOfBits += field.numberOfBits;
-                }
-
+                const auto staticNumberOfBits =
+                    std::accumulate(fields.cbegin(), fields.cend(), ProtocolSize{}, numberOfBitsAccumulator);
                 protocol.messages.push_back(MessageProtocol{.identifier = getTokenText(token),
                                                             .fields = std::move(fields),
                                                             .hasStaticSize = hasStaticSize,
-                                                            .numberOfBits = numberOfBits});
+                                                            .staticNumberOfBits = staticNumberOfBits});
                 break;
             }
             case 7:
             {
                 const auto token = pop(stack);
+                const auto requestStaticNumberOfBits = std::accumulate(requestFields.cbegin(), requestFields.cend(),
+                                                                       ProtocolSize{}, numberOfBitsAccumulator);
+                const auto responseStaticNumberOfBits =
+                    std::accumulate(fields.cbegin(), fields.cend(), ProtocolSize{}, numberOfBitsAccumulator);
+
+                const auto selector = [](const auto& field) { return field.hasStaticSize; };
+                const auto requestHasStaticSize = std::all_of(requestFields.cbegin(), requestFields.cend(), selector);
+                const auto responseHasStaticSize = std::all_of(fields.cbegin(), fields.cend(), selector);
+
                 protocol.requests.push_back(RequestProtocol{
                     .identifier = getTokenText(token),
                     .requestFields = std::move(requestFields),
                     .responseFields = std::move(fields),
+                    .requestStaticNumberOfBits = requestStaticNumberOfBits,
+                    .responseStaticNumberOfBits = responseStaticNumberOfBits,
+                    .requestHasStaticSize = requestHasStaticSize,
+                    .responseHasStaticSize = responseHasStaticSize,
                 });
                 break;
             }
@@ -200,12 +214,12 @@ Protocol parseProtocol(const std::string_view text)
             {
                 const auto token = pop(stack);
                 const auto hasStaticSize = type.hasStaticSize();
-                const auto numberOfBits = type.getNumberOfBits();
+                const auto staticNumberOfBits = type.getStaticNumberOfBits();
                 fields.push_back(Field{
                     .type = std::move(type),
                     .identifier = getTokenText(token),
                     .hasStaticSize = hasStaticSize,
-                    .numberOfBits = numberOfBits,
+                    .staticNumberOfBits = staticNumberOfBits,
                 });
                 break;
             }
@@ -260,7 +274,7 @@ Protocol parseProtocol(const std::string_view text)
                 }
 
                 type = Type::fromMessage(referencedMessageIdentifier, referencedMessage->hasStaticSize,
-                                         referencedMessage->numberOfBits);
+                                         referencedMessage->staticNumberOfBits);
                 break;
             }
             case 0:

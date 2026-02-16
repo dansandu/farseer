@@ -1,9 +1,7 @@
 #pragma once
 
-#include "dansandu/ballotin/exception.hpp"
-#include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/exception.hpp"
+#include "dansandu/farseer/protocol_serialization.hpp"
 
 #include <any>
 #include <map>
@@ -12,59 +10,67 @@
 namespace dansandu::farseer::protocol_registry
 {
 
+enum class ProtocolType
+{
+    message,
+    request,
+    response,
+};
+
+struct ProtocolDescriptor
+{
+    ProtocolType protocolType;
+    ProtocolDeserializer protocolDeserializer;
+    ExpectedResponseProtocolSerializer expectedResponseSerializer;
+};
+
 class PRALINE_EXPORT ProtocolRegistry
 {
 public:
-    using DeserializerType = std::any (*)(const std::vector<uint8_t>& bytes, size_t& offset);
-
-    struct Entry
-    {
-        DeserializerType deserializer;
-        uint64_t numberOfBits;
-        ProtocolIdentifier identifier;
-        bool hasStaticSize;
-    };
-
     static ProtocolRegistry& getGlobalInstance();
-
-    ProtocolRegistry() = default;
 
     ProtocolRegistry(const ProtocolRegistry& other) = delete;
     ProtocolRegistry(ProtocolRegistry&& other) noexcept = delete;
     ProtocolRegistry& operator=(const ProtocolRegistry& other) = delete;
     ProtocolRegistry& operator=(ProtocolRegistry&& other) noexcept = delete;
 
-    template<typename Protocol>
-    int registerProtocol()
+    template<typename Message>
+    int registerMessageProtocol()
     {
-        using BinarySerializerType = dansandu::farseer::binary_serialization::BinarySerializer<Protocol>;
-
-        const auto protocolIdentifier = Protocol::Metadata::getProtocolIdentifier();
-
-        const auto lock = std::lock_guard<std::mutex>{mutex_};
-        const auto [position, inserted] = entries_.insert(
-            {protocolIdentifier, Entry{
-                                     .deserializer = [](const std::vector<uint8_t>& bytes, size_t& offset)
-                                     { return std::any(BinarySerializerType::deserialize(bytes, offset)); },
-                                     .numberOfBits = Protocol::Metadata::numberOfBits,
-                                     .identifier = protocolIdentifier,
-                                     .hasStaticSize = Protocol::Metadata::hasStaticSize,
-                                 }});
-
-        if (!inserted)
-        {
-            using dansandu::farseer::exception::ProtocolIdentifierAlreadyRegisteredError;
-            THROW(ProtocolIdentifierAlreadyRegisteredError, "a protocol is already registered with identifier '",
-                  protocolIdentifier, "'");
-        }
-
+        registerMessageProtocol(Message::Metadata::getProtocolIdentifier(),
+                                dansandu::farseer::protocol_serialization::tryDeserializeMessageProtocol<Message>);
         return 0;
     }
 
-    const Entry& getProtocol(const ProtocolIdentifier identifier) const;
+    template<typename Request>
+    int registerRequestProtocol()
+    {
+        registerRequestProtocol(
+            Request::Metadata::getProtocolIdentifier(),
+            dansandu::farseer::protocol_serialization::tryDeserializeRequestProtocol<Request>,
+            Request::Response::Metadata::getProtocolIdentifier(),
+            dansandu::farseer::protocol_serialization::tryDeserializeExpectedResponseProtocol<
+                typename Request::Response>,
+            dansandu::farseer::protocol_serialization::serializeExpectedResponseProtocol<typename Request::Response>);
+        return 0;
+    }
+
+    bool isProtocolRegistered(const ProtocolIdentifier identifier) const;
+
+    ProtocolDescriptor getProtocolDescriptor(const ProtocolIdentifier identifier) const;
 
 private:
-    std::map<ProtocolIdentifier, Entry> entries_;
+    ProtocolRegistry() = default;
+
+    void registerMessageProtocol(const ProtocolIdentifier identifier, const ProtocolDeserializer deserializer);
+
+    void registerRequestProtocol(const ProtocolIdentifier requestIdentifier,
+                                 const ProtocolDeserializer requestDeserializer,
+                                 const ProtocolIdentifier responseIdentifier,
+                                 const ProtocolDeserializer expectedResponseDeserializer,
+                                 const ExpectedResponseProtocolSerializer expectedResponseSerializer);
+
+    std::map<ProtocolIdentifier, ProtocolDescriptor> protocolDescriptors_;
     mutable std::mutex mutex_;
 };
 

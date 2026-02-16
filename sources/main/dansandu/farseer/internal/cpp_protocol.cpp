@@ -7,6 +7,7 @@
 
 using dansandu::ballotin::string::join;
 using dansandu::ballotin::string::split;
+using dansandu::farseer::internal::protocol::Field;
 using dansandu::farseer::internal::protocol::MessageProtocol;
 using dansandu::farseer::internal::protocol::Protocol;
 using dansandu::farseer::internal::protocol::RequestProtocol;
@@ -22,22 +23,21 @@ void generateMessages(const std::vector<MessageProtocol>& messages, std::ostream
     for (const auto& message : messages)
     {
         // clang-format off
-        stream 
-        << "struct PRALINE_EXPORT " << message.identifier << "\n"
-        << "{\n"
-        << "    struct PRALINE_EXPORT Metadata\n"
-        << "    {\n"
-        << "        static dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();\n"
-        << "\n"
-        << "        static " << message.identifier << " deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
-        << "\n"
-        << "        static void serialize(const " << message.identifier << "& message, std::vector<uint8_t>& bytes, size_t& bitsCount);\n"
-        << "\n"
-        << "        static constexpr auto hasStaticSize = " << message.hasStaticSize << ";\n"
-        << "\n"
-        << "        static constexpr auto numberOfBits = uint64_t{" << message.numberOfBits << "ULL};\n"
-        << "    };\n"
-        << "\n";
+        stream << "struct PRALINE_EXPORT " << message.identifier << "\n"
+               << "{\n"
+               << "    struct PRALINE_EXPORT Metadata\n"
+               << "    {\n"
+               << "        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();\n"
+               << "\n"
+               << "        static " << message.identifier << " deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
+               << "\n"
+               << "        static void serialize(const " << message.identifier << "& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
+               << "\n"
+               << "        static constexpr auto hasStaticSize = " << message.hasStaticSize << ";\n"
+               << "\n"
+               << "        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << message.staticNumberOfBits << "UL};\n"
+               << "    };\n"
+               << "\n";
         // clang-format on
 
         for (const auto& field : message.fields)
@@ -49,65 +49,93 @@ void generateMessages(const std::vector<MessageProtocol>& messages, std::ostream
     }
 }
 
-void generateMessagesMetadataDefinitions(const std::vector<MessageProtocol>& messages, std::ostream& stream)
-{
-    for (const auto& message : messages)
-    {
-        // clang-format off
-        stream << "dansandu::farseer::ProtocolIdentifier " << message.identifier << "::Metadata::getProtocolIdentifier()\n"
-               << "{\n"
-               << "    return dansandu::farseer::ProtocolIdentifier{" << message.getHashCode() << "U};\n"
-               << "}\n"
-               << "\n"
-               << message.identifier << " " << message.identifier << "::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)\n"
-               << "{\n"
-               << "    auto message = " << message.identifier << "{};\n";
-        for (const auto& field : message.fields)
-        {
-            stream << "    message." << field.identifier
-                   << " = dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
-                   << ">::deserialize(bytes, bitsOffset);\n";
-        }
-        stream << "    return message;\n"
-               << "}\n"
-               << "\n"
-               << "void " << message.identifier << "::Metadata::serialize(const " << message.identifier << "& message, std::vector<uint8_t>& bytes, size_t& bitsCount)\n"
-               << "{\n";
-        for (const auto& field : message.fields)
-        {
-            stream << "    dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
-                   << ">::serialize(message." << field.identifier << ", bytes, bitsCount);\n";
-        }
-        stream << "}\n\n";
-        // clang-format on
-    }
-}
-
-void generateRequestStructures(const std::vector<RequestProtocol>& requests, std::ostream& stream)
+void generateRequests(const std::vector<RequestProtocol>& requests, std::ostream& stream)
 {
     for (const auto& request : requests)
     {
-        stream << "struct PRALINE_EXPORT " << request.identifier << "\n{\n"
-               << "    static constexpr uint32_t identifier = " << request.getHashCode() << "u;\n\n"
-               << "    void deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);\n\n"
-               << "    void serialize(std::vector<uint8_t>& bytes, size_t& bitsCount) const;\n\n";
+        // clang-format off
+        stream << "struct PRALINE_EXPORT " << request.identifier << "\n"
+               << "{\n"
+               << "    struct PRALINE_EXPORT Metadata\n"
+               << "    {\n"
+               << "        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();\n"
+               << "\n"
+               << "        static " << request.identifier << " deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
+               << "\n"
+               << "        static void serialize(const " << request.identifier << "& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
+               << "\n"
+               << "        static constexpr auto hasStaticSize = " << request.requestHasStaticSize << ";\n"
+               << "\n"
+               << "        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << request.requestStaticNumberOfBits << "UL};\n"
+               << "    };\n"
+               << "\n";
+        // clang-format on
 
         for (const auto& field : request.requestFields)
         {
             stream << "    " << field.type.getCppType() << " " << field.identifier << ";\n";
         }
 
-        stream << "\n    struct PRALINE_EXPORT Response\n    {\n"
-               << "        void deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);\n\n"
-               << "        void serialize(std::vector<uint8_t>& bytes, size_t& bitsCount) const;\n\n";
+        stream << "\n";
+
+        // clang-format off
+        stream << "    struct PRALINE_EXPORT Response\n"
+               << "    {\n"
+               << "        struct PRALINE_EXPORT Metadata\n"
+               << "        {\n"
+               << "            static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();\n"
+               << "\n"
+               << "            static Response deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
+               << "\n"
+               << "            static void serialize(const Response& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
+               << "\n"
+               << "            static constexpr auto hasStaticSize = " << request.responseHasStaticSize << ";\n"
+               << "\n"
+               << "            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << request.responseStaticNumberOfBits << "UL};\n"
+               << "        };\n"
+               << "\n";
+        // clang-format on
 
         for (const auto& field : request.responseFields)
         {
             stream << "        " << field.type.getCppType() << " " << field.identifier << ";\n";
         }
 
-        stream << "    };\n};\n\n";
+        stream << "    };\n"
+               << "};\n\n";
     }
+}
+
+void generateProtocolMetadataDefinition(const std::string& identifier, const std::vector<Field>& fields,
+                                        const uint32_t hashCode, std::ostream& stream)
+{
+    // clang-format off
+    stream << "::dansandu::farseer::ProtocolIdentifier " << identifier << "::Metadata::getProtocolIdentifier()\n"
+           << "{\n"
+           << "    return ::dansandu::farseer::ProtocolIdentifier{" << hashCode << "U};\n"
+           << "}\n"
+           << "\n"
+           << identifier << " " << identifier << "::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)\n"
+           << "{\n"
+           << "    auto protocol = " << identifier << "{};\n";
+    for (const auto& field : fields)
+    {
+        stream << "    protocol." << field.identifier
+               << " = ::dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
+               << ">::deserialize(bytes, bitsOffset);\n";
+    }
+    stream << "    return protocol;\n"
+           << "}\n"
+           << "\n"
+           << "void " << identifier << "::Metadata::serialize(const " << identifier << "& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset)\n"
+           << "{\n";
+    for (const auto& field : fields)
+    {
+        stream << "    ::dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
+               << ">::serialize(protocol." << field.identifier << ", bytes, bitsOffset);\n";
+    }
+    stream << "}\n\n";
+    // clang-format on
 }
 
 }
@@ -121,13 +149,12 @@ std::string generateProtocolCppHeader(const Protocol& protocol)
     const auto cppNamespace = join(split(protocol.fileNamespace, "."), "::");
 
     stream << "#pragma once\n\n"
-           << "#include \"dansandu/farseer/binary_serialization.hpp\"\n"
            << "#include \"dansandu/farseer/common.hpp\"\n\n"
            << "namespace " << cppNamespace << "\n{\n\n";
 
     generateMessages(protocol.messages, stream);
 
-    generateRequestStructures(protocol.requests, stream);
+    generateRequests(protocol.requests, stream);
 
     stream << "}\n";
 
@@ -145,11 +172,24 @@ std::string generateProtocolCppSource(const Protocol& protocol)
     stream << std::boolalpha;
 
     stream << "#include \"" << cppInclude << ".g.hpp\"\n"
+           << "#include \"dansandu/farseer/binary_serialization.hpp\"\n"
            << "#include \"dansandu/farseer/protocol_registry.hpp\"\n"
            << "#include \"dansandu/journey/macro.hpp\"\n\n"
            << "namespace " << cppNamespace << "\n{\n\n";
 
-    generateMessagesMetadataDefinitions(protocol.messages, stream);
+    for (const auto& message : protocol.messages)
+    {
+        generateProtocolMetadataDefinition(message.identifier, message.fields, message.getHashCode(), stream);
+    }
+
+    for (const auto& request : protocol.requests)
+    {
+        generateProtocolMetadataDefinition(request.identifier, request.requestFields, request.getRequestHashCode(),
+                                           stream);
+
+        generateProtocolMetadataDefinition(request.identifier + "::Response", request.responseFields,
+                                           request.getResponseHashCode(), stream);
+    }
 
     stream << "}\n\n";
 
@@ -157,9 +197,20 @@ std::string generateProtocolCppSource(const Protocol& protocol)
 
     for (const auto& message : protocol.messages)
     {
-        stream << "const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = \n"
-               << "    dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerProtocol<"
-               << cppNamespace << "::" << message.identifier << ">();\n\n";
+        stream
+            << "const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = \n"
+            << "    "
+               "::dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerMessageProtocol<"
+            << cppNamespace << "::" << message.identifier << ">();\n\n";
+    }
+
+    for (const auto& request : protocol.requests)
+    {
+        stream
+            << "const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = \n"
+            << "    "
+               "::dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerRequestProtocol<"
+            << cppNamespace << "::" << request.identifier << ">();\n\n";
     }
 
     stream << "}\n";

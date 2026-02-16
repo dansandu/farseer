@@ -2,9 +2,11 @@
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
+using dansandu::farseer::Expected;
 using dansandu::farseer::binary_serialization::BinarySerializer;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
+using dansandu::farseer::sample_protocol::MyRequest;
 using dansandu::farseer::sample_protocol::StaticMessage;
 
 TEST_CASE("binary_serialization")
@@ -204,11 +206,11 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(StaticMessage::Metadata::hasStaticSize);
 
-        REQUIRE(StaticMessage::Metadata::numberOfBits == 33);
+        REQUIRE(StaticMessage::Metadata::staticNumberOfBits.getUnderlying() == 33);
 
         BinarySerializer<StaticMessage>::serialize(message, bytes, bitsCount);
 
-        REQUIRE(StaticMessage::Metadata::numberOfBits == bitsCount);
+        REQUIRE(StaticMessage::Metadata::staticNumberOfBits.getUnderlying() == bitsCount);
 
         const auto copy = BinarySerializer<StaticMessage>::deserialize(bytes, bitsOffset);
 
@@ -216,7 +218,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(message.boolean == copy.boolean);
 
-        REQUIRE(StaticMessage::Metadata::numberOfBits == bitsOffset);
+        REQUIRE(StaticMessage::Metadata::staticNumberOfBits.getUnderlying() == bitsOffset);
     }
 
     SECTION("empty message")
@@ -225,13 +227,13 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(EmptyMessage::Metadata::hasStaticSize);
 
-        REQUIRE(EmptyMessage::Metadata::numberOfBits == 0);
+        REQUIRE(EmptyMessage::Metadata::staticNumberOfBits.getUnderlying() == 0);
 
         BinarySerializer<EmptyMessage>::serialize(message, bytes, bitsCount);
 
         BinarySerializer<EmptyMessage>::deserialize(bytes, bitsOffset);
 
-        REQUIRE(EmptyMessage::Metadata::numberOfBits == bitsOffset);
+        REQUIRE(EmptyMessage::Metadata::staticNumberOfBits.getUnderlying() == bitsOffset);
     }
 
     SECTION("dynamic message")
@@ -259,14 +261,74 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(message.messages.size() == copy.messages.size());
 
-        REQUIRE(message.messages[0].integer == copy.messages[0].integer);
+        REQUIRE(message.messages.at(0).integer == copy.messages.at(0).integer);
 
-        REQUIRE(message.messages[0].boolean == copy.messages[0].boolean);
+        REQUIRE(message.messages.at(0).boolean == copy.messages.at(0).boolean);
 
-        REQUIRE(message.messages[1].integer == copy.messages[1].integer);
+        REQUIRE(message.messages.at(1).integer == copy.messages.at(1).integer);
 
-        REQUIRE(message.messages[1].boolean == copy.messages[1].boolean);
+        REQUIRE(message.messages.at(1).boolean == copy.messages.at(1).boolean);
 
         REQUIRE(message.name == copy.name);
+    }
+
+    SECTION("request")
+    {
+        const auto request = MyRequest{
+            .user = "billy",
+            .password = "12345",
+        };
+
+        REQUIRE(!MyRequest::Metadata::hasStaticSize);
+
+        BinarySerializer<MyRequest>::serialize(request, bytes, bitsCount);
+
+        const auto copy = BinarySerializer<MyRequest>::deserialize(bytes, bitsOffset);
+
+        REQUIRE(request.user == copy.user);
+
+        REQUIRE(request.password == copy.password);
+    }
+
+    SECTION("response")
+    {
+        SECTION("success")
+        {
+            const auto response = Expected<MyRequest::Response>::fromSuccess(MyRequest::Response{
+                .contacts = {"sam", "jim", "jason"},
+                .authenticationToken = 0x42B101C7U,
+            });
+
+            BinarySerializer<Expected<MyRequest::Response>>::serialize(response, bytes, bitsCount);
+
+            const auto copy = BinarySerializer<Expected<MyRequest::Response>>::deserialize(bytes, bitsOffset);
+
+            REQUIRE(response.success() == copy.success());
+
+            REQUIRE(response.getValue().contacts == copy.getValue().contacts);
+
+            REQUIRE(response.getValue().authenticationToken == copy.getValue().authenticationToken);
+
+            REQUIRE_THROW(std::bad_variant_access, copy.getErrorCode());
+
+            REQUIRE_THROW(std::bad_variant_access, copy.getErrorMessage());
+        }
+
+        SECTION("failure")
+        {
+            const auto response = Expected<MyRequest::Response>::fromFailure(779, "some error message");
+
+            BinarySerializer<Expected<MyRequest::Response>>::serialize(response, bytes, bitsCount);
+
+            const auto copy = BinarySerializer<Expected<MyRequest::Response>>::deserialize(bytes, bitsOffset);
+
+            REQUIRE(response.success() == copy.success());
+
+            REQUIRE_THROW(std::bad_variant_access, copy.getValue());
+
+            REQUIRE(response.getErrorCode() == copy.getErrorCode());
+
+            REQUIRE(response.getErrorMessage() == copy.getErrorMessage());
+        }
     }
 }

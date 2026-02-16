@@ -20,7 +20,9 @@ public:
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services, const HANDLE completionPort) override
+    void postToCompletionPort(SocketServiceContainer& services,
+                              IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                              const HANDLE completionPort) override
     {
         const auto numberOfBytesTransferred = 0;
         const auto postResult =

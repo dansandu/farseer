@@ -15,3 +15,15 @@ message DynamicMessage
     list<StaticMessage> messages;
     string name;
 }
+
+request MyRequest
+{
+    string user;
+    string password;
+
+    response
+    {
+        list<string> contacts;
+        uint64 authenticationToken;
+    }
+}
