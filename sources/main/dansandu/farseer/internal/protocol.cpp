@@ -4,6 +4,7 @@
 
 #include <sstream>
 
+using dansandu::ballotin::hashing::getHashCode32;
 using dansandu::ballotin::hashing::hashCombine;
 
 namespace dansandu::farseer::internal::protocol
@@ -34,22 +35,22 @@ const char* toString(const TypeEnum typeEnum)
     }
 }
 
-uint64_t getNumberOfBits(const TypeEnum typeEnum)
+ProtocolSize getStaticNumberOfBits(const TypeEnum typeEnum)
 {
     switch (typeEnum)
     {
     case TypeEnum::int32:
-        return 32;
+        return ProtocolSize{32};
     case TypeEnum::int64:
-        return 64;
+        return ProtocolSize{64};
     case TypeEnum::uint32:
-        return 32;
+        return ProtocolSize{32};
     case TypeEnum::uint64:
-        return 64;
+        return ProtocolSize{64};
     case TypeEnum::string:
         THROW(std::logic_error, "string is not a static type");
     case TypeEnum::boolean:
-        return 1;
+        return ProtocolSize{1};
     case TypeEnum::list:
         THROW(std::logic_error, "list is not a static type");
     case TypeEnum::message:
@@ -72,24 +73,24 @@ Type Type::fromSimple(const TypeEnum typeEnum)
     if (typeEnum == TypeEnum::string)
     {
         type.hasStaticSize_ = false;
-        type.numberOfBits_ = 0;
+        type.staticNumberOfBits_ = ProtocolSize{};
     }
     else
     {
         type.hasStaticSize_ = true;
-        type.numberOfBits_ = dansandu::farseer::internal::protocol::getNumberOfBits(typeEnum);
+        type.staticNumberOfBits_ = dansandu::farseer::internal::protocol::getStaticNumberOfBits(typeEnum);
     }
 
     return type;
 }
 
-Type Type::fromMessage(const std::string& identifier, bool hasStaticSize, uint64_t numberOfBits)
+Type Type::fromMessage(const std::string& identifier, const bool hasStaticSize, const ProtocolSize staticNumberOfBits)
 {
     auto type = Type{};
     type.typeEnum_ = TypeEnum::message;
     type.identifier_ = identifier;
     type.hasStaticSize_ = hasStaticSize;
-    type.numberOfBits_ = numberOfBits;
+    type.staticNumberOfBits_ = staticNumberOfBits;
     return type;
 }
 
@@ -99,14 +100,14 @@ Type Type::fromList(Type subtype)
     type.typeEnum_ = TypeEnum::list;
     type.subtype_ = std::make_unique<Type>(std::move(subtype));
     type.hasStaticSize_ = false;
-    type.numberOfBits_ = 0;
+    type.staticNumberOfBits_ = ProtocolSize{};
     return type;
 }
 
 Type::Type()
     : typeEnum_{TypeEnum::int32},
       hasStaticSize_{true},
-      numberOfBits_{dansandu::farseer::internal::protocol::getNumberOfBits(TypeEnum::int32)}
+      staticNumberOfBits_{dansandu::farseer::internal::protocol::getStaticNumberOfBits(TypeEnum::int32)}
 {
 }
 
@@ -115,7 +116,7 @@ Type::Type(const Type& other)
       identifier_{other.identifier_},
       subtype_{other.subtype_ ? std::make_unique<Type>(*other.subtype_) : nullptr},
       hasStaticSize_{other.hasStaticSize_},
-      numberOfBits_{other.numberOfBits_}
+      staticNumberOfBits_{other.staticNumberOfBits_}
 {
 }
 
@@ -124,12 +125,12 @@ Type::Type(Type&& other) noexcept
       identifier_{std::move(other.identifier_)},
       subtype_{std::move(other.subtype_)},
       hasStaticSize_{other.hasStaticSize_},
-      numberOfBits_{other.numberOfBits_}
+      staticNumberOfBits_{other.staticNumberOfBits_}
 {
     other.typeEnum_ = TypeEnum::int32;
     other.identifier_.clear();
     other.hasStaticSize_ = true;
-    other.numberOfBits_ = dansandu::farseer::internal::protocol::getNumberOfBits(TypeEnum::int32);
+    other.staticNumberOfBits_ = dansandu::farseer::internal::protocol::getStaticNumberOfBits(TypeEnum::int32);
 }
 
 Type& Type::operator=(const Type& other)
@@ -138,7 +139,7 @@ Type& Type::operator=(const Type& other)
     identifier_ = other.identifier_;
     subtype_ = other.subtype_ ? std::make_unique<Type>(*other.subtype_) : nullptr;
     hasStaticSize_ = other.hasStaticSize_;
-    numberOfBits_ = other.numberOfBits_;
+    staticNumberOfBits_ = other.staticNumberOfBits_;
 
     return *this;
 }
@@ -151,12 +152,12 @@ Type& Type::operator=(Type&& other) noexcept
         identifier_ = std::move(other.identifier_);
         subtype_ = std::move(other.subtype_);
         hasStaticSize_ = other.hasStaticSize_;
-        numberOfBits_ = other.numberOfBits_;
+        staticNumberOfBits_ = other.staticNumberOfBits_;
 
         other.typeEnum_ = TypeEnum::int32;
         other.identifier_.clear();
         other.hasStaticSize_ = true;
-        other.numberOfBits_ = dansandu::farseer::internal::protocol::getNumberOfBits(TypeEnum::int32);
+        other.staticNumberOfBits_ = dansandu::farseer::internal::protocol::getStaticNumberOfBits(TypeEnum::int32);
     }
 
     return *this;
@@ -222,15 +223,15 @@ uint32_t Type::getHashCode() const
 {
     if (typeEnum_ == TypeEnum::list)
     {
-        return hashCombine(dansandu::ballotin::hashing::getHashCode32(TypeEnum::list), subtype_->getHashCode());
+        return hashCombine(getHashCode32(TypeEnum::list), subtype_->getHashCode());
     }
     else if (typeEnum_ == TypeEnum::message)
     {
-        return dansandu::ballotin::hashing::getHashCode32(identifier_);
+        return getHashCode32(identifier_);
     }
     else
     {
-        return dansandu::ballotin::hashing::getHashCode32(typeEnum_);
+        return getHashCode32(typeEnum_);
     }
 }
 
@@ -239,19 +240,19 @@ bool Type::hasStaticSize() const
     return hasStaticSize_;
 }
 
-uint64_t Type::getNumberOfBits() const
+ProtocolSize Type::getStaticNumberOfBits() const
 {
-    return numberOfBits_;
+    return staticNumberOfBits_;
 }
 
 uint32_t Field::getHashCode() const
 {
-    return hashCombine(type.getHashCode(), dansandu::ballotin::hashing::getHashCode32(identifier));
+    return hashCombine(type.getHashCode(), getHashCode32(identifier));
 }
 
 uint32_t MessageProtocol::getHashCode() const
 {
-    auto hashCode = dansandu::ballotin::hashing::getHashCode32(identifier);
+    auto hashCode = getHashCode32(identifier);
 
     for (const auto& field : fields)
     {
@@ -261,9 +262,9 @@ uint32_t MessageProtocol::getHashCode() const
     return hashCode;
 }
 
-uint32_t RequestProtocol::getHashCode() const
+uint32_t RequestProtocol::getRequestHashCode() const
 {
-    auto hashCode = dansandu::ballotin::hashing::getHashCode32(identifier);
+    auto hashCode = getHashCode32(identifier);
 
     for (const auto& field : requestFields)
     {
@@ -276,6 +277,11 @@ uint32_t RequestProtocol::getHashCode() const
     }
 
     return hashCode;
+}
+
+uint32_t RequestProtocol::getResponseHashCode() const
+{
+    return hashCombine(getRequestHashCode(), 0x496706CBU);
 }
 
 std::string Protocol::toString() const

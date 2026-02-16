@@ -1,4 +1,4 @@
-#include "dansandu/farseer/internal/windows/send_bytes_asynchronous_operation.hpp"
+#include "dansandu/farseer/internal/windows/send_request_asynchronous_operation.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 
@@ -9,14 +9,20 @@ using dansandu::farseer::internal::windows::asynchronous_operation::initialCompl
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
-namespace dansandu::farseer::internal::windows::send_bytes_asynchronous_operation
+namespace dansandu::farseer::internal::windows::send_request_asynchronous_operation
 {
 
-class SendBytesAsynchronousOperation : public AsynchronousOperation
+class SendRequestAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    SendBytesAsynchronousOperation(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes)
-        : AsynchronousOperation{serviceId}, bytes_{std::move(bytes)}, sendBytesPending_{false}
+    SendRequestAsynchronousOperation(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
+                                     std::vector<uint8_t>&& bytes,
+                                     Function<void(std::any&&)>&& expectedResponseConsumer)
+        : AsynchronousOperation{serviceId},
+          sequenceNumber_{sequenceNumber},
+          bytes_{std::move(bytes)},
+          expectedResponseConsumer_{std::move(expectedResponseConsumer)},
+          sendBytesPending_{false}
     {
     }
 
@@ -44,6 +50,9 @@ public:
 
             const auto servicePosition = getServiceOrThrow(socketServiceContainer, serviceId_);
 
+            servicePosition->second.protocolReader.registerOneShotExpectedResponseConsumer(
+                sequenceNumber_, std::move(expectedResponseConsumer_));
+
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
             servicePosition->second.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()),
@@ -53,7 +62,7 @@ public:
         }
         else
         {
-            LOG_INFO("Sent bytes using service ID ", serviceId_.getUnderlying());
+            LOG_INFO("Sent request bytes using service ID ", serviceId_.getUnderlying());
 
             return true;
         }
@@ -61,18 +70,23 @@ public:
 
     const char* getName() const override
     {
-        return "SendBytesAsynchronousOperation";
+        return "SendRequestAsynchronousOperation";
     }
 
 private:
+    ProtocolSequenceNumber sequenceNumber_;
     std::vector<uint8_t> bytes_;
+    Function<void(std::any&&)> expectedResponseConsumer_;
     bool sendBytesPending_;
 };
 
-std::unique_ptr<AsynchronousOperation> createSendBytesAsynchronousOperation(const SocketServiceId serviceId,
-                                                                            std::vector<uint8_t>&& bytes)
+std::unique_ptr<AsynchronousOperation>
+createSendRequestAsynchronousOperation(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
+                                       std::vector<uint8_t>&& bytes,
+                                       Function<void(std::any&&)>&& expectedResponseConsumer)
 {
-    return std::make_unique<SendBytesAsynchronousOperation>(serviceId, std::move(bytes));
+    return std::make_unique<SendRequestAsynchronousOperation>(serviceId, sequenceNumber, std::move(bytes),
+                                                              std::move(expectedResponseConsumer));
 }
 
 }

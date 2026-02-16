@@ -5,12 +5,12 @@
 
 #include <any>
 
-namespace dansandu::farseer::internal::windows::register_message_consumer_asynchronous_operation
+namespace dansandu::farseer::internal::windows::register_request_callback_asynchronous_operation
 {
 
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
-createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
+createRegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
                                                    const ProtocolIdentifier protocolIdentifier,
-                                                   Function<void(std::any&&)>&& messageConsumer);
+                                                   Function<std::any(std::any&&)>&& requestConsumer);
 
 }

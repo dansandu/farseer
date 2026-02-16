@@ -9,13 +9,13 @@ template<typename GeneratedType>
 class Sequencer
 {
 public:
-    using IntegerType = typename GeneratedType::IntegerType;
+    using UnderlyingType = typename GeneratedType::UnderlyingType;
 
-    Sequencer() : integer_{0}
+    Sequencer() : underlying_{0}
     {
     }
 
-    explicit Sequencer(const IntegerType integer) : integer_{integer}
+    explicit Sequencer(const UnderlyingType underlying) : underlying_{underlying}
     {
     }
 
@@ -26,11 +26,11 @@ public:
 
     GeneratedType generate()
     {
-        return GeneratedType{integer_++};
+        return GeneratedType{underlying_++};
     }
 
 private:
-    std::atomic<IntegerType> integer_;
+    std::atomic<UnderlyingType> underlying_;
 };
 
 }

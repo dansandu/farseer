@@ -1,76 +1,73 @@
 #pragma once
 
+#include "dansandu/ballotin/function.hpp"
+#include "dansandu/ballotin/type_prototype.hpp"
+#include "dansandu/farseer/expected.hpp"
+
+#include <any>
 #include <cstdint>
-#include <functional>
-#include <ostream>
-#include <string>
 #include <vector>
 
 namespace dansandu::farseer
 {
 
-class ProtocolIdentifier
+using dansandu::ballotin::function::Function;
+
+using dansandu::farseer::expected::Expected;
+
+class ProtocolIdentifierTag
 {
-public:
-    friend constexpr auto operator<=>(const ProtocolIdentifier& left, const ProtocolIdentifier& right) = default;
-
-    friend std::ostream& operator<<(std::ostream& stream, const ProtocolIdentifier protocolIdentifier)
-    {
-        return stream << protocolIdentifier.integer_;
-    }
-
-    using IntegerType = uint32_t;
-
-    constexpr ProtocolIdentifier() : integer_{0}
-    {
-    }
-
-    constexpr explicit ProtocolIdentifier(const IntegerType integer) : integer_{integer}
-    {
-    }
-
-    constexpr IntegerType getInteger() const
-    {
-        return integer_;
-    }
-
-    std::string toString() const
-    {
-        return std::to_string(integer_);
-    }
-
-private:
-    IntegerType integer_;
 };
 
-class SocketServiceId
+using ProtocolIdentifier = dansandu::ballotin::type_prototype::TypePrototype<
+    ProtocolIdentifierTag, uint32_t,
+    dansandu::ballotin::type_prototype::TypeFeature::underlyingConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::stringConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::equality |
+        dansandu::ballotin::type_prototype::TypeFeature::inequality>;
+
+static_assert(sizeof(ProtocolIdentifier) == sizeof(typename ProtocolIdentifier::UnderlyingType),
+              "Serialization requires that the ProtocolIdentifier size must match its underlying type size");
+
+class ProtocolSizeTag
 {
-public:
-    friend constexpr auto operator<=>(const SocketServiceId& left, const SocketServiceId& right) = default;
-
-    friend std::ostream& operator<<(std::ostream& stream, const SocketServiceId serviceId)
-    {
-        return stream << serviceId.integer_;
-    }
-
-    using IntegerType = unsigned long;
-
-    constexpr SocketServiceId() : integer_{0}
-    {
-    }
-
-    constexpr explicit SocketServiceId(IntegerType integer) : integer_{integer}
-    {
-    }
-
-    constexpr IntegerType getInteger() const
-    {
-        return integer_;
-    }
-
-private:
-    IntegerType integer_;
 };
+
+using ProtocolSize = dansandu::ballotin::type_prototype::TypePrototype<
+    ProtocolSizeTag, uint32_t,
+    dansandu::ballotin::type_prototype::TypeFeature::underlyingConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::stringConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::equality |
+        dansandu::ballotin::type_prototype::TypeFeature::inequality |
+        dansandu::ballotin::type_prototype::TypeFeature::addition>;
+
+static_assert(sizeof(ProtocolSize) == sizeof(typename ProtocolSize::UnderlyingType),
+              "Serialization requires that the ProtocolSize size must match its underlying type size");
+
+class ProtocolSequenceNumberTag
+{
+};
+
+using ProtocolSequenceNumber = dansandu::ballotin::type_prototype::TypePrototype<
+    ProtocolSequenceNumberTag, uint64_t,
+    dansandu::ballotin::type_prototype::TypeFeature::underlyingConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::stringConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::equality |
+        dansandu::ballotin::type_prototype::TypeFeature::inequality>;
+
+static_assert(sizeof(ProtocolSequenceNumber) == sizeof(typename ProtocolSequenceNumber::UnderlyingType),
+              "Serialization requires that the ProtocolSequenceNumber size must match its underlying type size");
+
+class SocketServiceIdTag
+{
+};
+
+using SocketServiceId = dansandu::ballotin::type_prototype::TypePrototype<
+    SocketServiceIdTag, unsigned long,
+    dansandu::ballotin::type_prototype::TypeFeature::underlyingConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::stringConversion |
+        dansandu::ballotin::type_prototype::TypeFeature::equality |
+        dansandu::ballotin::type_prototype::TypeFeature::inequality>;
 
 static constexpr SocketServiceId InvalidServiceId = SocketServiceId{};
 
@@ -86,11 +83,17 @@ enum class SocketServiceEvent
     clientAborted,
 };
 
+PRALINE_EXPORT ProtocolSize getProtocolSizeFromStdSize(const size_t size);
+
 PRALINE_EXPORT const char* toString(const SocketServiceEvent event);
 
-using BytesType = std::vector<uint8_t>;
-
 using ConnectionCallbackType =
-    std::function<void(const SocketServiceEvent event, const SocketServiceId serverId, const SocketServiceId clientId)>;
+    Function<void(const SocketServiceEvent event, const SocketServiceId serverId, const SocketServiceId clientId)>;
+
+using ProtocolDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
+                                      ProtocolSequenceNumber& sequenceNumber, std::any& protocol);
+
+using ExpectedResponseProtocolSerializer = std::vector<uint8_t> (*)(const std::any& expectedResponse,
+                                                                    const ProtocolSequenceNumber sequenceNumber);
 
 }

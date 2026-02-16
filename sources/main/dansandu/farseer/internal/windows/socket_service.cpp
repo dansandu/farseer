@@ -13,7 +13,7 @@ SocketServiceContainerIterator getServiceOrThrow(SocketServiceContainer& service
         return servicePosition;
     }
 
-    WTHROW(InternalSocketServiceException, "Couldn't find service with ID ", serviceId.getInteger());
+    WTHROW(InternalSocketServiceException, "Couldn't find service with ID ", serviceId.getUnderlying());
 }
 
 void closeSocketService(SocketServiceContainer& services, const SocketServiceId serviceId)
@@ -22,7 +22,7 @@ void closeSocketService(SocketServiceContainer& services, const SocketServiceId 
     {
         const auto& socket = servicePosition->second.socket;
 
-        LOG_INFO("Socket with ID ", servicePosition->first.getInteger(), " and address ", socket.getIpAddress(), ':',
+        LOG_INFO("Socket with ID ", servicePosition->first.getUnderlying(), " and address ", socket.getIpAddress(), ':',
                  socket.getPort(), " was closed");
 
         if (servicePosition->second.listeningServiceId != InvalidServiceId)

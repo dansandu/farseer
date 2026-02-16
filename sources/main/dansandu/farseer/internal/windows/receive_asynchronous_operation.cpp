@@ -18,7 +18,9 @@ public:
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services, const HANDLE completionPort) override
+    void postToCompletionPort(SocketServiceContainer& services,
+                              IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                              const HANDLE completionPort) override
     {
         const auto position = getServiceOrThrow(services, serviceId_);
 
@@ -39,18 +41,18 @@ public:
 
             const auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(receiveBuffer_), numberOfBytesTransferred);
 
-            LOG_INFO("Socket with ID ", serviceId_.getInteger(), " and address ", socket.getIpAddress(), ':',
+            LOG_INFO("Socket with ID ", serviceId_.getUnderlying(), " and address ", socket.getIpAddress(), ':',
                      socket.getPort(), " received ", bytes.size(), " bytes");
 
             if (listeningServiceId != InvalidServiceId)
             {
                 const auto listeningServicePosition = getServiceOrThrow(socketServiceContainer, listeningServiceId);
 
-                listeningServicePosition->second.protocolReader.read(bytes);
+                listeningServicePosition->second.protocolReader.read(serviceId_, bytes);
             }
             else
             {
-                position->second.protocolReader.read(bytes);
+                position->second.protocolReader.read(serviceId_, bytes);
             }
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));

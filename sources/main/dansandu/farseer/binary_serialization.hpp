@@ -49,12 +49,13 @@ struct BinarySerializer<PrimitiveType>
         return static_cast<UnsignedType>(bits);
     }
 
-    static void serialize(const PrimitiveType& value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const PrimitiveType& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
         using dansandu::ballotin::binary::bitsPerByte;
         using dansandu::ballotin::binary::pushBitsMostSignificant;
 
-        pushBitsMostSignificant(bytes, bitsCount, static_cast<UnsignedType>(value), bitsPerByte * sizeof(UnsignedType));
+        pushBitsMostSignificant(bytes, bitsOffset, static_cast<UnsignedType>(value),
+                                bitsPerByte * sizeof(UnsignedType));
     }
 };
 
@@ -66,9 +67,9 @@ struct BinarySerializer<Protocol>
         return Protocol::Metadata::deserialize(bytes, bitsOffset);
     }
 
-    static void serialize(const Protocol& value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const Protocol& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        Protocol::Metadata::serialize(value, bytes, bitsCount);
+        Protocol::Metadata::serialize(value, bytes, bitsOffset);
     }
 };
 
@@ -77,12 +78,44 @@ struct BinarySerializer<ProtocolIdentifier>
 {
     static ProtocolIdentifier deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        return ProtocolIdentifier{BinarySerializer<ProtocolIdentifier::IntegerType>::deserialize(bytes, bitsOffset)};
+        return ProtocolIdentifier{
+            BinarySerializer<typename ProtocolIdentifier::UnderlyingType>::deserialize(bytes, bitsOffset)};
     }
 
-    static void serialize(const ProtocolIdentifier value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const ProtocolIdentifier& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<ProtocolIdentifier::IntegerType>::serialize(value.getInteger(), bytes, bitsCount);
+        BinarySerializer<typename ProtocolIdentifier::UnderlyingType>::serialize(value.getUnderlying(), bytes,
+                                                                                 bitsOffset);
+    }
+};
+
+template<>
+struct BinarySerializer<ProtocolSize>
+{
+    static ProtocolSize deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        return ProtocolSize{BinarySerializer<typename ProtocolSize::UnderlyingType>::deserialize(bytes, bitsOffset)};
+    }
+
+    static void serialize(const ProtocolSize& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        BinarySerializer<typename ProtocolSize::UnderlyingType>::serialize(value.getUnderlying(), bytes, bitsOffset);
+    }
+};
+
+template<>
+struct BinarySerializer<ProtocolSequenceNumber>
+{
+    static ProtocolSequenceNumber deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        return ProtocolSequenceNumber{
+            BinarySerializer<typename ProtocolSequenceNumber::UnderlyingType>::deserialize(bytes, bitsOffset)};
+    }
+
+    static void serialize(const ProtocolSequenceNumber& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        BinarySerializer<typename ProtocolSequenceNumber::UnderlyingType>::serialize(value.getUnderlying(), bytes,
+                                                                                     bitsOffset);
     }
 };
 
@@ -98,11 +131,11 @@ struct BinarySerializer<bool>
         return static_cast<bool>(bits);
     }
 
-    static void serialize(const bool value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const bool& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
         using dansandu::ballotin::binary::pushBitsMostSignificant;
 
-        pushBitsMostSignificant(bytes, bitsCount, value, 1);
+        pushBitsMostSignificant(bytes, bitsOffset, value, 1);
     }
 };
 
@@ -113,11 +146,11 @@ struct BinarySerializer<std::string>
     {
         auto value = std::string{};
 
-        const auto size = BinarySerializer<uint32_t>::deserialize(bytes, bitsOffset);
+        const auto numberOfElements = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
 
-        value.reserve(size);
+        value.reserve(numberOfElements.getUnderlying());
 
-        for (uint32_t index = 0; index < size; ++index)
+        for (auto index = ProtocolSize{}; index < numberOfElements; ++index)
         {
             value.push_back(BinarySerializer<std::string::value_type>::deserialize(bytes, bitsOffset));
         }
@@ -125,13 +158,13 @@ struct BinarySerializer<std::string>
         return value;
     }
 
-    static void serialize(const std::string& value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const std::string& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<uint32_t>::serialize(static_cast<uint32_t>(value.size()), bytes, bitsCount);
+        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(value.size()), bytes, bitsOffset);
 
         for (const auto& element : value)
         {
-            BinarySerializer<std::string::value_type>::serialize(element, bytes, bitsCount);
+            BinarySerializer<std::string::value_type>::serialize(element, bytes, bitsOffset);
         }
     }
 };
@@ -143,11 +176,11 @@ struct BinarySerializer<std::vector<T>>
     {
         auto value = std::vector<T>{};
 
-        const auto size = BinarySerializer<uint32_t>::deserialize(bytes, bitsOffset);
+        const auto numberOfElements = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
 
-        value.reserve(size);
+        value.reserve(numberOfElements.getUnderlying());
 
-        for (uint32_t index = 0; index < size; ++index)
+        for (auto index = ProtocolSize{}; index < numberOfElements; ++index)
         {
             value.push_back(BinarySerializer<T>::deserialize(bytes, bitsOffset));
         }
@@ -155,13 +188,46 @@ struct BinarySerializer<std::vector<T>>
         return value;
     }
 
-    static void serialize(const std::vector<T>& value, std::vector<uint8_t>& bytes, size_t& bitsCount)
+    static void serialize(const std::vector<T>& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<uint32_t>::serialize(static_cast<uint32_t>(value.size()), bytes, bitsCount);
+        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(value.size()), bytes, bitsOffset);
 
         for (const auto& element : value)
         {
-            BinarySerializer<T>::serialize(element, bytes, bitsCount);
+            BinarySerializer<T>::serialize(element, bytes, bitsOffset);
+        }
+    }
+};
+
+template<typename T>
+struct BinarySerializer<Expected<T>>
+{
+    static Expected<T> deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        const auto success = BinarySerializer<bool>::deserialize(bytes, bitsOffset);
+        if (success)
+        {
+            return Expected<T>::fromSuccess(BinarySerializer<T>::deserialize(bytes, bitsOffset));
+        }
+        else
+        {
+            const auto errorCode = BinarySerializer<uint32_t>::deserialize(bytes, bitsOffset);
+            const auto errorMessage = BinarySerializer<std::string>::deserialize(bytes, bitsOffset);
+            return Expected<T>::fromFailure(errorCode, errorMessage);
+        }
+    }
+
+    static void serialize(const Expected<T>& expected, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        BinarySerializer<bool>::serialize(expected.success(), bytes, bitsOffset);
+        if (expected.success())
+        {
+            BinarySerializer<T>::serialize(expected.getValue(), bytes, bitsOffset);
+        }
+        else
+        {
+            BinarySerializer<uint32_t>::serialize(expected.getErrorCode(), bytes, bitsOffset);
+            BinarySerializer<std::string>::serialize(expected.getErrorMessage(), bytes, bitsOffset);
         }
     }
 };

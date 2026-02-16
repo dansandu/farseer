@@ -1,4 +1,4 @@
-#include "dansandu/farseer/internal/windows/register_message_consumer_asynchronous_operation.hpp"
+#include "dansandu/farseer/internal/windows/register_request_callback_asynchronous_operation.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 
@@ -9,18 +9,18 @@ using dansandu::farseer::internal::windows::asynchronous_operation::initialCompl
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
-namespace dansandu::farseer::internal::windows::register_message_consumer_asynchronous_operation
+namespace dansandu::farseer::internal::windows::register_request_callback_asynchronous_operation
 {
 
-class RegisterMessageConsumerAsynchronousOperation : public AsynchronousOperation
+class RegisterRequestCallbackAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    RegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
+    RegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
                                                  const ProtocolIdentifier protocolIdentifier,
-                                                 Function<void(std::any&&)>&& messageConsumer)
+                                                 Function<std::any(std::any&&)>&& requestConsumer)
         : AsynchronousOperation{serviceId},
           protocolIdentifier_{protocolIdentifier},
-          messageConsumer_{std::move(messageConsumer)}
+          requestConsumer_{std::move(requestConsumer)}
     {
     }
 
@@ -44,10 +44,10 @@ public:
     {
         const auto servicePosition = getServiceOrThrow(socketServiceContainer, serviceId_);
 
-        servicePosition->second.protocolReader.registerMessageConsumer(protocolIdentifier_,
-                                                                       std::move(messageConsumer_));
+        servicePosition->second.protocolReader.registerRequestConsumer(protocolIdentifier_,
+                                                                       std::move(requestConsumer_));
 
-        LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier_.getUnderlying(),
+        LOG_INFO("Registered request consumer with protocol ID ", protocolIdentifier_.getUnderlying(),
                  " and socket service ID ", serviceId_.getUnderlying());
 
         return true;
@@ -55,21 +55,21 @@ public:
 
     const char* getName() const override
     {
-        return "RegisterMessageConsumerAsynchronousOperation";
+        return "RegisterRequestCallbackAsynchronousOperation";
     }
 
 private:
     const ProtocolIdentifier protocolIdentifier_;
-    Function<void(std::any&&)> messageConsumer_;
+    Function<std::any(std::any&&)> requestConsumer_;
 };
 
 std::unique_ptr<AsynchronousOperation>
-createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
+createRegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
                                                    const ProtocolIdentifier protocolIdentifier,
-                                                   Function<void(std::any&&)>&& messageConsumer)
+                                                   Function<std::any(std::any&&)>&& requestConsumer)
 {
-    return std::make_unique<RegisterMessageConsumerAsynchronousOperation>(serviceId, protocolIdentifier,
-                                                                          std::move(messageConsumer));
+    return std::make_unique<RegisterRequestCallbackAsynchronousOperation>(serviceId, protocolIdentifier,
+                                                                          std::move(requestConsumer));
 }
 
 }

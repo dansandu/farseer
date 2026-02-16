@@ -3,6 +3,7 @@
 #include "dansandu/farseer/internal/protocol.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
+using dansandu::farseer::ProtocolSize;
 using dansandu::farseer::exception::DuplicateFieldIdentifierError;
 using dansandu::farseer::exception::DuplicateProtocolIdentifierError;
 using dansandu::farseer::exception::MessageIdentifierNotDefinedError;
@@ -28,7 +29,7 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 Field{
-                                    .type = Type::fromMessage("House", true, 32),
+                                    .type = Type::fromMessage("House", true, ProtocolSize{32}),
                                     .identifier = "residence",
                                 },
                             },
@@ -50,7 +51,7 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 Field{
-                                    .type = Type::fromMessage("House", true, 32),
+                                    .type = Type::fromMessage("House", true, ProtocolSize{32}),
                                     .identifier = "residence",
                                 },
                             },
@@ -111,7 +112,7 @@ TEST_CASE("protocol_validation")
                                     .identifier = "name",
                                 },
                                 Field{
-                                    .type = Type::fromMessage("Person", false, 64),
+                                    .type = Type::fromMessage("Person", false, ProtocolSize{64}),
                                     .identifier = "parent",
                                 },
                             },
@@ -163,7 +164,7 @@ TEST_CASE("protocol_validation")
                         .requestFields =
                             {
                                 Field{
-                                    .type = Type::fromMessage("House", false, 64),
+                                    .type = Type::fromMessage("House", false, ProtocolSize{64}),
                                     .identifier = "residence",
                                 },
                             },
@@ -224,7 +225,7 @@ TEST_CASE("protocol_validation")
                                     .identifier = "name",
                                 },
                                 Field{
-                                    .type = Type::fromMessage("Person", false, 64),
+                                    .type = Type::fromMessage("Person", false, ProtocolSize{64}),
                                     .identifier = "parent",
                                 },
                             },

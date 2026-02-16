@@ -49,6 +49,20 @@ request MyRequest
 
         const auto protocol = parseProtocol(text);
 
+        REQUIRE(protocol.messages.empty());
+
+        REQUIRE(protocol.requests.size() == 1ULL);
+
+        const auto& request = protocol.requests.front();
+
+        REQUIRE(!request.requestHasStaticSize);
+
+        REQUIRE(request.requestStaticNumberOfBits.getUnderlying() == 64UL);
+
+        REQUIRE(request.responseHasStaticSize);
+
+        REQUIRE(request.responseStaticNumberOfBits.getUnderlying() == 65UL);
+
         REQUIRE(protocol.toString() == text);
     }
 

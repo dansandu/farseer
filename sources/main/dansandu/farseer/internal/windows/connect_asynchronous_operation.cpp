@@ -3,11 +3,13 @@
 #include "dansandu/farseer/internal/windows/error.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
+using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
 using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
+using dansandu::farseer::internal::windows::socket_service::SocketService;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 using dansandu::farseer::internal::windows::windows_socket::WindowsSocket;
 
@@ -27,7 +29,9 @@ public:
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services, const HANDLE completionPort) override
+    void postToCompletionPort(SocketServiceContainer& services,
+                              IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                              const HANDLE completionPort) override
     {
         const auto numberOfBytesTransferred = 0;
         const auto postResult =
@@ -51,17 +55,23 @@ public:
 
             socket.postConnect(ipAddress_, port_, &overlapped_);
 
-            const auto [servicePosition, serviceInserted] =
-                socketServiceContainer.insert({serviceId_,
-                                               {
-                                                   .socket = std::move(socket),
-                                                   .listeningServiceId = InvalidServiceId,
-                                                   .connectionCallback = std::move(connectionCallback_),
-                                               }});
+            const auto [servicePosition, serviceInserted] = socketServiceContainer.insert(
+                {serviceId_, SocketService{
+                                 .socket = std::move(socket),
+                                 .protocolReader = ProtocolReader{[&registry = asynchronousOperationsRegistry](
+                                                                      const SocketServiceId receiverSocketServiceId,
+                                                                      std::vector<uint8_t>&& response)
+                                                                  {
+                                                                      registry.createSendBytesAsynchronousOperation(
+                                                                          receiverSocketServiceId, std::move(response));
+                                                                  }},
+                                 .listeningServiceId = InvalidServiceId,
+                                 .connectionCallback = std::move(connectionCallback_),
+                             }});
 
             if (!serviceInserted)
             {
-                THROW(std::logic_error, "Couldn't open connection service with ID ", serviceId_.getInteger(),
+                THROW(std::logic_error, "Couldn't open connection service with ID ", serviceId_.getUnderlying(),
                       " because the ID is used by another service");
             }
 

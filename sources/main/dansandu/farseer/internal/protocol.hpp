@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dansandu/farseer/common.hpp"
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -21,14 +23,15 @@ enum class TypeEnum
 
 const char* toString(const TypeEnum typeEnum);
 
-uint64_t getNumberOfBits(const TypeEnum typeEnum);
+ProtocolSize getStaticNumberOfBits(const TypeEnum typeEnum);
 
 class Type
 {
 public:
     static Type fromSimple(const TypeEnum typeEnum);
 
-    static Type fromMessage(const std::string& identifier, bool hasStaticSize, uint64_t numberOfBits);
+    static Type fromMessage(const std::string& identifier, const bool hasStaticSize,
+                            const ProtocolSize staticNumberOfBits);
 
     static Type fromList(Type subtype);
 
@@ -56,14 +59,14 @@ public:
 
     bool hasStaticSize() const;
 
-    uint64_t getNumberOfBits() const;
+    ProtocolSize getStaticNumberOfBits() const;
 
 private:
     TypeEnum typeEnum_;
     std::string identifier_;
     std::unique_ptr<Type> subtype_;
     bool hasStaticSize_;
-    uint64_t numberOfBits_;
+    ProtocolSize staticNumberOfBits_;
 };
 
 struct Field
@@ -73,7 +76,7 @@ struct Field
     Type type;
     std::string identifier;
     bool hasStaticSize;
-    uint64_t numberOfBits;
+    ProtocolSize staticNumberOfBits;
 };
 
 struct MessageProtocol
@@ -83,16 +86,22 @@ struct MessageProtocol
     std::string identifier;
     std::vector<Field> fields;
     bool hasStaticSize;
-    uint64_t numberOfBits;
+    ProtocolSize staticNumberOfBits;
 };
 
 struct RequestProtocol
 {
-    uint32_t getHashCode() const;
+    uint32_t getRequestHashCode() const;
+
+    uint32_t getResponseHashCode() const;
 
     std::string identifier;
     std::vector<Field> requestFields;
     std::vector<Field> responseFields;
+    ProtocolSize requestStaticNumberOfBits;
+    ProtocolSize responseStaticNumberOfBits;
+    bool requestHasStaticSize;
+    bool responseHasStaticSize;
 };
 
 struct Protocol

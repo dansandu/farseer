@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperationContainer;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::wsa_scope_guard::WsaScopeGuard;
@@ -60,6 +61,7 @@ struct SocketServiceProviderImplementation
 
     const WsaScopeGuard wsaScopeGuard;
     AsynchronousOperationContainer operations;
+    Sequencer<ProtocolSequenceNumber> sequencer;
     const HANDLE thread;
 };
 
@@ -90,7 +92,7 @@ SocketServiceProvider::~SocketServiceProvider()
 {
 }
 
-SocketServiceId SocketServiceProvider::listen(std::wstring ipAddress, const int port,
+SocketServiceId SocketServiceProvider::listen(const std::wstring& ipAddress, const int port,
                                               ConnectionCallbackType connectionCallback) const
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
@@ -98,7 +100,7 @@ SocketServiceId SocketServiceProvider::listen(std::wstring ipAddress, const int 
     return impl->operations.createListenAsynchronousOperation(ipAddress, port, std::move(connectionCallback));
 }
 
-SocketServiceId SocketServiceProvider::connect(std::wstring ipAddress, const int port,
+SocketServiceId SocketServiceProvider::connect(const std::wstring& ipAddress, const int port,
                                                ConnectionCallbackType connectionCallback) const
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
@@ -106,7 +108,14 @@ SocketServiceId SocketServiceProvider::connect(std::wstring ipAddress, const int
     return impl->operations.createConnectAsynchronousOperation(ipAddress, port, std::move(connectionCallback));
 }
 
-void SocketServiceProvider::sendBytes(const SocketServiceId serviceId, std::vector<uint8_t> bytes) const
+ProtocolSequenceNumber SocketServiceProvider::generateSequenceNumber() const
+{
+    const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+
+    return impl->sequencer.generate();
+}
+
+void SocketServiceProvider::sendBytes(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes) const
 {
     if (serviceId != InvalidServiceId)
     {
@@ -120,9 +129,26 @@ void SocketServiceProvider::sendBytes(const SocketServiceId serviceId, std::vect
     }
 }
 
+void SocketServiceProvider::sendRequest(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
+                                        std::vector<uint8_t>&& bytes,
+                                        Function<void(std::any&&)>&& expectedResponseConsumer) const
+{
+    if (serviceId != InvalidServiceId)
+    {
+        const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+
+        impl->operations.createSendRequestAsynchronousOperation(serviceId, sequenceNumber, std::move(bytes),
+                                                                std::move(expectedResponseConsumer));
+    }
+    else
+    {
+        THROW(std::logic_error, "Cannot send bytes using an InvalidServiceId");
+    }
+}
+
 void SocketServiceProvider::registerMessageConsumer(const SocketServiceId serviceId,
                                                     const ProtocolIdentifier protocolIdentifier,
-                                                    std::function<void(std::any)> messageConsumer) const
+                                                    Function<void(std::any&&)>&& messageConsumer) const
 {
     if (serviceId != InvalidServiceId)
     {
@@ -134,6 +160,23 @@ void SocketServiceProvider::registerMessageConsumer(const SocketServiceId servic
     else
     {
         THROW(std::logic_error, "Cannot register a message consumer using an InvalidServiceId");
+    }
+}
+
+void SocketServiceProvider::registerRequestCallback(const SocketServiceId serviceId,
+                                                    const ProtocolIdentifier protocolIdentifier,
+                                                    Function<std::any(std::any&&)>&& requestCallback) const
+{
+    if (serviceId != InvalidServiceId)
+    {
+        const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+
+        impl->operations.createRegisterRequestCallbackAsynchronousOperation(serviceId, protocolIdentifier,
+                                                                            std::move(requestCallback));
+    }
+    else
+    {
+        THROW(std::logic_error, "Cannot register a request consumer using an InvalidServiceId");
     }
 }
 
