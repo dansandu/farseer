@@ -2,6 +2,7 @@
 
 #include "dansandu/ballotin/function.hpp"
 #include "dansandu/ballotin/type_prototype.hpp"
+#include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/expected.hpp"
 
 #include <any>
@@ -10,6 +11,8 @@
 
 namespace dansandu::farseer
 {
+
+using dansandu::farseer::exception::RequestProtocolError;
 
 using dansandu::ballotin::function::Function;
 
