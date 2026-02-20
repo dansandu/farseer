@@ -14,6 +14,8 @@
 
 using dansandu::ballotin::string::toWideString;
 using dansandu::farseer::exception::InternalSocketServiceException;
+using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
+using dansandu::farseer::internal::windows::error::getLastErrorCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 
 namespace dansandu::farseer::internal::windows::asynchronous_operation
@@ -63,14 +65,14 @@ SocketServiceId AsynchronousOperationContainer::insertOperation(std::unique_ptr<
     if (!inserted)
     {
         THROW(std::logic_error, "Couldn't push ", name, " with service ID ", serviceId.getUnderlying(),
-              " because operation with address ", overlapped, " already exists");
+              " because operation already exists");
     }
 
     SCOPE_FAILURE([&]() { operations_.erase(position); });
 
     position->second->postToCompletionPort(socketServiceContainer_, *this, completionPort_);
 
-    LOG_DEBUG("Inserted ", name, " with service ID ", serviceId.getUnderlying(), " and address ", overlapped);
+    LOG_DEBUG("Inserted ", name, " with service ID ", serviceId.getUnderlying());
 
     return serviceId;
 }
@@ -191,14 +193,18 @@ bool AsynchronousOperationContainer::waitAndConsumeAsynchronousOperation()
         }
         else
         {
+            const auto errorCode = getLastErrorCode();
+
             if (overlapped == nullptr)
             {
-                LOG_ERROR("Could not dequeue operation from completion queue");
+                const auto errorMessage = getErrorMessageFromCode(errorCode);
+
+                LOG_ERROR("Could not dequeue operation from completion queue: ", errorMessage);
 
                 return false;
             }
 
-            handleFailedAsynchronousOperation(overlapped, toWideString(getLastErrorMessage()));
+            handleFailedAsynchronousOperation(overlapped, errorCode);
         }
     }
     catch (const InternalSocketServiceException& exception)
@@ -242,7 +248,32 @@ void AsynchronousOperationContainer::handleSuccessfulAsynchronousOperation(const
     }
     else
     {
-        THROW(std::logic_error, "Couldn't execute unknown operation with address ", overlapped);
+        THROW(std::logic_error, "Couldn't execute unknown operation");
+    }
+}
+
+void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
+                                                                       const DWORD errorCode)
+{
+    const auto lock = std::lock_guard<std::recursive_mutex>{operationsMutex_};
+    const auto position = operations_.find(overlapped);
+
+    if (position != operations_.cend())
+    {
+        SCOPE_EXIT([&] { operations_.erase(position); });
+
+        const auto name = position->second->getName();
+        const auto serviceId = position->second->getServiceId().getUnderlying();
+        const auto level = position->second->reinterpretSystemErrorCode(errorCode);
+        const auto message = getErrorMessageFromCode(errorCode);
+
+        LOG(level, name, " with service ID ", serviceId, " failed: ", message);
+    }
+    else
+    {
+        const auto errorMessage = getErrorMessageFromCode(errorCode);
+
+        LOG_ERROR("Unknown operation failed: ", errorMessage);
     }
 }
 
@@ -254,29 +285,29 @@ void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPW
 
     if (position != operations_.cend())
     {
+        SCOPE_EXIT([&] { operations_.erase(position); });
+
         const auto name = position->second->getName();
         const auto serviceId = position->second->getServiceId().getUnderlying();
 
         if (message.empty())
         {
-            LOG_ERROR(name, " with service ID ", serviceId, " and address ", overlapped, " failed");
+            LOG_ERROR(name, " with service ID ", serviceId, " failed");
         }
         else
         {
-            LOG_ERROR(name, " with service ID ", serviceId, " and address ", overlapped, " failed: ", message);
+            LOG_ERROR(name, " with service ID ", serviceId, " failed: ", message);
         }
-
-        operations_.erase(position);
     }
     else
     {
         if (message.empty())
         {
-            LOG_ERROR("Unknown operation with address ", overlapped, " failed");
+            LOG_ERROR("Unknown operation failed");
         }
         else
         {
-            LOG_ERROR("Unknown operation with address ", overlapped, " failed: ", message);
+            LOG_ERROR("Unknown operation failed: ", message);
         }
     }
 }
