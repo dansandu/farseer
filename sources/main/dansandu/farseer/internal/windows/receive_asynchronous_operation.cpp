@@ -1,10 +1,12 @@
 #include "dansandu/farseer/internal/windows/receive_asynchronous_operation.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
+#include "dansandu/journey/common.hpp"
 
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
+using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::receive_asynchronous_operation
 {
@@ -72,6 +74,15 @@ public:
     const char* getName() const override
     {
         return "ReceiveAsynchronousOperation";
+    }
+
+    Level reinterpretSystemErrorCode(const DWORD errorCode) const override
+    {
+        if (errorCode == ERROR_NETNAME_DELETED || errorCode == ERROR_CONNECTION_ABORTED)
+        {
+            return Level::info;
+        }
+        return Level::error;
     }
 
 private:

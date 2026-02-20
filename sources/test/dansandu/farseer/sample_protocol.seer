@@ -27,3 +27,13 @@ request MyRequest
         uint64 authenticationToken;
     }
 }
+
+request StressRequest
+{
+    uint32 sent;
+
+    response
+    {
+        uint32 received;
+    }
+}

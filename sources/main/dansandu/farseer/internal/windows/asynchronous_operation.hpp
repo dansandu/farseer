@@ -69,6 +69,11 @@ public:
 
     virtual const char* getName() const = 0;
 
+    virtual dansandu::journey::Level reinterpretSystemErrorCode(const DWORD errorCode) const
+    {
+        return dansandu::journey::Level::error;
+    }
+
     SocketServiceId getServiceId() const
     {
         return serviceId_;
@@ -127,7 +132,9 @@ private:
 
     void handleSuccessfulAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const DWORD numberOfBytesTransferred);
 
-    void handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const std::wstring_view message = L"");
+    void handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const DWORD errorCode);
+
+    void handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const std::wstring_view message);
 
     const HANDLE completionPort_;
     dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId> serviceIdSequencer_;

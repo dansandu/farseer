@@ -89,8 +89,6 @@ void ProtocolReader::readMessage(const ProtocolIdentifier messageIdentifier,
 
     auto message = std::any{};
 
-    LOG_DEBUG("Trying to read message protocol ", messageIdentifier.getUnderlying());
-
     if (messageDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, message))
     {
         LOG_DEBUG("Successfully read message protocol ", messageIdentifier.getUnderlying());
@@ -122,8 +120,6 @@ void ProtocolReader::readRequest(const SocketServiceId receiverSocketServiceId,
     auto sequenceNumber = ProtocolSequenceNumber{};
 
     auto request = std::any{};
-
-    LOG_DEBUG("Trying to read request protocol ", requestIdentifier.getUnderlying());
 
     if (requestDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, request))
     {
@@ -160,8 +156,6 @@ void ProtocolReader::readExpectedResponse(const ProtocolIdentifier responseIdent
     auto sequenceNumber = ProtocolSequenceNumber{};
 
     auto expectedResponse = std::any{};
-
-    LOG_DEBUG("Trying to read expected response protocol ", responseIdentifier.getUnderlying());
 
     if (responseDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, expectedResponse))
     {
@@ -202,8 +196,6 @@ void ProtocolReader::read(const SocketServiceId receiverSocketServiceId, const s
     auto bitsOffset = size_t{0};
 
     const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(buffer_, bitsOffset);
-
-    LOG_DEBUG("Successfully read protocol identifier ", identifier.getUnderlying());
 
     const auto descriptor = ProtocolRegistry::getGlobalInstance().getProtocolDescriptor(identifier);
 

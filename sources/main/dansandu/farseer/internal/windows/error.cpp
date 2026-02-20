@@ -11,6 +11,11 @@ using dansandu::ballotin::string::trim;
 namespace dansandu::farseer::internal::windows::error
 {
 
+DWORD getLastErrorCode()
+{
+    return ::GetLastError();
+}
+
 std::string getErrorMessageFromCode(DWORD errorCode)
 {
     const auto flags =
