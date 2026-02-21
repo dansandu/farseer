@@ -43,17 +43,17 @@ HANDLE initializeIoCompletionPort()
 
 }
 
-AsynchronousOperationContainer::AsynchronousOperationContainer()
+AsynchronousOperationScheduler::AsynchronousOperationScheduler()
     : completionPort_{initializeIoCompletionPort()}, serviceIdSequencer_{initialCompletionKey + 1}
 {
 }
 
-AsynchronousOperationContainer::~AsynchronousOperationContainer() noexcept
+AsynchronousOperationScheduler::~AsynchronousOperationScheduler() noexcept
 {
     ::CloseHandle(completionPort_);
 }
 
-SocketServiceId AsynchronousOperationContainer::insertOperation(std::unique_ptr<AsynchronousOperation> operation)
+SocketServiceId AsynchronousOperationScheduler::insertOperation(std::unique_ptr<AsynchronousOperation> operation)
 {
     const auto overlapped = operation->getOverlapped();
     const auto name = operation->getName();
@@ -78,8 +78,8 @@ SocketServiceId AsynchronousOperationContainer::insertOperation(std::unique_ptr<
 }
 
 SocketServiceId
-AsynchronousOperationContainer::createConnectAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                                   ConnectionCallbackType connectionCallback)
+AsynchronousOperationScheduler::createConnectAsynchronousOperation(const std::wstring& ipAddress, const int port,
+                                                                   ConnectionCallbackType&& connectionCallback)
 {
     return insertOperation(
         dansandu::farseer::internal::windows::connect_asynchronous_operation::createConnectAsynchronousOperation(
@@ -87,29 +87,29 @@ AsynchronousOperationContainer::createConnectAsynchronousOperation(const std::ws
 }
 
 SocketServiceId
-AsynchronousOperationContainer::createListenAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                                  ConnectionCallbackType connectionCallback)
+AsynchronousOperationScheduler::createListenAsynchronousOperation(const std::wstring& ipAddress, const int port,
+                                                                  ConnectionCallbackType&& connectionCallback)
 {
     return insertOperation(
         dansandu::farseer::internal::windows::listen_asynchronous_operation::createListenAsynchronousOperation(
             serviceIdSequencer_, ipAddress, port, std::move(connectionCallback)));
 }
 
-void AsynchronousOperationContainer::createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId)
+void AsynchronousOperationScheduler::createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId)
 {
     insertOperation(
         dansandu::farseer::internal::windows::accept_asynchronous_operation::createAcceptAsynchronousOperation(
             serviceIdSequencer_, listeningServiceId));
 }
 
-void AsynchronousOperationContainer::createReceiveAsynchronousOperation(const SocketServiceId serviceId)
+void AsynchronousOperationScheduler::createReceiveAsynchronousOperation(const SocketServiceId serviceId)
 {
     insertOperation(
         dansandu::farseer::internal::windows::receive_asynchronous_operation::createReceiveAsynchronousOperation(
             serviceId));
 }
 
-void AsynchronousOperationContainer::createRegisterMessageConsumerAsynchronousOperation(
+void AsynchronousOperationScheduler::createRegisterMessageConsumerAsynchronousOperation(
     const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
     Function<void(std::any&&)>&& messageConsumer)
 {
@@ -118,7 +118,7 @@ void AsynchronousOperationContainer::createRegisterMessageConsumerAsynchronousOp
                                                                            std::move(messageConsumer)));
 }
 
-void AsynchronousOperationContainer::createRegisterRequestCallbackAsynchronousOperation(
+void AsynchronousOperationScheduler::createRegisterRequestCallbackAsynchronousOperation(
     const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
     Function<std::any(std::any&&)>&& requestConsumer)
 {
@@ -127,7 +127,7 @@ void AsynchronousOperationContainer::createRegisterRequestCallbackAsynchronousOp
                                                                            std::move(requestConsumer)));
 }
 
-void AsynchronousOperationContainer::createSendBytesAsynchronousOperation(const SocketServiceId serviceId,
+void AsynchronousOperationScheduler::createSendBytesAsynchronousOperation(const SocketServiceId serviceId,
                                                                           std::vector<uint8_t>&& bytes)
 {
     insertOperation(
@@ -135,7 +135,7 @@ void AsynchronousOperationContainer::createSendBytesAsynchronousOperation(const 
             serviceId, std::move(bytes)));
 }
 
-void AsynchronousOperationContainer::createSendRequestAsynchronousOperation(
+void AsynchronousOperationScheduler::createSendRequestAsynchronousOperation(
     const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>&& bytes,
     Function<void(std::any&&)>&& expectedResponseConsumer)
 {
@@ -144,14 +144,14 @@ void AsynchronousOperationContainer::createSendRequestAsynchronousOperation(
                                                                std::move(expectedResponseConsumer)));
 }
 
-void AsynchronousOperationContainer::createCloseAsynchronousOperation(const SocketServiceId serviceId)
+void AsynchronousOperationScheduler::createCloseAsynchronousOperation(const SocketServiceId serviceId)
 {
     insertOperation(
         dansandu::farseer::internal::windows::close_asynchronous_operation::createCloseAsynchronousOperation(
             serviceId));
 }
 
-void AsynchronousOperationContainer::createAbortAsynchronousOperation()
+void AsynchronousOperationScheduler::createAbortAsynchronousOperation()
 {
     const auto numberOfBytesTransferred = 0;
     const auto overlapped = LPOVERLAPPED{nullptr};
@@ -168,7 +168,7 @@ void AsynchronousOperationContainer::createAbortAsynchronousOperation()
     }
 }
 
-bool AsynchronousOperationContainer::waitAndConsumeAsynchronousOperation()
+bool AsynchronousOperationScheduler::waitAndConsumeAsynchronousOperation()
 {
     auto numberOfBytesTransferred = DWORD{0};
     auto completionKey = 0ULL;
@@ -219,7 +219,7 @@ bool AsynchronousOperationContainer::waitAndConsumeAsynchronousOperation()
     return true;
 }
 
-void AsynchronousOperationContainer::handleSuccessfulAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
+void AsynchronousOperationScheduler::handleSuccessfulAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
                                                                            const DWORD numberOfBytesTransferred)
 {
     const auto lock = std::lock_guard<std::recursive_mutex>{operationsMutex_};
@@ -252,7 +252,7 @@ void AsynchronousOperationContainer::handleSuccessfulAsynchronousOperation(const
     }
 }
 
-void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
+void AsynchronousOperationScheduler::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
                                                                        const DWORD errorCode)
 {
     const auto lock = std::lock_guard<std::recursive_mutex>{operationsMutex_};
@@ -277,7 +277,7 @@ void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPW
     }
 }
 
-void AsynchronousOperationContainer::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
+void AsynchronousOperationScheduler::handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped,
                                                                        const std::wstring_view message)
 {
     const auto lock = std::lock_guard<std::recursive_mutex>{operationsMutex_};

@@ -6,7 +6,7 @@
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
 using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::socket_service::SocketService;
@@ -20,7 +20,7 @@ class ConnectAsynchronousOperation : public AsynchronousOperation
 {
 public:
     ConnectAsynchronousOperation(Sequencer<SocketServiceId>& sequencer, const std::wstring& ipAddress, const int port,
-                                 ConnectionCallbackType connectionCallback)
+                                 ConnectionCallbackType&& connectionCallback)
         : AsynchronousOperation{sequencer.generate()},
           ipAddress_{ipAddress},
           port_{port},
@@ -30,7 +30,7 @@ public:
     }
 
     void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                               const HANDLE completionPort) override
     {
         const auto numberOfBytesTransferred = 0;
@@ -44,7 +44,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
+                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         if (!connectionPending_)
@@ -58,7 +58,7 @@ public:
             const auto [servicePosition, serviceInserted] = socketServiceContainer.insert(
                 {serviceId_, SocketService{
                                  .socket = std::move(socket),
-                                 .protocolReader = ProtocolReader{[&registry = asynchronousOperationsRegistry](
+                                 .protocolReader = ProtocolReader{[&registry = asynchronousOperationsScheduler](
                                                                       const SocketServiceId receiverSocketServiceId,
                                                                       std::vector<uint8_t>&& response)
                                                                   {
@@ -87,9 +87,9 @@ public:
 
             socket.connect();
 
-            servicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, InvalidServiceId, serviceId_);
+            servicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, serviceId_);
 
-            asynchronousOperationsRegistry.createReceiveAsynchronousOperation(serviceId_);
+            asynchronousOperationsScheduler.createReceiveAsynchronousOperation(serviceId_);
 
             LOG_INFO("Connected to socket with address ", socket.getIpAddress(), ':', socket.getPort());
 
@@ -111,7 +111,7 @@ private:
 
 std::unique_ptr<AsynchronousOperation> createConnectAsynchronousOperation(Sequencer<SocketServiceId>& sequencer,
                                                                           const std::wstring& ipAddress, const int port,
-                                                                          ConnectionCallbackType connectionCallback)
+                                                                          ConnectionCallbackType&& connectionCallback)
 {
     return std::make_unique<ConnectAsynchronousOperation>(sequencer, ipAddress, port, std::move(connectionCallback));
 }

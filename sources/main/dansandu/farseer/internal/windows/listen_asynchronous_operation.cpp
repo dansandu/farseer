@@ -7,7 +7,7 @@
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
 using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::socket_service::SocketService;
@@ -21,7 +21,7 @@ class ListenAsynchronousOperation : public AsynchronousOperation
 {
 public:
     ListenAsynchronousOperation(Sequencer<SocketServiceId>& sequencer, const std::wstring& ipAddress, const int port,
-                                ConnectionCallbackType connectionCallback)
+                                ConnectionCallbackType&& connectionCallback)
         : AsynchronousOperation{sequencer.generate()},
           ipAddress_{ipAddress},
           port_{port},
@@ -30,7 +30,7 @@ public:
     }
 
     void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                               const HANDLE completionPort) override
     {
         const auto numberOfBytesTransferred = 0;
@@ -44,7 +44,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
+                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         auto socket = WindowsSocket{completionPort, serviceId_};
@@ -54,7 +54,7 @@ public:
         const auto [servicePosition, serviceInserted] = socketServiceContainer.insert(
             {serviceId_, SocketService{
                              .socket = std::move(socket),
-                             .protocolReader = ProtocolReader{[&registry = asynchronousOperationsRegistry](
+                             .protocolReader = ProtocolReader{[&registry = asynchronousOperationsScheduler](
                                                                   const SocketServiceId receiverSocketServiceId,
                                                                   std::vector<uint8_t>&& response)
                                                               {
@@ -73,9 +73,9 @@ public:
 
         SCOPE_FAILURE([&]() { socketServiceContainer.erase(servicePosition); });
 
-        asynchronousOperationsRegistry.createAcceptAsynchronousOperation(serviceId_);
+        asynchronousOperationsScheduler.createAcceptAsynchronousOperation(serviceId_);
 
-        servicePosition->second.connectionCallback(SocketServiceEvent::serverOpen, serviceId_, InvalidServiceId);
+        servicePosition->second.connectionCallback(SocketServiceEvent::serverOpen, serviceId_);
 
         LOG_INFO("Opened listening socket with ID ", serviceId_.getUnderlying(), " and address ",
                  servicePosition->second.socket.getIpAddress(), ':', servicePosition->second.socket.getPort());
@@ -96,7 +96,7 @@ private:
 
 std::unique_ptr<AsynchronousOperation> createListenAsynchronousOperation(Sequencer<SocketServiceId>& sequencer,
                                                                          const std::wstring& ipAddress, const int port,
-                                                                         ConnectionCallbackType connectionCallback)
+                                                                         ConnectionCallbackType&& connectionCallback)
 {
     return std::make_unique<ListenAsynchronousOperation>(sequencer, ipAddress, port, std::move(connectionCallback));
 }

@@ -90,8 +90,7 @@ PRALINE_EXPORT ProtocolSize getProtocolSizeFromStdSize(const size_t size);
 
 PRALINE_EXPORT const char* toString(const SocketServiceEvent event);
 
-using ConnectionCallbackType =
-    Function<void(const SocketServiceEvent event, const SocketServiceId serverId, const SocketServiceId clientId)>;
+using ConnectionCallbackType = Function<void(const SocketServiceEvent event, const SocketServiceId socketServiceId)>;
 
 using ProtocolDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
                                       ProtocolSequenceNumber& sequenceNumber, std::any& protocol);

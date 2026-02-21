@@ -1,3 +1,4 @@
+#include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/farseer/socket_service_provider.hpp"
 #include "dansandu/journey/logging.hpp"
@@ -32,15 +33,17 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketServ
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
-    const auto connectionId = socketServiceProvider.connect(
-        localhost, serverPort,
-        [&openPromise](const SocketServiceEvent event, const SocketServiceId, const SocketServiceId)
-        {
-            if (event == SocketServiceEvent::clientOpen)
-            {
-                openPromise.set_value();
-            }
-        });
+    const auto connectionId =
+        socketServiceProvider.connect(localhost, serverPort,
+                                      [&openPromise](const SocketServiceEvent event, const SocketServiceId)
+                                      {
+                                          if (event == SocketServiceEvent::clientOpen)
+                                          {
+                                              openPromise.set_value();
+                                          }
+                                      });
+
+    SCOPE_EXIT([&] { socketServiceProvider.close(connectionId); });
 
     if (openFuture.wait_for(timeout) != std::future_status::ready)
     {
@@ -51,13 +54,9 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketServ
     auto responseFuture = responsePromise.get_future();
 
     socketServiceProvider.sendRequest(connectionId, request, [&responsePromise](Expected<StressResponse>&& response)
-                                      { responsePromise.set_value(response); });
+                                      { responsePromise.set_value(std::move(response)); });
 
-    const auto responseStatus = responseFuture.wait_for(timeout);
-
-    socketServiceProvider.close(connectionId);
-
-    if (responseStatus == std::future_status::ready)
+    if (responseFuture.wait_for(timeout) == std::future_status::ready)
     {
         return {request, responseFuture.get()};
     }
@@ -83,14 +82,22 @@ TEST_CASE("localhost_single_instance")
 
     LOG_INFO("Opening listening socket...");
 
-    const auto listenerId = socketServiceProvider.listen(
-        localhost, serverPort,
-        [&openPromise](const SocketServiceEvent event, const SocketServiceId, const SocketServiceId)
+    const auto listenerId =
+        socketServiceProvider.listen(localhost, serverPort,
+                                     [&openPromise](const SocketServiceEvent event, const SocketServiceId)
+                                     {
+                                         if (event == SocketServiceEvent::serverOpen)
+                                         {
+                                             openPromise.set_value();
+                                         }
+                                     });
+
+    SCOPE_EXIT(
+        [&]
         {
-            if (event == SocketServiceEvent::serverOpen)
-            {
-                openPromise.set_value();
-            }
+            LOG_INFO("Closing server...");
+
+            socketServiceProvider.close(listenerId);
         });
 
     REQUIRE(openFuture.wait_for(timeout) == std::future_status::ready);
@@ -153,10 +160,6 @@ TEST_CASE("localhost_single_instance")
             REQUIRE(responseErrorMessage == expected.getErrorMessage());
         }
     }
-
-    LOG_INFO("Closing server...");
-
-    socketServiceProvider.close(listenerId);
 
     LOG_INFO("All requests are done!");
 }
