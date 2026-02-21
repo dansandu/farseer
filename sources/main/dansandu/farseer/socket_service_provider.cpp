@@ -12,7 +12,7 @@
 #include <vector>
 
 using dansandu::farseer::internal::sequencer::Sequencer;
-using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperationContainer;
+using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperationScheduler;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::wsa_scope_guard::WsaScopeGuard;
 
@@ -24,7 +24,7 @@ namespace
 
 DWORD WINAPI consumeAsynchronousOperations(LPVOID parameter);
 
-HANDLE createAsynchronousOperationsConsumerThread(AsynchronousOperationContainer* const operations)
+HANDLE createAsynchronousOperationsConsumerThread(AsynchronousOperationScheduler* const operations)
 {
     auto threadId = DWORD{0};
 
@@ -60,7 +60,7 @@ struct SocketServiceProviderImplementation
     }
 
     const WsaScopeGuard wsaScopeGuard;
-    AsynchronousOperationContainer operations;
+    AsynchronousOperationScheduler operations;
     Sequencer<ProtocolSequenceNumber> sequencer;
     const HANDLE thread;
 };
@@ -69,7 +69,7 @@ DWORD WINAPI consumeAsynchronousOperations(LPVOID parameter)
 {
     LOG_DEBUG("Started asynchronous operations consumer thread");
 
-    const auto operations = static_cast<AsynchronousOperationContainer*>(parameter);
+    const auto operations = static_cast<AsynchronousOperationScheduler*>(parameter);
 
     while (operations->waitAndConsumeAsynchronousOperation())
     {

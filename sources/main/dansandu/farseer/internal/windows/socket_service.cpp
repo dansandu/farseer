@@ -31,14 +31,13 @@ void closeSocketService(SocketServiceContainer& services, const SocketServiceId 
 
             if (listeningServicePosition != services.end())
             {
-                listeningServicePosition->second.connectionCallback(
-                    SocketServiceEvent::clientClosed, listeningServicePosition->first, servicePosition->first);
+                listeningServicePosition->second.connectionCallback(SocketServiceEvent::clientClosed,
+                                                                    servicePosition->first);
             }
         }
         else
         {
-            servicePosition->second.connectionCallback(SocketServiceEvent::serverClosed, InvalidServiceId,
-                                                       servicePosition->first);
+            servicePosition->second.connectionCallback(SocketServiceEvent::serverClosed, servicePosition->first);
         }
 
         services.erase(servicePosition->first);

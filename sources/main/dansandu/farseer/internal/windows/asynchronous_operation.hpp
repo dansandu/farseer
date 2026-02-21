@@ -17,17 +17,17 @@ namespace dansandu::farseer::internal::windows::asynchronous_operation
 
 constexpr auto initialCompletionKey = InvalidServiceId.getUnderlying();
 
-class IAsynchronousOperationsRegistry
+class IAsynchronousOperationsScheduler
 {
 public:
-    IAsynchronousOperationsRegistry() = default;
+    IAsynchronousOperationsScheduler() = default;
 
-    IAsynchronousOperationsRegistry(const IAsynchronousOperationsRegistry& other) = delete;
-    IAsynchronousOperationsRegistry(IAsynchronousOperationsRegistry&& other) noexcept = delete;
-    IAsynchronousOperationsRegistry& operator=(const IAsynchronousOperationsRegistry& other) = delete;
-    IAsynchronousOperationsRegistry& operator=(IAsynchronousOperationsRegistry&& other) noexcept = delete;
+    IAsynchronousOperationsScheduler(const IAsynchronousOperationsScheduler& other) = delete;
+    IAsynchronousOperationsScheduler(IAsynchronousOperationsScheduler&& other) noexcept = delete;
+    IAsynchronousOperationsScheduler& operator=(const IAsynchronousOperationsScheduler& other) = delete;
+    IAsynchronousOperationsScheduler& operator=(IAsynchronousOperationsScheduler&& other) noexcept = delete;
 
-    virtual ~IAsynchronousOperationsRegistry() noexcept
+    virtual ~IAsynchronousOperationsScheduler() noexcept
     {
     }
 
@@ -59,13 +59,13 @@ public:
 
     virtual void
     postToCompletionPort(dansandu::farseer::internal::windows::socket_service::SocketServiceContainer& services,
-                         IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                         IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                          const HANDLE completionPort) = 0;
 
     virtual bool finalize(dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId>& sequencer,
                           dansandu::farseer::internal::windows::socket_service::SocketServiceContainer& services,
-                          IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
-                          const DWORD numberOfBytesTransferred) = 0;
+                          IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
+                          const HANDLE completionPort, const DWORD numberOfBytesTransferred) = 0;
 
     virtual const char* getName() const = 0;
 
@@ -89,18 +89,18 @@ protected:
     WSAOVERLAPPED overlapped_;
 };
 
-class AsynchronousOperationContainer : public IAsynchronousOperationsRegistry
+class AsynchronousOperationScheduler : public IAsynchronousOperationsScheduler
 {
 public:
-    AsynchronousOperationContainer();
+    AsynchronousOperationScheduler();
 
-    ~AsynchronousOperationContainer() noexcept;
+    ~AsynchronousOperationScheduler() noexcept;
 
     SocketServiceId createConnectAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                       ConnectionCallbackType connectionCallback);
+                                                       ConnectionCallbackType&& connectionCallback);
 
     SocketServiceId createListenAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                      ConnectionCallbackType connectionCallback);
+                                                      ConnectionCallbackType&& connectionCallback);
 
     void createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId) override;
 

@@ -3,7 +3,7 @@
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
 using dansandu::farseer::internal::windows::socket_service::SocketService;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
@@ -21,7 +21,7 @@ public:
     }
 
     void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                               const HANDLE completionPort) override
     {
         const auto listeningServicePosition = getServiceOrThrow(services, listeningServiceId_);
@@ -32,7 +32,7 @@ public:
         const auto [servicePosition, serviceInserted] = services.insert(
             {serviceId_, SocketService{
                              .socket = std::move(pendingAcceptSocket),
-                             .protocolReader = ProtocolReader{[&registry = asynchronousOperationsRegistry](
+                             .protocolReader = ProtocolReader{[&registry = asynchronousOperationsScheduler](
                                                                   const SocketServiceId receiverSocketServiceId,
                                                                   std::vector<uint8_t>&& response)
                                                               {
@@ -50,7 +50,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& services,
-                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
+                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         const auto servicePosition = getServiceOrThrow(services, serviceId_);
@@ -61,12 +61,11 @@ public:
 
         socket.accept(listeningServicePosition->second.socket);
 
-        asynchronousOperationsRegistry.createAcceptAsynchronousOperation(listeningServiceId_);
+        asynchronousOperationsScheduler.createAcceptAsynchronousOperation(listeningServiceId_);
 
-        asynchronousOperationsRegistry.createReceiveAsynchronousOperation(serviceId_);
+        asynchronousOperationsScheduler.createReceiveAsynchronousOperation(serviceId_);
 
-        listeningServicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, listeningServiceId_,
-                                                            serviceId_);
+        listeningServicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, serviceId_);
 
         LOG_INFO("Accepted client socket with address ", socket.getIpAddress(), ':', socket.getPort());
 

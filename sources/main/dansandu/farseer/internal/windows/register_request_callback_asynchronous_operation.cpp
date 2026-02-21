@@ -4,7 +4,7 @@
 
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
-using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsRegistry;
+using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
 using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
@@ -25,7 +25,7 @@ public:
     }
 
     void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsRegistry& asynchronousOperationsRegistry,
+                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                               const HANDLE completionPort) override
     {
         const auto numberOfBytesTransferred = 0;
@@ -39,7 +39,7 @@ public:
     }
 
     bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsRegistry& asynchronousOperationsRegistry, const HANDLE completionPort,
+                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
                   const DWORD numberOfBytesTransferred) override
     {
         const auto servicePosition = getServiceOrThrow(socketServiceContainer, serviceId_);
