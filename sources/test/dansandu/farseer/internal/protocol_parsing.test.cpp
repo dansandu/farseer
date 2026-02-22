@@ -1,11 +1,11 @@
-#include "dansandu/farseer/internal/protocol_parsing.hpp"
 #include "dansandu/farseer/exception.hpp"
+#include "dansandu/farseer/internal/protocol_definition_parsing.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
-using dansandu::farseer::exception::ReservedIdentifierNameError;
-using dansandu::farseer::internal::protocol_parsing::parseProtocol;
+using dansandu::farseer::exception::ReservedNameError;
+using dansandu::farseer::internal::protocol_definition_parsing::parseProtocolDefinition;
 
-TEST_CASE("protocol_parsing")
+TEST_CASE("protocol_definition_parsing")
 {
     SECTION("message parsing")
     {
@@ -25,7 +25,7 @@ message MyMessage
 }
 )";
 
-        const auto protocol = parseProtocol(text);
+        const auto protocol = parseProtocolDefinition(text);
 
         REQUIRE(protocol.toString() == text);
     }
@@ -47,7 +47,7 @@ request MyRequest
 }
 )";
 
-        const auto protocol = parseProtocol(text);
+        const auto protocol = parseProtocolDefinition(text);
 
         REQUIRE(protocol.messages.empty());
 
@@ -66,7 +66,7 @@ request MyRequest
         REQUIRE(protocol.toString() == text);
     }
 
-    SECTION("parsing reserved identifier")
+    SECTION("parsing reserved name")
     {
         const auto text = R"(namespace organization.artifact.module;
 
@@ -77,6 +77,6 @@ message Person
 }
 )";
 
-        REQUIRE_THROW(ReservedIdentifierNameError, parseProtocol(text));
+        REQUIRE_THROW(ReservedNameError, parseProtocolDefinition(text));
     }
 }

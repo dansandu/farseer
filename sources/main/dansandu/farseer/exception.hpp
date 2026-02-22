@@ -45,7 +45,7 @@ public:
     using runtime_error::runtime_error;
 };
 
-class ReservedIdentifierNameError : public std::runtime_error
+class ReservedNameError : public std::runtime_error
 {
 public:
     using runtime_error::runtime_error;
@@ -69,13 +69,13 @@ public:
     using runtime_error::runtime_error;
 };
 
-class DuplicateProtocolIdentifierError : public ProtocolValidationError
+class DuplicateProtocolNameError : public ProtocolValidationError
 {
 public:
     using ProtocolValidationError::ProtocolValidationError;
 };
 
-class MessageIdentifierNotDefinedError : public ProtocolValidationError
+class MessageNameNotDefinedError : public ProtocolValidationError
 {
 public:
     using ProtocolValidationError::ProtocolValidationError;
@@ -87,7 +87,7 @@ public:
     using ProtocolValidationError::ProtocolValidationError;
 };
 
-class DuplicateFieldIdentifierError : public ProtocolValidationError
+class DuplicateFieldNameError : public ProtocolValidationError
 {
 public:
     using ProtocolValidationError::ProtocolValidationError;

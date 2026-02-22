@@ -1,21 +1,22 @@
 #include "dansandu/farseer/internal/protocol_validation.hpp"
 #include "dansandu/ballotin/exception.hpp"
 #include "dansandu/farseer/exception.hpp"
-#include "dansandu/farseer/internal/protocol.hpp"
+#include "dansandu/farseer/internal/protocol_definition.hpp"
 
 #include <set>
 #include <string>
 #include <string_view>
 
-using dansandu::farseer::exception::DuplicateFieldIdentifierError;
-using dansandu::farseer::exception::DuplicateProtocolIdentifierError;
-using dansandu::farseer::exception::MessageIdentifierNotDefinedError;
+using dansandu::farseer::exception::DuplicateFieldNameError;
+using dansandu::farseer::exception::DuplicateProtocolNameError;
+using dansandu::farseer::exception::MessageNameNotDefinedError;
 using dansandu::farseer::exception::ProtocolFieldSelfReferenceError;
-using dansandu::farseer::internal::protocol::Field;
-using dansandu::farseer::internal::protocol::MessageProtocol;
-using dansandu::farseer::internal::protocol::Protocol;
-using dansandu::farseer::internal::protocol::RequestProtocol;
-using dansandu::farseer::internal::protocol::TypeEnum;
+using dansandu::farseer::internal::protocol_definition::FieldDefinition;
+using dansandu::farseer::internal::protocol_definition::MessageProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::ProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::RequestProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::TypeDefinition;
+using dansandu::farseer::internal::protocol_definition::TypeDefinitionEnum;
 
 namespace dansandu::farseer::internal::protocol_validation
 {
@@ -23,90 +24,94 @@ namespace dansandu::farseer::internal::protocol_validation
 namespace
 {
 
-void validateFields(const std::vector<Field>& fields, const std::set<std::string>& messageIdentifiers,
-                    const std::string_view protocolIdentifier)
+void validateFieldDefinitions(const std::vector<FieldDefinition>& fields, const std::set<std::string>& messageNames,
+                              const std::string_view protocolName)
 {
-    auto fieldIdentifiers = std::set<std::string>{};
+    auto fieldNames = std::set<std::string>{};
 
     for (const auto& field : fields)
     {
-        auto typePointer = &field.type;
+        auto queue = std::vector<const TypeDefinition*>{{&field.type}};
 
-        while (typePointer != nullptr)
+        for (auto index = size_t{}; index < queue.size(); ++index)
         {
-            if (typePointer->getTypeEnum() == TypeEnum::message)
+            const auto type = queue[index];
+
+            if (type->getTypeEnum() == TypeDefinitionEnum::message)
             {
-                if (protocolIdentifier == typePointer->getIdentifier())
+                if (protocolName == type->getName())
                 {
-                    THROW(ProtocolFieldSelfReferenceError, "protocol ", protocolIdentifier,
-                          " field cannot reference itself");
+                    THROW(ProtocolFieldSelfReferenceError, "protocol ", protocolName, " field cannot reference itself");
                 }
 
-                if (!messageIdentifiers.contains(typePointer->getIdentifier()))
+                if (!messageNames.contains(type->getName()))
                 {
-                    THROW(MessageIdentifierNotDefinedError, "the identifier ", typePointer->getIdentifier(),
-                          " was not defined");
+                    THROW(MessageNameNotDefinedError, "the name ", type->getName(), " was not defined");
                 }
             }
 
-            typePointer = typePointer->getSubtype();
+            for (const auto& subType : type->getSubtypes())
+            {
+                queue.push_back(&subType);
+            }
         }
 
-        if (fieldIdentifiers.contains(field.identifier))
+        if (fieldNames.contains(field.name))
         {
-            THROW(DuplicateFieldIdentifierError, "the field identifier ", field.identifier,
-                  " is already used by another field");
+            THROW(DuplicateFieldNameError, "the field name ", field.name, " is already used by another field");
         }
 
-        fieldIdentifiers.insert(field.identifier);
+        fieldNames.insert(field.name);
     }
 }
 
-void validateMessages(const std::vector<MessageProtocol>& messages, std::set<std::string>& messageIdentifiers)
+void validateMessageDefinitions(const std::vector<MessageProtocolDefinition>& messages,
+                                std::set<std::string>& messageNames)
 {
     for (const auto& message : messages)
     {
-        if (messageIdentifiers.contains(message.identifier))
+        if (messageNames.contains(message.name))
         {
-            THROW(DuplicateProtocolIdentifierError, "the protocol identifier ", message.identifier,
+            THROW(DuplicateProtocolNameError, "the protocol name ", message.name,
                   " is already used by another protocol");
         }
 
-        messageIdentifiers.insert(message.identifier);
+        messageNames.insert(message.name);
 
-        validateFields(message.fields, messageIdentifiers, message.identifier);
+        validateFieldDefinitions(message.fields, messageNames, message.name);
     }
 }
 
-void validateRequests(const std::vector<RequestProtocol>& requests, const std::set<std::string>& messageIdentifiers)
+void validateRequestDefinitions(const std::vector<RequestProtocolDefinition>& requests,
+                                const std::set<std::string>& messageNames)
 {
-    auto requestIdentifiers = std::set<std::string>{};
+    auto requestNames = std::set<std::string>{};
 
     for (const auto& request : requests)
     {
-        if (messageIdentifiers.contains(request.identifier) || requestIdentifiers.contains(request.identifier))
+        if (messageNames.contains(request.name) || requestNames.contains(request.name))
         {
-            THROW(DuplicateProtocolIdentifierError, "the protocol identifier ", request.identifier,
+            THROW(DuplicateProtocolNameError, "the protocol name ", request.name,
                   " is already used by another protocol");
         }
 
-        requestIdentifiers.insert(request.identifier);
+        requestNames.insert(request.name);
 
-        validateFields(request.requestFields, messageIdentifiers, request.identifier);
+        validateFieldDefinitions(request.requestFields, messageNames, request.name);
 
-        validateFields(request.responseFields, messageIdentifiers, request.identifier);
+        validateFieldDefinitions(request.responseFields, messageNames, request.name);
     }
 }
 
 }
 
-void validateProtocol(const Protocol& protocol)
+void validateProtocolDefinition(const ProtocolDefinition& protocol)
 {
-    auto messageIdentifiers = std::set<std::string>{};
+    auto messageNames = std::set<std::string>{};
 
-    validateMessages(protocol.messages, messageIdentifiers);
+    validateMessageDefinitions(protocol.messages, messageNames);
 
-    validateRequests(protocol.requests, messageIdentifiers);
+    validateRequestDefinitions(protocol.requests, messageNames);
 }
 
 }

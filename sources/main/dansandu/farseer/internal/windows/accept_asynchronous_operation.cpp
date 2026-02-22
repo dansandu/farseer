@@ -32,11 +32,11 @@ public:
         const auto [servicePosition, serviceInserted] = services.insert(
             {serviceId_, SocketService{
                              .socket = std::move(pendingAcceptSocket),
-                             .protocolReader = ProtocolReader{[&registry = asynchronousOperationsScheduler](
+                             .protocolReader = ProtocolReader{[&scheduler = asynchronousOperationsScheduler](
                                                                   const SocketServiceId receiverSocketServiceId,
                                                                   std::vector<uint8_t>&& response)
                                                               {
-                                                                  registry.createSendBytesAsynchronousOperation(
+                                                                  scheduler.createSendBytesAsynchronousOperation(
                                                                       receiverSocketServiceId, std::move(response));
                                                               }},
                              .listeningServiceId = listeningServicePosition->first,

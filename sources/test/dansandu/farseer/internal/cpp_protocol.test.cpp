@@ -1,10 +1,10 @@
 #include "dansandu/farseer/internal/cpp_protocol.hpp"
-#include "dansandu/farseer/internal/protocol_parsing.hpp"
+#include "dansandu/farseer/internal/protocol_definition_parsing.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::internal::cpp_protocol::generateProtocolCppHeader;
 using dansandu::farseer::internal::cpp_protocol::generateProtocolCppSource;
-using dansandu::farseer::internal::protocol_parsing::parseProtocol;
+using dansandu::farseer::internal::protocol_definition_parsing::parseProtocolDefinition;
 
 TEST_CASE("cpp_protocol")
 {
@@ -58,7 +58,7 @@ namespace organization::artifact::protocol
 
 ::dansandu::farseer::ProtocolIdentifier MyMessage::Metadata::getProtocolIdentifier()
 {
-    return ::dansandu::farseer::ProtocolIdentifier{477867811U};
+    return ::dansandu::farseer::ProtocolIdentifier{1986501203U};
 }
 
 MyMessage MyMessage::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
@@ -86,7 +86,7 @@ const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_r
 }
 )";
 
-        const auto protocol = parseProtocol(text);
+        const auto protocol = parseProtocolDefinition(text);
 
         const auto header = generateProtocolCppHeader(protocol);
 
@@ -172,7 +172,7 @@ namespace organization::artifact::protocol
 
 ::dansandu::farseer::ProtocolIdentifier MyRequest::Metadata::getProtocolIdentifier()
 {
-    return ::dansandu::farseer::ProtocolIdentifier{140137785U};
+    return ::dansandu::farseer::ProtocolIdentifier{1356265941U};
 }
 
 MyRequest MyRequest::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
@@ -191,7 +191,7 @@ void MyRequest::Metadata::serialize(const MyRequest& protocol, std::vector<uint8
 
 ::dansandu::farseer::ProtocolIdentifier MyRequest::Response::Metadata::getProtocolIdentifier()
 {
-    return ::dansandu::farseer::ProtocolIdentifier{135278891U};
+    return ::dansandu::farseer::ProtocolIdentifier{1631866348U};
 }
 
 MyRequest::Response MyRequest::Response::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
@@ -218,7 +218,7 @@ const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_r
 
 }
 )";
-        const auto protocol = parseProtocol(text);
+        const auto protocol = parseProtocolDefinition(text);
 
         const auto header = generateProtocolCppHeader(protocol);
 

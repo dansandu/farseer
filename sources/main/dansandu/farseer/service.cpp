@@ -1,6 +1,6 @@
 #include "dansandu/ballotin/file_system.hpp"
 #include "dansandu/farseer/internal/cpp_protocol.hpp"
-#include "dansandu/farseer/internal/protocol_parsing.hpp"
+#include "dansandu/farseer/internal/protocol_definition_parsing.hpp"
 #include "dansandu/service_runner/service_registry.hpp"
 
 #include <iostream>
@@ -9,7 +9,7 @@ using dansandu::ballotin::file_system::readAsciiFile;
 using dansandu::ballotin::file_system::writeAsciiFile;
 using dansandu::farseer::internal::cpp_protocol::generateProtocolCppHeader;
 using dansandu::farseer::internal::cpp_protocol::generateProtocolCppSource;
-using dansandu::farseer::internal::protocol_parsing::parseProtocol;
+using dansandu::farseer::internal::protocol_definition_parsing::parseProtocolDefinition;
 
 namespace dansandu::farseer::service
 {
@@ -100,7 +100,7 @@ int generateProtocolSourceFiles(const int argumentsCount, const char* const* con
     }
 
     const auto protocolFile = readAsciiFile(protocolFilePath);
-    const auto protocol = parseProtocol(protocolFile);
+    const auto protocol = parseProtocolDefinition(protocolFile);
     const auto cppHeader = generateProtocolCppHeader(protocol);
     const auto cppSource = generateProtocolCppSource(protocol);
 
