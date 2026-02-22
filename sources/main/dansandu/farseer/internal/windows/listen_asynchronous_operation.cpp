@@ -54,11 +54,11 @@ public:
         const auto [servicePosition, serviceInserted] = socketServiceContainer.insert(
             {serviceId_, SocketService{
                              .socket = std::move(socket),
-                             .protocolReader = ProtocolReader{[&registry = asynchronousOperationsScheduler](
+                             .protocolReader = ProtocolReader{[&scheduler = asynchronousOperationsScheduler](
                                                                   const SocketServiceId receiverSocketServiceId,
                                                                   std::vector<uint8_t>&& response)
                                                               {
-                                                                  registry.createSendBytesAsynchronousOperation(
+                                                                  scheduler.createSendBytesAsynchronousOperation(
                                                                       receiverSocketServiceId, std::move(response));
                                                               }},
                              .listeningServiceId = InvalidServiceId,

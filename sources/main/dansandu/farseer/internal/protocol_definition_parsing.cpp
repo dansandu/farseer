@@ -1,4 +1,4 @@
-#include "dansandu/farseer/internal/protocol_parsing.hpp"
+#include "dansandu/farseer/internal/protocol_definition_parsing.hpp"
 #include "dansandu/ballotin/exception.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/protocol_validation.hpp"
@@ -13,38 +13,38 @@
 #include <string_view>
 #include <vector>
 
-using dansandu::farseer::exception::MessageIdentifierNotDefinedError;
-using dansandu::farseer::exception::ReservedIdentifierNameError;
-using dansandu::farseer::internal::protocol::Field;
-using dansandu::farseer::internal::protocol::MessageProtocol;
-using dansandu::farseer::internal::protocol::Protocol;
-using dansandu::farseer::internal::protocol::RequestProtocol;
-using dansandu::farseer::internal::protocol::Type;
-using dansandu::farseer::internal::protocol::TypeEnum;
-using dansandu::farseer::internal::protocol_validation::validateProtocol;
+using dansandu::farseer::exception::MessageNameNotDefinedError;
+using dansandu::farseer::exception::ReservedNameError;
+using dansandu::farseer::internal::protocol_definition::FieldDefinition;
+using dansandu::farseer::internal::protocol_definition::MessageProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::ProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::RequestProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::TypeDefinition;
+using dansandu::farseer::internal::protocol_definition::TypeDefinitionEnum;
+using dansandu::farseer::internal::protocol_validation::validateProtocolDefinition;
 using dansandu::glyph::node::Node;
 using dansandu::glyph::parser::Parser;
 using dansandu::glyph::regex_tokenizer::RegexTokenizer;
 using dansandu::glyph::symbol::Symbol;
 using dansandu::glyph::token::Token;
 
-namespace dansandu::farseer::internal::protocol_parsing
+namespace dansandu::farseer::internal::protocol_definition_parsing
 {
 
 namespace
 {
 
 constexpr auto protocolGrammar = R"(
-    /* 0*/ Start -> Protocol
-    /* 1*/ Protocol -> NamespaceDefinition ProtocolDefinitions
+    /* 0*/ Start -> ProtocolDefinition
+    /* 1*/ ProtocolDefinition -> NamespaceDefinition Protocols
     /* 2*/ NamespaceDefinition -> namespace module semicolon
-    /* 3*/ ProtocolDefinitions -> ProtocolDefinitions MessageDefinition
-    /* 4*/ ProtocolDefinitions -> ProtocolDefinitions RequestDefinition
-    /* 5*/ ProtocolDefinitions ->
-    /* 6*/ MessageDefinition -> message identifier bracesBegin Fields bracesEnd
-    /* 7*/ RequestDefinition -> request identifier bracesBegin RequestFields response bracesBegin Fields bracesEnd bracesEnd
+    /* 3*/ Protocols -> Protocols MessageDefinition
+    /* 4*/ Protocols -> Protocols RequestDefinition
+    /* 5*/ Protocols ->
+    /* 6*/ MessageDefinition -> message name bracesBegin Fields bracesEnd
+    /* 7*/ RequestDefinition -> request name bracesBegin RequestFields response bracesBegin Fields bracesEnd bracesEnd
     /* 8*/ RequestFields -> Fields
-    /* 9*/ Fields -> Fields Type identifier semicolon
+    /* 9*/ Fields -> Fields Type name semicolon
     /*10*/ Fields ->
     /*11*/ Type -> int32
     /*12*/ Type -> int64
@@ -53,16 +53,16 @@ constexpr auto protocolGrammar = R"(
     /*15*/ Type -> string
     /*16*/ Type -> bool
     /*17*/ Type -> list angleBracketBegin Type angleBracketEnd
-    /*18*/ Type -> identifier
+    /*18*/ Type -> name
 )";
 
 // clang-format off
-struct ProtocolParser
+struct ProtocolDefinitionParser
 {
-    ProtocolParser()
+    ProtocolDefinitionParser()
         : parser{protocolGrammar},
           moduleSymbol{parser.getTerminalSymbol("module")},
-          identifier{parser.getTerminalSymbol("identifier")},
+          nameSymbol{parser.getTerminalSymbol("name")},
           tokenizer{{
             {parser.getDiscardedSymbolPlaceholder(),        "\\s+"},
             {parser.getTerminalSymbol("semicolon"),         "\\;"},
@@ -82,7 +82,7 @@ struct ProtocolParser
             {parser.getTerminalSymbol("string"),            "\\bstring\\b"},
             {parser.getTerminalSymbol("bool"),              "\\bbool\\b"},
             {parser.getTerminalSymbol("list"),              "\\blist\\b"},
-            {identifier,                                    "\\b[a-zA-Z]\\w*\\b"},
+            {nameSymbol,                                    "\\b[a-zA-Z]\\w*\\b"},
           }}
     {
     }
@@ -94,7 +94,7 @@ struct ProtocolParser
 
     Parser parser;
     Symbol moduleSymbol;
-    Symbol identifier;
+    Symbol nameSymbol;
     RegexTokenizer tokenizer;
 };
 // clang-format on
@@ -114,9 +114,9 @@ auto pop(std::vector<T>& stack)
 
 }
 
-Protocol parseProtocol(const std::string_view text)
+ProtocolDefinition parseProtocolDefinition(const std::string_view text)
 {
-    static const ProtocolParser parser;
+    static const ProtocolDefinitionParser parser;
     static const std::set<std::string> reservedIdentifierNames = {
         "Response", "static",  "module", "namespace", "template", "typename",  "if",        "else",
         "switch",   "while",   "for",    "class",     "struct",   "char",      "short",     "unsigned",
@@ -128,13 +128,13 @@ Protocol parseProtocol(const std::string_view text)
 
     auto stack = std::vector<Token>{};
 
-    auto type = Type{};
+    auto type = TypeDefinition{};
 
-    auto fields = std::vector<Field>{};
+    auto fields = std::vector<FieldDefinition>{};
 
-    auto requestFields = std::vector<Field>{};
+    auto requestFields = std::vector<FieldDefinition>{};
 
-    auto protocol = Protocol{};
+    auto protocol = ProtocolDefinition{};
 
     const auto getTokenText = [text](const auto& token)
     { return std::string(text.cbegin() + token.begin(), text.cbegin() + token.end()); };
@@ -145,12 +145,11 @@ Protocol parseProtocol(const std::string_view text)
         {
             const auto token = node.getToken();
 
-            if (token.getSymbol() == parser.moduleSymbol || token.getSymbol() == parser.identifier)
+            if (token.getSymbol() == parser.moduleSymbol || token.getSymbol() == parser.nameSymbol)
             {
-                if (token.getSymbol() == parser.identifier && reservedIdentifierNames.contains(getTokenText(token)))
+                if (token.getSymbol() == parser.nameSymbol && reservedIdentifierNames.contains(getTokenText(token)))
                 {
-                    THROW(ReservedIdentifierNameError, "the identifier name '", getTokenText(token),
-                          "' is a reserved name");
+                    THROW(ReservedNameError, "the name '", getTokenText(token), "' is a reserved");
                 }
 
                 stack.push_back(token);
@@ -176,10 +175,11 @@ Protocol parseProtocol(const std::string_view text)
                     std::all_of(fields.cbegin(), fields.cend(), [](const auto& field) { return field.hasStaticSize; });
                 const auto staticNumberOfBits =
                     std::accumulate(fields.cbegin(), fields.cend(), ProtocolSize{}, numberOfBitsAccumulator);
-                protocol.messages.push_back(MessageProtocol{.identifier = getTokenText(token),
-                                                            .fields = std::move(fields),
-                                                            .hasStaticSize = hasStaticSize,
-                                                            .staticNumberOfBits = staticNumberOfBits});
+                protocol.messages.push_back(MessageProtocolDefinition{.fileNamespace = protocol.fileNamespace,
+                                                                      .name = getTokenText(token),
+                                                                      .fields = std::move(fields),
+                                                                      .hasStaticSize = hasStaticSize,
+                                                                      .staticNumberOfBits = staticNumberOfBits});
                 break;
             }
             case 7:
@@ -194,8 +194,9 @@ Protocol parseProtocol(const std::string_view text)
                 const auto requestHasStaticSize = std::all_of(requestFields.cbegin(), requestFields.cend(), selector);
                 const auto responseHasStaticSize = std::all_of(fields.cbegin(), fields.cend(), selector);
 
-                protocol.requests.push_back(RequestProtocol{
-                    .identifier = getTokenText(token),
+                protocol.requests.push_back(RequestProtocolDefinition{
+                    .fileNamespace = protocol.fileNamespace,
+                    .name = getTokenText(token),
                     .requestFields = std::move(requestFields),
                     .responseFields = std::move(fields),
                     .requestStaticNumberOfBits = requestStaticNumberOfBits,
@@ -215,9 +216,9 @@ Protocol parseProtocol(const std::string_view text)
                 const auto token = pop(stack);
                 const auto hasStaticSize = type.hasStaticSize();
                 const auto staticNumberOfBits = type.getStaticNumberOfBits();
-                fields.push_back(Field{
+                fields.push_back(FieldDefinition{
                     .type = std::move(type),
-                    .identifier = getTokenText(token),
+                    .name = getTokenText(token),
                     .hasStaticSize = hasStaticSize,
                     .staticNumberOfBits = staticNumberOfBits,
                 });
@@ -225,56 +226,54 @@ Protocol parseProtocol(const std::string_view text)
             }
             case 11:
             {
-                type = Type::fromSimple(TypeEnum::int32);
+                type = TypeDefinition::fromSimple(TypeDefinitionEnum::int32);
                 break;
             }
             case 12:
             {
-                type = Type::fromSimple(TypeEnum::int64);
+                type = TypeDefinition::fromSimple(TypeDefinitionEnum::int64);
                 break;
             }
             case 13:
             {
-                type = Type::fromSimple(TypeEnum::uint32);
+                type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint32);
                 break;
             }
             case 14:
             {
-                type = Type::fromSimple(TypeEnum::uint64);
+                type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint64);
                 break;
             }
             case 15:
             {
-                type = Type::fromSimple(TypeEnum::string);
+                type = TypeDefinition::fromSimple(TypeDefinitionEnum::string);
                 break;
             }
             case 16:
             {
-                type = Type::fromSimple(TypeEnum::boolean);
+                type = TypeDefinition::fromSimple(TypeDefinitionEnum::boolean);
                 break;
             }
             case 17:
             {
-                type = Type::fromList(std::move(type));
+                type = TypeDefinition::fromList(std::move(type));
                 break;
             }
             case 18:
             {
                 const auto token = pop(stack);
-                const auto referencedMessageIdentifier = getTokenText(token);
-                const auto referencedMessage =
-                    std::find_if(protocol.messages.cbegin(), protocol.messages.cend(),
-                                 [&referencedMessageIdentifier](const auto& message)
-                                 { return message.identifier == referencedMessageIdentifier; });
+                const auto referencedMessageName = getTokenText(token);
+                const auto referencedMessage = std::find_if(protocol.messages.cbegin(), protocol.messages.cend(),
+                                                            [&referencedMessageName](const auto& message)
+                                                            { return message.name == referencedMessageName; });
 
                 if (referencedMessage == protocol.messages.cend())
                 {
-                    THROW(MessageIdentifierNotDefinedError, "message '", referencedMessageIdentifier,
-                          "' was not defined");
+                    THROW(MessageNameNotDefinedError, "message '", referencedMessageName, "' was not defined");
                 }
 
-                type = Type::fromMessage(referencedMessageIdentifier, referencedMessage->hasStaticSize,
-                                         referencedMessage->staticNumberOfBits);
+                type = TypeDefinition::fromMessage(referencedMessageName, referencedMessage->hasStaticSize,
+                                                   referencedMessage->staticNumberOfBits);
                 break;
             }
             case 0:
@@ -290,7 +289,7 @@ Protocol parseProtocol(const std::string_view text)
         }
     }
 
-    validateProtocol(protocol);
+    validateProtocolDefinition(protocol);
 
     return protocol;
 }

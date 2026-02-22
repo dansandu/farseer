@@ -1,298 +1,311 @@
 #include "dansandu/farseer/internal/protocol_validation.hpp"
 #include "dansandu/farseer/exception.hpp"
-#include "dansandu/farseer/internal/protocol.hpp"
+#include "dansandu/farseer/internal/protocol_definition.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::ProtocolSize;
-using dansandu::farseer::exception::DuplicateFieldIdentifierError;
-using dansandu::farseer::exception::DuplicateProtocolIdentifierError;
-using dansandu::farseer::exception::MessageIdentifierNotDefinedError;
+using dansandu::farseer::exception::DuplicateFieldNameError;
+using dansandu::farseer::exception::DuplicateProtocolNameError;
+using dansandu::farseer::exception::MessageNameNotDefinedError;
 using dansandu::farseer::exception::ProtocolFieldSelfReferenceError;
-using dansandu::farseer::internal::protocol::Field;
-using dansandu::farseer::internal::protocol::MessageProtocol;
-using dansandu::farseer::internal::protocol::Protocol;
-using dansandu::farseer::internal::protocol::RequestProtocol;
-using dansandu::farseer::internal::protocol::Type;
-using dansandu::farseer::internal::protocol::TypeEnum;
-using dansandu::farseer::internal::protocol_validation::validateProtocol;
+using dansandu::farseer::internal::protocol_definition::FieldDefinition;
+using dansandu::farseer::internal::protocol_definition::MessageProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::ProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::RequestProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::TypeDefinition;
+using dansandu::farseer::internal::protocol_definition::TypeDefinitionEnum;
+using dansandu::farseer::internal::protocol_validation::validateProtocolDefinition;
 
 TEST_CASE("protocol_validation")
 {
     SECTION("message undefined message type")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages =
                 {
-                    MessageProtocol{
-                        .identifier = "Person",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .fields =
                             {
-                                Field{
-                                    .type = Type::fromMessage("House", true, ProtocolSize{32}),
-                                    .identifier = "residence",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromMessage("House", true, ProtocolSize{32}),
+                                    .name = "residence",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(MessageIdentifierNotDefinedError, validateProtocol(protocol));
+        REQUIRE_THROW(MessageNameNotDefinedError, validateProtocolDefinition(protocolDefinition));
     }
 
     SECTION("message defined after usage")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages =
                 {
-                    MessageProtocol{
-                        .identifier = "Person",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .fields =
                             {
-                                Field{
-                                    .type = Type::fromMessage("House", true, ProtocolSize{32}),
-                                    .identifier = "residence",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromMessage("House", true, ProtocolSize{32}),
+                                    .name = "residence",
                                 },
                             },
                     },
-                    MessageProtocol{
-                        .identifier = "House",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "House",
                     },
                 },
         };
 
-        REQUIRE_THROW(MessageIdentifierNotDefinedError, validateProtocol(protocol));
+        REQUIRE_THROW(MessageNameNotDefinedError, validateProtocolDefinition(protocolDefinition));
     }
 
-    SECTION("duplicate message identifier")
+    SECTION("duplicate message name")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages =
                 {
-                    MessageProtocol{
-                        .identifier = "Person",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .fields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "name",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "name",
                                 },
                             },
                     },
-                    MessageProtocol{
-                        .identifier = "Person",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .fields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "fullName",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "fullName",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(DuplicateProtocolIdentifierError, validateProtocol(protocol));
+        REQUIRE_THROW(DuplicateProtocolNameError, validateProtocolDefinition(protocolDefinition));
     }
 
     SECTION("message field self reference")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages =
                 {
-                    MessageProtocol{
-                        .identifier = "Person",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .fields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "name",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "name",
                                 },
-                                Field{
-                                    .type = Type::fromMessage("Person", false, ProtocolSize{64}),
-                                    .identifier = "parent",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
+                                    .name = "parent",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocol(protocol));
+        REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocolDefinition(protocolDefinition));
     }
 
-    SECTION("message duplicate field identifier")
+    SECTION("message duplicate field name")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages =
                 {
-                    MessageProtocol{
-                        .identifier = "Product",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Product",
                         .fields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "id",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "id",
                                 },
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::uint32),
-                                    .identifier = "age",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint32),
+                                    .name = "age",
                                 },
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::int64),
-                                    .identifier = "id",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::int64),
+                                    .name = "id",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(DuplicateFieldIdentifierError, validateProtocol(protocol));
+        REQUIRE_THROW(DuplicateFieldNameError, validateProtocolDefinition(protocolDefinition));
     }
 
     SECTION("request undefined message type")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .requests =
                 {
-                    RequestProtocol{
-                        .identifier = "Person",
+                    RequestProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .requestFields =
                             {
-                                Field{
-                                    .type = Type::fromMessage("House", false, ProtocolSize{64}),
-                                    .identifier = "residence",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromMessage("House", false, ProtocolSize{64}),
+                                    .name = "residence",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(MessageIdentifierNotDefinedError, validateProtocol(protocol));
+        REQUIRE_THROW(MessageNameNotDefinedError, validateProtocolDefinition(protocolDefinition));
     }
 
-    SECTION("request duplicate message identifier")
+    SECTION("request duplicate message name")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages =
                 {
-                    MessageProtocol{
-                        .identifier = "Person",
+                    MessageProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .fields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "name",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "name",
                                 },
                             },
                     },
                 },
             .requests =
                 {
-                    RequestProtocol{
-                        .identifier = "Person",
+                    RequestProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .requestFields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "fullName",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "fullName",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(DuplicateProtocolIdentifierError, validateProtocol(protocol));
+        REQUIRE_THROW(DuplicateProtocolNameError, validateProtocolDefinition(protocolDefinition));
     }
 
     SECTION("request field self reference")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .requests =
                 {
-                    RequestProtocol{
-                        .identifier = "Person",
+                    RequestProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Person",
                         .requestFields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "name",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "name",
                                 },
-                                Field{
-                                    .type = Type::fromMessage("Person", false, ProtocolSize{64}),
-                                    .identifier = "parent",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
+                                    .name = "parent",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocol(protocol));
+        REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocolDefinition(protocolDefinition));
     }
 
-    SECTION("duplicate request fields identifier")
+    SECTION("duplicate request fields name")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .requests =
                 {
-                    RequestProtocol{
-                        .identifier = "Product",
+                    RequestProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Product",
                         .requestFields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "id",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "id",
                                 },
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::uint32),
-                                    .identifier = "age",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint32),
+                                    .name = "age",
                                 },
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::int64),
-                                    .identifier = "id",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::int64),
+                                    .name = "id",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(DuplicateFieldIdentifierError, validateProtocol(protocol));
+        REQUIRE_THROW(DuplicateFieldNameError, validateProtocolDefinition(protocolDefinition));
     }
 
-    SECTION("duplicate response fields identifier")
+    SECTION("duplicate response fields name")
     {
-        const auto protocol = Protocol{
+        const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .requests =
                 {
-                    RequestProtocol{
-                        .identifier = "Product",
+                    RequestProtocolDefinition{
+                        .fileNamespace = "organization.artifact.module",
+                        .name = "Product",
                         .responseFields =
                             {
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::string),
-                                    .identifier = "id",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .name = "id",
                                 },
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::uint32),
-                                    .identifier = "age",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint32),
+                                    .name = "age",
                                 },
-                                Field{
-                                    .type = Type::fromSimple(TypeEnum::int64),
-                                    .identifier = "id",
+                                FieldDefinition{
+                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::int64),
+                                    .name = "id",
                                 },
                             },
                     },
                 },
         };
 
-        REQUIRE_THROW(DuplicateFieldIdentifierError, validateProtocol(protocol));
+        REQUIRE_THROW(DuplicateFieldNameError, validateProtocolDefinition(protocolDefinition));
     }
 }

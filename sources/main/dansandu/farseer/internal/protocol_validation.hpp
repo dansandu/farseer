@@ -1,12 +1,11 @@
 #pragma once
 
-#include "dansandu/farseer/internal/protocol.hpp"
-
-#include <stdexcept>
+#include "dansandu/farseer/internal/protocol_definition.hpp"
 
 namespace dansandu::farseer::internal::protocol_validation
 {
 
-void validateProtocol(const dansandu::farseer::internal::protocol::Protocol& protocol);
+void validateProtocolDefinition(
+    const dansandu::farseer::internal::protocol_definition::ProtocolDefinition& protocolDefinition);
 
 }
