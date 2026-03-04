@@ -6,6 +6,7 @@
 
 #include <concepts>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -144,25 +145,25 @@ struct BinarySerializer<std::string>
 {
     static std::string deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        auto value = std::string{};
+        auto string = std::string{};
 
         const auto numberOfElements = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
 
-        value.reserve(numberOfElements.getUnderlying());
+        string.reserve(numberOfElements.getUnderlying());
 
         for (auto index = ProtocolSize{}; index < numberOfElements; ++index)
         {
-            value.push_back(BinarySerializer<std::string::value_type>::deserialize(bytes, bitsOffset));
+            string.push_back(BinarySerializer<std::string::value_type>::deserialize(bytes, bitsOffset));
         }
 
-        return value;
+        return string;
     }
 
-    static void serialize(const std::string& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    static void serialize(const std::string& string, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(value.size()), bytes, bitsOffset);
+        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(string.size()), bytes, bitsOffset);
 
-        for (const auto& element : value)
+        for (const auto& element : string)
         {
             BinarySerializer<std::string::value_type>::serialize(element, bytes, bitsOffset);
         }
@@ -174,27 +175,58 @@ struct BinarySerializer<std::vector<T>>
 {
     static std::vector<T> deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        auto value = std::vector<T>{};
+        auto vector = std::vector<T>{};
 
         const auto numberOfElements = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
 
-        value.reserve(numberOfElements.getUnderlying());
+        vector.reserve(numberOfElements.getUnderlying());
 
         for (auto index = ProtocolSize{}; index < numberOfElements; ++index)
         {
-            value.push_back(BinarySerializer<T>::deserialize(bytes, bitsOffset));
+            vector.push_back(BinarySerializer<T>::deserialize(bytes, bitsOffset));
         }
 
-        return value;
+        return vector;
     }
 
-    static void serialize(const std::vector<T>& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    static void serialize(const std::vector<T>& vector, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(value.size()), bytes, bitsOffset);
+        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(vector.size()), bytes, bitsOffset);
 
-        for (const auto& element : value)
+        for (const auto& element : vector)
         {
             BinarySerializer<T>::serialize(element, bytes, bitsOffset);
+        }
+    }
+};
+
+template<typename K, typename V>
+struct BinarySerializer<std::map<K, V>>
+{
+    static std::map<K, V> deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        auto map = std::map<K, V>{};
+
+        const auto numberOfElements = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
+
+        for (auto index = ProtocolSize{}; index < numberOfElements; ++index)
+        {
+            auto key = BinarySerializer<K>::deserialize(bytes, bitsOffset);
+            auto value = BinarySerializer<V>::deserialize(bytes, bitsOffset);
+            map.emplace(std::move(key), std::move(value));
+        }
+
+        return map;
+    }
+
+    static void serialize(const std::map<K, V>& map, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+    {
+        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(map.size()), bytes, bitsOffset);
+
+        for (const auto& entry : map)
+        {
+            BinarySerializer<K>::serialize(entry.first, bytes, bitsOffset);
+            BinarySerializer<V>::serialize(entry.second, bytes, bitsOffset);
         }
     }
 };

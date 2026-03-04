@@ -33,9 +33,9 @@ void generateMessages(const std::vector<MessageProtocolDefinition>& messages, st
                << "\n"
                << "        static void serialize(const " << message.name << "& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
                << "\n"
-               << "        static constexpr auto hasStaticSize = " << message.hasStaticSize << ";\n"
+               << "        static constexpr auto hasStaticSize = " << message.hasStaticSize() << ";\n"
                << "\n"
-               << "        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << message.staticNumberOfBits << "UL};\n"
+               << "        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << message.getStaticNumberOfBits() << "UL};\n"
                << "    };\n"
                << "\n";
         // clang-format on
@@ -64,9 +64,9 @@ void generateRequests(const std::vector<RequestProtocolDefinition>& requests, st
                << "\n"
                << "        static void serialize(const " << request.name << "& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
                << "\n"
-               << "        static constexpr auto hasStaticSize = " << request.requestHasStaticSize << ";\n"
+               << "        static constexpr auto hasStaticSize = " << request.requestHasStaticSize() << ";\n"
                << "\n"
-               << "        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << request.requestStaticNumberOfBits << "UL};\n"
+               << "        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << request.getRequestStaticNumberOfBits() << "UL};\n"
                << "    };\n"
                << "\n";
         // clang-format on
@@ -89,9 +89,9 @@ void generateRequests(const std::vector<RequestProtocolDefinition>& requests, st
                << "\n"
                << "            static void serialize(const Response& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);\n"
                << "\n"
-               << "            static constexpr auto hasStaticSize = " << request.responseHasStaticSize << ";\n"
+               << "            static constexpr auto hasStaticSize = " << request.responseHasStaticSize() << ";\n"
                << "\n"
-               << "            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << request.responseStaticNumberOfBits << "UL};\n"
+               << "            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{" << request.getResponseStaticNumberOfBits() << "UL};\n"
                << "        };\n"
                << "\n";
         // clang-format on

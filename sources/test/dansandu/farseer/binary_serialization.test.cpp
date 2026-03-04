@@ -195,10 +195,34 @@ TEST_CASE("binary_serialization")
         REQUIRE(bitsCount == bitsOffset);
     }
 
-    auto bytes = std::vector<uint8_t>{};
+    SECTION("map of string and uint32")
+    {
+        const auto expectedBytes = std::vector<uint8_t>(
+            {0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x05, 0x66, 0x69, 0x72, 0x73, 0x74, 0x12, 0x34, 0x56,
+             0x78, 0x00, 0x00, 0x00, 0x06, 0x73, 0x65, 0x63, 0x6F, 0x6E, 0x64, 0x00, 0x9A, 0xBC, 0xDF});
+
+        const auto expectedMap = std::map<std::string, uint32_t>({{"first", 0x12345678}, {"second", 0x009ABCDF}});
+
+        const auto actualMap =
+            BinarySerializer<std::map<std::string, uint32_t>>::deserialize(expectedBytes, bitsOffset);
+
+        REQUIRE(actualMap == expectedMap);
+
+        REQUIRE(bitsOffset == 248);
+
+        auto actualBytes = std::vector<uint8_t>{};
+
+        BinarySerializer<std::map<std::string, uint32_t>>::serialize(expectedMap, actualBytes, bitsCount);
+
+        REQUIRE(actualBytes == expectedBytes);
+
+        REQUIRE(bitsCount == bitsOffset);
+    }
 
     SECTION("static message")
     {
+        auto bytes = std::vector<uint8_t>{};
+
         const auto message = StaticMessage{
             .integer = 191,
             .boolean = false,
@@ -223,6 +247,8 @@ TEST_CASE("binary_serialization")
 
     SECTION("empty message")
     {
+        auto bytes = std::vector<uint8_t>{};
+
         const auto message = EmptyMessage{};
 
         REQUIRE(EmptyMessage::Metadata::hasStaticSize);
@@ -238,6 +264,8 @@ TEST_CASE("binary_serialization")
 
     SECTION("dynamic message")
     {
+        auto bytes = std::vector<uint8_t>{};
+
         const auto message = DynamicMessage{
             .messages =
                 {
@@ -274,6 +302,8 @@ TEST_CASE("binary_serialization")
 
     SECTION("request")
     {
+        auto bytes = std::vector<uint8_t>{};
+
         const auto request = MyRequest{
             .user = "billy",
             .password = "12345",
@@ -292,6 +322,8 @@ TEST_CASE("binary_serialization")
 
     SECTION("response")
     {
+        auto bytes = std::vector<uint8_t>{};
+
         SECTION("success")
         {
             const auto response = Expected<MyRequest::Response>::fromSuccess(MyRequest::Response{
