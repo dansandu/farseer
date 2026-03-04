@@ -18,6 +18,7 @@ enum class TypeDefinitionEnum
     string,
     boolean,
     list,
+    map,
     message,
 };
 
@@ -34,6 +35,8 @@ public:
                                       const ProtocolSize staticNumberOfBits);
 
     static TypeDefinition fromList(TypeDefinition subtype);
+
+    static TypeDefinition fromMap(TypeDefinition key, TypeDefinition value);
 
     TypeDefinition();
 
@@ -61,6 +64,8 @@ public:
 
     ProtocolSize getStaticNumberOfBits() const;
 
+    bool canBeMapKey() const;
+
 private:
     TypeDefinitionEnum typeEnum_;
     std::string name_;
@@ -73,21 +78,25 @@ struct FieldDefinition
 {
     uint32_t getHashCode() const;
 
+    bool hasStaticSize() const;
+
+    ProtocolSize getStaticNumberOfBits() const;
+
     TypeDefinition type;
     std::string name;
-    bool hasStaticSize;
-    ProtocolSize staticNumberOfBits;
 };
 
 struct MessageProtocolDefinition
 {
     uint32_t getHashCode() const;
 
+    bool hasStaticSize() const;
+
+    ProtocolSize getStaticNumberOfBits() const;
+
     std::string fileNamespace;
     std::string name;
     std::vector<FieldDefinition> fields;
-    bool hasStaticSize;
-    ProtocolSize staticNumberOfBits;
 };
 
 struct RequestProtocolDefinition
@@ -96,14 +105,18 @@ struct RequestProtocolDefinition
 
     uint32_t getResponseHashCode() const;
 
+    bool requestHasStaticSize() const;
+
+    bool responseHasStaticSize() const;
+
+    ProtocolSize getRequestStaticNumberOfBits() const;
+
+    ProtocolSize getResponseStaticNumberOfBits() const;
+
     std::string fileNamespace;
     std::string name;
     std::vector<FieldDefinition> requestFields;
     std::vector<FieldDefinition> responseFields;
-    ProtocolSize requestStaticNumberOfBits;
-    ProtocolSize responseStaticNumberOfBits;
-    bool requestHasStaticSize;
-    bool responseHasStaticSize;
 };
 
 struct ProtocolDefinition

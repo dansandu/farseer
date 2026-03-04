@@ -75,6 +75,12 @@ public:
     using ProtocolValidationError::ProtocolValidationError;
 };
 
+class InvalidMapKeyError : public ProtocolValidationError
+{
+public:
+    using ProtocolValidationError::ProtocolValidationError;
+};
+
 class MessageNameNotDefinedError : public ProtocolValidationError
 {
 public:

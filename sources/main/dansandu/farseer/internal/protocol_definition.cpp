@@ -2,6 +2,8 @@
 #include "dansandu/ballotin/exception.hpp"
 #include "dansandu/ballotin/hashing.hpp"
 
+#include <algorithm>
+#include <numeric>
 #include <sstream>
 
 using dansandu::ballotin::hashing::getHashCode32;
@@ -28,6 +30,8 @@ const char* toString(const TypeDefinitionEnum typeEnum)
         return "bool";
     case TypeDefinitionEnum::list:
         return "list";
+    case TypeDefinitionEnum::map:
+        return "map";
     case TypeDefinitionEnum::message:
         return "message";
     default:
@@ -53,6 +57,8 @@ ProtocolSize getStaticNumberOfBits(const TypeDefinitionEnum typeEnum)
         return ProtocolSize{1};
     case TypeDefinitionEnum::list:
         THROW(std::logic_error, "list is not a static type");
+    case TypeDefinitionEnum::map:
+        THROW(std::logic_error, "map is not a static type");
     case TypeDefinitionEnum::message:
         THROW(std::logic_error, "message is not a static type");
     default:
@@ -62,9 +68,10 @@ ProtocolSize getStaticNumberOfBits(const TypeDefinitionEnum typeEnum)
 
 TypeDefinition TypeDefinition::fromSimple(const TypeDefinitionEnum typeEnum)
 {
-    if (typeEnum == TypeDefinitionEnum::list || typeEnum == TypeDefinitionEnum::message)
+    if (typeEnum == TypeDefinitionEnum::list || typeEnum == TypeDefinitionEnum::map ||
+        typeEnum == TypeDefinitionEnum::message)
     {
-        THROW(std::logic_error, "this constructor cannot be used for list or message types");
+        THROW(std::logic_error, "this constructor cannot be used for list, map or message types");
     }
 
     auto type = TypeDefinition{};
@@ -100,6 +107,17 @@ TypeDefinition TypeDefinition::fromList(TypeDefinition subtype)
     auto type = TypeDefinition{};
     type.typeEnum_ = TypeDefinitionEnum::list;
     type.subtypes_.push_back(std::move(subtype));
+    type.hasStaticSize_ = false;
+    type.staticNumberOfBits_ = ProtocolSize{};
+    return type;
+}
+
+TypeDefinition TypeDefinition::fromMap(TypeDefinition key, TypeDefinition value)
+{
+    auto type = TypeDefinition{};
+    type.typeEnum_ = TypeDefinitionEnum::map;
+    type.subtypes_.push_back(std::move(key));
+    type.subtypes_.push_back(std::move(value));
     type.hasStaticSize_ = false;
     type.staticNumberOfBits_ = ProtocolSize{};
     return type;
@@ -202,6 +220,8 @@ std::string TypeDefinition::getCppType() const
         return "bool";
     case TypeDefinitionEnum::list:
         return "std::vector<" + subtypes_.at(0).getCppType() + ">";
+    case TypeDefinitionEnum::map:
+        return "std::map<" + subtypes_.at(0).getCppType() + ", " + subtypes_.at(1).getCppType() + ">";
     case TypeDefinitionEnum::message:
         return name_;
     default:
@@ -214,6 +234,10 @@ std::string TypeDefinition::toString() const
     if (typeEnum_ == TypeDefinitionEnum::list)
     {
         return "list<" + subtypes_.at(0).toString() + ">";
+    }
+    else if (typeEnum_ == TypeDefinitionEnum::map)
+    {
+        return "map<" + subtypes_.at(0).toString() + ", " + subtypes_.at(1).toString() + ">";
     }
     else if (typeEnum_ == TypeDefinitionEnum::message)
     {
@@ -249,9 +273,34 @@ ProtocolSize TypeDefinition::getStaticNumberOfBits() const
     return staticNumberOfBits_;
 }
 
+bool TypeDefinition::canBeMapKey() const
+{
+    switch (typeEnum_)
+    {
+    case TypeDefinitionEnum::int32:
+    case TypeDefinitionEnum::int64:
+    case TypeDefinitionEnum::uint32:
+    case TypeDefinitionEnum::uint64:
+    case TypeDefinitionEnum::string:
+        return true;
+    default:
+        return false;
+    }
+}
+
 uint32_t FieldDefinition::getHashCode() const
 {
     return hashCombine(type.getHashCode(), getHashCode32(name));
+}
+
+bool FieldDefinition::hasStaticSize() const
+{
+    return type.hasStaticSize();
+}
+
+ProtocolSize FieldDefinition::getStaticNumberOfBits() const
+{
+    return type.getStaticNumberOfBits();
 }
 
 uint32_t MessageProtocolDefinition::getHashCode() const
@@ -266,6 +315,17 @@ uint32_t MessageProtocolDefinition::getHashCode() const
     }
 
     return hashCode;
+}
+
+bool MessageProtocolDefinition::hasStaticSize() const
+{
+    return std::all_of(fields.cbegin(), fields.cend(), [](const auto& field) { return field.hasStaticSize(); });
+}
+
+ProtocolSize MessageProtocolDefinition::getStaticNumberOfBits() const
+{
+    return std::accumulate(fields.cbegin(), fields.cend(), ProtocolSize{},
+                           [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); });
 }
 
 uint32_t RequestProtocolDefinition::getRequestHashCode() const
@@ -290,6 +350,30 @@ uint32_t RequestProtocolDefinition::getRequestHashCode() const
 uint32_t RequestProtocolDefinition::getResponseHashCode() const
 {
     return hashCombine(getRequestHashCode(), 0x496706CBU);
+}
+
+bool RequestProtocolDefinition::requestHasStaticSize() const
+{
+    return std::all_of(requestFields.cbegin(), requestFields.cend(),
+                       [](const auto& field) { return field.hasStaticSize(); });
+}
+
+ProtocolSize RequestProtocolDefinition::getRequestStaticNumberOfBits() const
+{
+    return std::accumulate(requestFields.cbegin(), requestFields.cend(), ProtocolSize{},
+                           [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); });
+}
+
+bool RequestProtocolDefinition::responseHasStaticSize() const
+{
+    return std::all_of(responseFields.cbegin(), responseFields.cend(),
+                       [](const auto& field) { return field.hasStaticSize(); });
+}
+
+ProtocolSize RequestProtocolDefinition::getResponseStaticNumberOfBits() const
+{
+    return std::accumulate(responseFields.cbegin(), responseFields.cend(), ProtocolSize{},
+                           [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); });
 }
 
 std::string ProtocolDefinition::toString() const
@@ -346,5 +430,4 @@ std::string ProtocolDefinition::toString() const
 
     return stream.str();
 }
-
 }

@@ -15,6 +15,7 @@ message Person
 {
     string name;
     uint32 age;
+    map<string, list<uint64>> contacts;
 }
 
 message MyMessage
@@ -55,13 +56,13 @@ request MyRequest
 
         const auto& request = protocol.requests.front();
 
-        REQUIRE(!request.requestHasStaticSize);
+        REQUIRE(!request.requestHasStaticSize());
 
-        REQUIRE(request.requestStaticNumberOfBits.getUnderlying() == 64UL);
+        REQUIRE(request.getRequestStaticNumberOfBits().getUnderlying() == 64UL);
 
-        REQUIRE(request.responseHasStaticSize);
+        REQUIRE(request.responseHasStaticSize());
 
-        REQUIRE(request.responseStaticNumberOfBits.getUnderlying() == 65UL);
+        REQUIRE(request.getResponseStaticNumberOfBits().getUnderlying() == 65UL);
 
         REQUIRE(protocol.toString() == text);
     }
