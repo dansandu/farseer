@@ -11,6 +11,6 @@ namespace dansandu::farseer::internal::windows::register_request_callback_asynch
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
 createRegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
                                                    const ProtocolIdentifier protocolIdentifier,
-                                                   Function<std::any(std::any&&)>&& requestConsumer);
+                                                   UniqueFunction<std::any(std::any&&)>&& requestConsumer);
 
 }

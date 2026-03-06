@@ -33,15 +33,15 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketServ
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
-    const auto connectionId =
-        socketServiceProvider.connect(localhost, serverPort,
-                                      [&openPromise](const SocketServiceEvent event, const SocketServiceId)
-                                      {
-                                          if (event == SocketServiceEvent::clientOpen)
-                                          {
-                                              openPromise.set_value();
-                                          }
-                                      });
+    const auto connectionId = socketServiceProvider.connect(
+        localhost, serverPort,
+        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
+        {
+            if (event == SocketServiceEvent::clientOpen)
+            {
+                openPromise.set_value();
+            }
+        });
 
     SCOPE_EXIT([&] { socketServiceProvider.close(connectionId); });
 
@@ -82,15 +82,15 @@ TEST_CASE("localhost_single_instance")
 
     LOG_INFO("Opening listening socket...");
 
-    const auto listenerId =
-        socketServiceProvider.listen(localhost, serverPort,
-                                     [&openPromise](const SocketServiceEvent event, const SocketServiceId)
-                                     {
-                                         if (event == SocketServiceEvent::serverOpen)
-                                         {
-                                             openPromise.set_value();
-                                         }
-                                     });
+    const auto listenerId = socketServiceProvider.listen(
+        localhost, serverPort,
+        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
+        {
+            if (event == SocketServiceEvent::serverOpen)
+            {
+                openPromise.set_value();
+            }
+        });
 
     SCOPE_EXIT(
         [&]
@@ -131,7 +131,7 @@ TEST_CASE("localhost_single_instance")
 
     for (const auto request : requests)
     {
-        futures.push_back(std::async(std::launch::async, [&socketServiceProvider, request]()
+        futures.push_back(std::async(std::launch::async, [socketServiceProvider, request]()
                                      { return createClient(socketServiceProvider, StressRequest{.sent = request}); }));
     }
 

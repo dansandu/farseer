@@ -35,14 +35,15 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequ
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
-    const auto connectionId = client.connect(localhost, serverPort,
-                                             [&openPromise](const SocketServiceEvent event, const SocketServiceId)
-                                             {
-                                                 if (event == SocketServiceEvent::clientOpen)
-                                                 {
-                                                     openPromise.set_value();
-                                                 }
-                                             });
+    const auto connectionId = client.connect(
+        localhost, serverPort,
+        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
+        {
+            if (event == SocketServiceEvent::clientOpen)
+            {
+                openPromise.set_value();
+            }
+        });
 
     SCOPE_EXIT([&] { client.close(connectionId); });
 
@@ -83,14 +84,15 @@ TEST_CASE("localhost_multiple_instances")
 
     LOG_INFO("Opening listening socket...");
 
-    const auto listenerId = server.listen(localhost, serverPort,
-                                          [&openPromise](const SocketServiceEvent event, const SocketServiceId)
-                                          {
-                                              if (event == SocketServiceEvent::serverOpen)
-                                              {
-                                                  openPromise.set_value();
-                                              }
-                                          });
+    const auto listenerId = server.listen(
+        localhost, serverPort,
+        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
+        {
+            if (event == SocketServiceEvent::serverOpen)
+            {
+                openPromise.set_value();
+            }
+        });
 
     REQUIRE(openFuture.wait_for(timeout) == std::future_status::ready);
 

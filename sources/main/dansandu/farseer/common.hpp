@@ -14,7 +14,7 @@ namespace dansandu::farseer
 
 using dansandu::farseer::exception::RequestProtocolError;
 
-using dansandu::ballotin::function::Function;
+using dansandu::ballotin::function::UniqueFunction;
 
 using dansandu::farseer::expected::Expected;
 
@@ -90,7 +90,8 @@ PRALINE_EXPORT ProtocolSize getProtocolSizeFromStdSize(const size_t size);
 
 PRALINE_EXPORT const char* toString(const SocketServiceEvent event);
 
-using ConnectionCallbackType = Function<void(const SocketServiceEvent event, const SocketServiceId socketServiceId)>;
+using ConnectionCallbackType =
+    UniqueFunction<void(const SocketServiceEvent event, const SocketServiceId socketServiceId)>;
 
 using ProtocolDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
                                       ProtocolSequenceNumber& sequenceNumber, std::any& protocol);

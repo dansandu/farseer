@@ -17,7 +17,7 @@ class SendRequestAsynchronousOperation : public AsynchronousOperation
 public:
     SendRequestAsynchronousOperation(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
                                      std::vector<uint8_t>&& bytes,
-                                     Function<void(std::any&&)>&& expectedResponseConsumer)
+                                     UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
         : AsynchronousOperation{serviceId},
           sequenceNumber_{sequenceNumber},
           bytes_{std::move(bytes)},
@@ -76,14 +76,14 @@ public:
 private:
     ProtocolSequenceNumber sequenceNumber_;
     std::vector<uint8_t> bytes_;
-    Function<void(std::any&&)> expectedResponseConsumer_;
+    UniqueFunction<void(std::any&&)> expectedResponseConsumer_;
     bool sendBytesPending_;
 };
 
 std::unique_ptr<AsynchronousOperation>
 createSendRequestAsynchronousOperation(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
                                        std::vector<uint8_t>&& bytes,
-                                       Function<void(std::any&&)>&& expectedResponseConsumer)
+                                       UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
 {
     return std::make_unique<SendRequestAsynchronousOperation>(serviceId, sequenceNumber, std::move(bytes),
                                                               std::move(expectedResponseConsumer));
