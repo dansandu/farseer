@@ -17,7 +17,7 @@ class RegisterMessageConsumerAsynchronousOperation : public AsynchronousOperatio
 public:
     RegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
                                                  const ProtocolIdentifier protocolIdentifier,
-                                                 Function<void(std::any&&)>&& messageConsumer)
+                                                 UniqueFunction<void(std::any&&)>&& messageConsumer)
         : AsynchronousOperation{serviceId},
           protocolIdentifier_{protocolIdentifier},
           messageConsumer_{std::move(messageConsumer)}
@@ -60,13 +60,13 @@ public:
 
 private:
     const ProtocolIdentifier protocolIdentifier_;
-    Function<void(std::any&&)> messageConsumer_;
+    UniqueFunction<void(std::any&&)> messageConsumer_;
 };
 
 std::unique_ptr<AsynchronousOperation>
 createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
                                                    const ProtocolIdentifier protocolIdentifier,
-                                                   Function<void(std::any&&)>&& messageConsumer)
+                                                   UniqueFunction<void(std::any&&)>&& messageConsumer)
 {
     return std::make_unique<RegisterMessageConsumerAsynchronousOperation>(serviceId, protocolIdentifier,
                                                                           std::move(messageConsumer));

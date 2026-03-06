@@ -11,6 +11,6 @@ namespace dansandu::farseer::internal::windows::register_message_consumer_asynch
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
 createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
                                                    const ProtocolIdentifier protocolIdentifier,
-                                                   Function<void(std::any&&)>&& messageConsumer);
+                                                   UniqueFunction<void(std::any&&)>&& messageConsumer);
 
 }

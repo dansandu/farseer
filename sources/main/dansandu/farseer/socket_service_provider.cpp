@@ -131,7 +131,7 @@ void SocketServiceProvider::sendBytes(const SocketServiceId serviceId, std::vect
 
 void SocketServiceProvider::sendRequest(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
                                         std::vector<uint8_t>&& bytes,
-                                        Function<void(std::any&&)>&& expectedResponseConsumer) const
+                                        UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) const
 {
     if (serviceId != InvalidServiceId)
     {
@@ -148,7 +148,7 @@ void SocketServiceProvider::sendRequest(const SocketServiceId serviceId, const P
 
 void SocketServiceProvider::registerMessageConsumer(const SocketServiceId serviceId,
                                                     const ProtocolIdentifier protocolIdentifier,
-                                                    Function<void(std::any&&)>&& messageConsumer) const
+                                                    UniqueFunction<void(std::any&&)>&& messageConsumer) const
 {
     if (serviceId != InvalidServiceId)
     {
@@ -165,7 +165,7 @@ void SocketServiceProvider::registerMessageConsumer(const SocketServiceId servic
 
 void SocketServiceProvider::registerRequestCallback(const SocketServiceId serviceId,
                                                     const ProtocolIdentifier protocolIdentifier,
-                                                    Function<std::any(std::any&&)>&& requestCallback) const
+                                                    UniqueFunction<std::any(std::any&&)>&& requestCallback) const
 {
     if (serviceId != InvalidServiceId)
     {

@@ -18,13 +18,13 @@ namespace dansandu::farseer::internal::protocol_reader
 {
 
 ProtocolReader::ProtocolReader(
-    Function<void(const SocketServiceId, std::vector<uint8_t>&&)>&& serializedExpectedResponseConsumer)
+    UniqueFunction<void(const SocketServiceId, std::vector<uint8_t>&&)>&& serializedExpectedResponseConsumer)
     : serializedExpectedResponseConsumer_{std::move(serializedExpectedResponseConsumer)}
 {
 }
 
 void ProtocolReader::registerMessageConsumer(const ProtocolIdentifier messageIdentifier,
-                                             Function<void(std::any&&)>&& consumer)
+                                             UniqueFunction<void(std::any&&)>&& consumer)
 {
     if (!ProtocolRegistry::getGlobalInstance().isProtocolRegistered(messageIdentifier))
     {
@@ -43,7 +43,7 @@ void ProtocolReader::registerMessageConsumer(const ProtocolIdentifier messageIde
 }
 
 void ProtocolReader::registerRequestConsumer(const ProtocolIdentifier requestIdentifier,
-                                             Function<std::any(std::any&&)>&& requestConsumer)
+                                             UniqueFunction<std::any(std::any&&)>&& requestConsumer)
 {
     if (!ProtocolRegistry::getGlobalInstance().isProtocolRegistered(requestIdentifier))
     {
@@ -61,8 +61,8 @@ void ProtocolReader::registerRequestConsumer(const ProtocolIdentifier requestIde
     }
 }
 
-void ProtocolReader::registerOneShotExpectedResponseConsumer(const ProtocolSequenceNumber sequenceNumber,
-                                                             Function<void(std::any&&)>&& expectedResponseConsumer)
+void ProtocolReader::registerOneShotExpectedResponseConsumer(
+    const ProtocolSequenceNumber sequenceNumber, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
 {
     if (!oneShotExpectedResponseConsumers_.contains(sequenceNumber))
     {

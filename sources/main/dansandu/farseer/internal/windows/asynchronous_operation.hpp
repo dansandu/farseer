@@ -111,15 +111,15 @@ public:
     void createSendRequestAsynchronousOperation(const SocketServiceId serviceId,
                                                 const ProtocolSequenceNumber sequenceNumber,
                                                 std::vector<uint8_t>&& bytes,
-                                                Function<void(std::any&&)>&& expectedResponseConsumer);
+                                                UniqueFunction<void(std::any&&)>&& expectedResponseConsumer);
 
     void createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
                                                             const ProtocolIdentifier protocolIdentifier,
-                                                            Function<void(std::any&&)>&& messageConsumer);
+                                                            UniqueFunction<void(std::any&&)>&& messageConsumer);
 
     void createRegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
                                                             const ProtocolIdentifier protocolIdentifier,
-                                                            Function<std::any(std::any&&)>&& requestConsumer);
+                                                            UniqueFunction<std::any(std::any&&)>&& requestConsumer);
 
     void createCloseAsynchronousOperation(const SocketServiceId serviceId);
 

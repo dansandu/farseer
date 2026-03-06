@@ -111,7 +111,7 @@ void AsynchronousOperationScheduler::createReceiveAsynchronousOperation(const So
 
 void AsynchronousOperationScheduler::createRegisterMessageConsumerAsynchronousOperation(
     const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
-    Function<void(std::any&&)>&& messageConsumer)
+    UniqueFunction<void(std::any&&)>&& messageConsumer)
 {
     insertOperation(dansandu::farseer::internal::windows::register_message_consumer_asynchronous_operation::
                         createRegisterMessageConsumerAsynchronousOperation(serviceId, protocolIdentifier,
@@ -120,7 +120,7 @@ void AsynchronousOperationScheduler::createRegisterMessageConsumerAsynchronousOp
 
 void AsynchronousOperationScheduler::createRegisterRequestCallbackAsynchronousOperation(
     const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
-    Function<std::any(std::any&&)>&& requestConsumer)
+    UniqueFunction<std::any(std::any&&)>&& requestConsumer)
 {
     insertOperation(dansandu::farseer::internal::windows::register_request_callback_asynchronous_operation::
                         createRegisterRequestCallbackAsynchronousOperation(serviceId, protocolIdentifier,
@@ -137,7 +137,7 @@ void AsynchronousOperationScheduler::createSendBytesAsynchronousOperation(const 
 
 void AsynchronousOperationScheduler::createSendRequestAsynchronousOperation(
     const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>&& bytes,
-    Function<void(std::any&&)>&& expectedResponseConsumer)
+    UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
 {
     insertOperation(dansandu::farseer::internal::windows::send_request_asynchronous_operation::
                         createSendRequestAsynchronousOperation(serviceId, sequenceNumber, std::move(bytes),

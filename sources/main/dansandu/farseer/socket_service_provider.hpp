@@ -34,7 +34,7 @@ public:
 
     template<typename Request>
     void sendRequest(const SocketServiceId serviceId, const Request& request,
-                     Function<void(Expected<typename Request::Response>&&)> expectedResponseConsumer) const
+                     UniqueFunction<void(Expected<typename Request::Response>&&)> expectedResponseConsumer) const
     {
         using dansandu::farseer::protocol_serialization::serializeRequestProtocol;
         const auto sequenceNumber = generateSequenceNumber();
@@ -47,7 +47,7 @@ public:
     }
 
     template<typename Message>
-    void registerMessageConsumer(const SocketServiceId serviceId, Function<void(Message&&)> messageConsumer) const
+    void registerMessageConsumer(const SocketServiceId serviceId, UniqueFunction<void(Message&&)> messageConsumer) const
     {
         registerMessageConsumer(serviceId, Message::Metadata::getProtocolIdentifier(),
                                 [messageConsumer = std::move(messageConsumer)](std::any&& message)
@@ -56,7 +56,7 @@ public:
 
     template<typename Request>
     void registerRequestCallback(const SocketServiceId serviceId,
-                                 Function<typename Request::Response(Request&&)> requestCallback) const
+                                 UniqueFunction<typename Request::Response(Request&&)> requestCallback) const
     {
         registerRequestCallback(
             serviceId, Request::Metadata::getProtocolIdentifier(),
@@ -91,13 +91,13 @@ private:
     void sendBytes(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes) const;
 
     void sendRequest(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
-                     std::vector<uint8_t>&& bytes, Function<void(std::any&&)>&& expectedResponseConsumer) const;
+                     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) const;
 
     void registerMessageConsumer(const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
-                                 Function<void(std::any&&)>&& messageConsumer) const;
+                                 UniqueFunction<void(std::any&&)>&& messageConsumer) const;
 
     void registerRequestCallback(const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
-                                 Function<std::any(std::any&&)>&& requestCallback) const;
+                                 UniqueFunction<std::any(std::any&&)>&& requestCallback) const;
 
     std::shared_ptr<void> implementation_;
 };

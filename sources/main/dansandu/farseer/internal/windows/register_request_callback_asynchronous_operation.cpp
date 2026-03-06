@@ -17,7 +17,7 @@ class RegisterRequestCallbackAsynchronousOperation : public AsynchronousOperatio
 public:
     RegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
                                                  const ProtocolIdentifier protocolIdentifier,
-                                                 Function<std::any(std::any&&)>&& requestConsumer)
+                                                 UniqueFunction<std::any(std::any&&)>&& requestConsumer)
         : AsynchronousOperation{serviceId},
           protocolIdentifier_{protocolIdentifier},
           requestConsumer_{std::move(requestConsumer)}
@@ -60,13 +60,13 @@ public:
 
 private:
     const ProtocolIdentifier protocolIdentifier_;
-    Function<std::any(std::any&&)> requestConsumer_;
+    UniqueFunction<std::any(std::any&&)> requestConsumer_;
 };
 
 std::unique_ptr<AsynchronousOperation>
 createRegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
                                                    const ProtocolIdentifier protocolIdentifier,
-                                                   Function<std::any(std::any&&)>&& requestConsumer)
+                                                   UniqueFunction<std::any(std::any&&)>&& requestConsumer)
 {
     return std::make_unique<RegisterRequestCallbackAsynchronousOperation>(serviceId, protocolIdentifier,
                                                                           std::move(requestConsumer));

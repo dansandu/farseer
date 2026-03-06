@@ -12,6 +12,6 @@ namespace dansandu::farseer::internal::windows::send_request_asynchronous_operat
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
 createSendRequestAsynchronousOperation(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
                                        std::vector<uint8_t>&& bytes,
-                                       Function<void(std::any&&)>&& expectedResponseConsumer);
+                                       UniqueFunction<void(std::any&&)>&& expectedResponseConsumer);
 
 }
