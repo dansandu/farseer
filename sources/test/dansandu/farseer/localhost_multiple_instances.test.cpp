@@ -55,7 +55,8 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequ
     auto responsePromise = std::promise<Expected<StressResponse>>{};
     auto responseFuture = responsePromise.get_future();
 
-    client.sendRequest(connectionId, request, [&responsePromise](Expected<StressResponse>&& response)
+    client.sendRequest(connectionId, request,
+                       [responsePromise = std::move(responsePromise)](Expected<StressResponse>&& response) mutable
                        { responsePromise.set_value(std::move(response)); });
 
     if (responseFuture.wait_for(timeout) == std::future_status::ready)

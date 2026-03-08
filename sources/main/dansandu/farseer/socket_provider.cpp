@@ -42,14 +42,20 @@ HANDLE createAsynchronousOperationsConsumerThread(AsynchronousOperationScheduler
     THROW(std::runtime_error, "Couldn't create asynchronous operations consumer thread: ", getLastErrorMessage());
 }
 
-struct SocketServiceProviderImplementation
+struct SocketProviderImplementation
 {
-    explicit SocketServiceProviderImplementation(const bool initializeWsa)
+    SocketProviderImplementation() = delete;
+    SocketProviderImplementation(const SocketProviderImplementation& other) = delete;
+    SocketProviderImplementation(SocketProviderImplementation&& other) noexcept = delete;
+    SocketProviderImplementation& operator=(const SocketProviderImplementation& other) = delete;
+    SocketProviderImplementation& operator=(SocketProviderImplementation&& other) noexcept = delete;
+
+    explicit SocketProviderImplementation(const bool initializeWsa)
         : wsaScopeGuard{initializeWsa}, operations{}, thread{createAsynchronousOperationsConsumerThread(&operations)}
     {
     }
 
-    ~SocketServiceProviderImplementation() noexcept
+    ~SocketProviderImplementation() noexcept
     {
         operations.createAbortAsynchronousOperation();
 
@@ -83,7 +89,7 @@ DWORD WINAPI consumeAsynchronousOperations(LPVOID parameter)
 }
 
 SocketProvider::SocketProvider(bool initializeWsa)
-    : implementation_{std::make_shared<SocketServiceProviderImplementation>(initializeWsa)}
+    : implementation_{std::make_shared<SocketProviderImplementation>(initializeWsa)}
 {
 }
 
@@ -94,7 +100,7 @@ SocketProvider::~SocketProvider()
 SocketIdentifier SocketProvider::listen(const std::wstring& ipAddress, const int port,
                                         ConnectionCallback connectionCallback) const
 {
-    const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+    const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
     return impl->operations.createListenAsynchronousOperation(ipAddress, port, std::move(connectionCallback));
 }
@@ -102,14 +108,14 @@ SocketIdentifier SocketProvider::listen(const std::wstring& ipAddress, const int
 SocketIdentifier SocketProvider::connect(const std::wstring& ipAddress, const int port,
                                          ConnectionCallback connectionCallback) const
 {
-    const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+    const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
     return impl->operations.createConnectAsynchronousOperation(ipAddress, port, std::move(connectionCallback));
 }
 
 ProtocolSequenceNumber SocketProvider::generateSequenceNumber() const
 {
-    const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+    const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
     return impl->sequencer.generate();
 }
@@ -118,7 +124,7 @@ void SocketProvider::sendBytes(const SocketIdentifier socketIdentifier, std::vec
 {
     if (socketIdentifier != invalidSocketIdentifier)
     {
-        const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+        const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
         impl->operations.createSendBytesAsynchronousOperation(socketIdentifier, std::move(bytes));
     }
@@ -134,7 +140,7 @@ void SocketProvider::sendRequest(const SocketIdentifier socketIdentifier, const 
 {
     if (socketIdentifier != invalidSocketIdentifier)
     {
-        const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+        const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
         impl->operations.createSendRequestAsynchronousOperation(socketIdentifier, sequenceNumber, std::move(bytes),
                                                                 std::move(expectedResponseConsumer));
@@ -151,7 +157,7 @@ void SocketProvider::registerMessageConsumer(const SocketIdentifier socketIdenti
 {
     if (socketIdentifier != invalidSocketIdentifier)
     {
-        const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+        const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
         impl->operations.createRegisterMessageConsumerAsynchronousOperation(socketIdentifier, protocolIdentifier,
                                                                             std::move(messageConsumer));
@@ -168,7 +174,7 @@ void SocketProvider::registerRequestCallback(const SocketIdentifier socketIdenti
 {
     if (socketIdentifier != invalidSocketIdentifier)
     {
-        const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+        const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
         impl->operations.createRegisterRequestCallbackAsynchronousOperation(socketIdentifier, protocolIdentifier,
                                                                             std::move(requestCallback));
@@ -183,7 +189,7 @@ void SocketProvider::close(const SocketIdentifier socketIdentifier) const
 {
     if (socketIdentifier != invalidSocketIdentifier)
     {
-        const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
+        const auto impl = static_cast<SocketProviderImplementation*>(implementation_.get());
 
         impl->operations.createCloseAsynchronousOperation(socketIdentifier);
     }
