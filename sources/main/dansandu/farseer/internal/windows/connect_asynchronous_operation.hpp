@@ -7,8 +7,7 @@ namespace dansandu::farseer::internal::windows::connect_asynchronous_operation
 {
 
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
-createConnectAsynchronousOperation(dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId>& sequencer,
-                                   const std::wstring& ipAddress, const int port,
-                                   ConnectionCallbackType&& connectionCallback);
+createConnectAsynchronousOperation(const SocketIdentifier socketIdentifier, const std::wstring& ipAddress,
+                                   const int port, ConnectionCallback&& connectionCallback);
 
 }

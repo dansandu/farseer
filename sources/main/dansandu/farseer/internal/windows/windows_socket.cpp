@@ -21,7 +21,7 @@ WindowsSocket::WindowsSocket()
 {
 }
 
-WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketServiceId serviceId)
+WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketIdentifier socketIdentifier)
     : socket_{::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
       acceptFunction_{nullptr},
       connectFunction_{nullptr},
@@ -31,8 +31,9 @@ WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketServiceId 
     if (socket_ != INVALID_SOCKET)
     {
         const auto numberOfConcurrentThreads = 0;
-        const auto completionPortResult = ::CreateIoCompletionPort(
-            reinterpret_cast<HANDLE>(socket_), completionPort, serviceId.getUnderlying(), numberOfConcurrentThreads);
+        const auto completionPortResult =
+            ::CreateIoCompletionPort(reinterpret_cast<HANDLE>(socket_), completionPort,
+                                     socketIdentifier.getUnderlying(), numberOfConcurrentThreads);
         if (completionPortResult == nullptr)
         {
             ::closesocket(socket_);
@@ -151,8 +152,8 @@ void WindowsSocket::listen(const std::wstring& ipAddress, const int port)
 }
 
 WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD receiveBufferSize,
-                                        const SocketServiceId pendingAcceptServiceId, const HANDLE completionPort,
-                                        const LPWSAOVERLAPPED overlapped) const
+                                        const SocketIdentifier pendingAcceptSocketIdentifier,
+                                        const HANDLE completionPort, const LPWSAOVERLAPPED overlapped) const
 {
     if (socket_ == INVALID_SOCKET)
     {
@@ -175,7 +176,7 @@ WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD r
                "The receive buffer must have enough space to store the local and remote address of the connection");
     }
 
-    auto pendingAcceptSocket = WindowsSocket{completionPort, pendingAcceptServiceId};
+    auto pendingAcceptSocket = WindowsSocket{completionPort, pendingAcceptSocketIdentifier};
 
     // Force the operation to be asynchronous and do not wait to receive data.
     const auto overrideReceiveBufferSize = 0;

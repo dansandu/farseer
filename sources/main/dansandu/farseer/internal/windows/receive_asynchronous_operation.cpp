@@ -1,11 +1,8 @@
 #include "dansandu/farseer/internal/windows/receive_asynchronous_operation.hpp"
-#include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/journey/common.hpp"
 
-using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
-using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::receive_asynchronous_operation
@@ -16,56 +13,52 @@ constexpr auto maximumReceiveBufferSize = 4096;
 class ReceiveAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    explicit ReceiveAsynchronousOperation(const SocketServiceId serviceId) : AsynchronousOperation{serviceId}
+    explicit ReceiveAsynchronousOperation(const SocketIdentifier socketIdentifier)
+        : AsynchronousOperation{socketIdentifier}
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                              const HANDLE completionPort) override
+    void postToCompletionPort(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler) override
     {
-        const auto position = getServiceOrThrow(services, serviceId_);
+        auto& socket = asynchronousOperationsScheduler.getSocketOrThrow(socketIdentifier_);
 
-        position->second.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), &overlapped_);
+        socket.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), &overlapped_);
     }
 
-    bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
+    bool finalize(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                   const DWORD numberOfBytesTransferred) override
     {
         if (numberOfBytesTransferred > 0)
         {
-            const auto position = getServiceOrThrow(socketServiceContainer, serviceId_);
+            auto& socket = asynchronousOperationsScheduler.getSocketOrThrow(socketIdentifier_);
 
-            const auto listeningServiceId = position->second.listeningServiceId;
-
-            const auto& socket = position->second.socket;
+            const auto listeningSocketIdentifier = socket.listeningSocketIdentifier;
 
             const auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(receiveBuffer_), numberOfBytesTransferred);
 
-            LOG_INFO("Socket with ID ", serviceId_.getUnderlying(), " and address ", socket.getIpAddress(), ':',
-                     socket.getPort(), " received ", bytes.size(), " bytes");
+            LOG_INFO("Socket with ID ", socketIdentifier_.getUnderlying(), " and address ",
+                     socket.socket.getIpAddress(), ':', socket.socket.getPort(), " received ", bytes.size(), " bytes");
 
-            if (listeningServiceId != InvalidServiceId)
+            if (listeningSocketIdentifier != invalidSocketIdentifier)
             {
-                const auto listeningServicePosition = getServiceOrThrow(socketServiceContainer, listeningServiceId);
+                auto& listeningSocket = asynchronousOperationsScheduler.getSocketOrThrow(listeningSocketIdentifier);
 
-                listeningServicePosition->second.protocolReader.read(serviceId_, bytes);
+                listeningSocket.protocolReader.read(socketIdentifier_, bytes);
             }
             else
             {
-                position->second.protocolReader.read(serviceId_, bytes);
+                socket.protocolReader.read(socketIdentifier_, bytes);
             }
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
-            position->second.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), &overlapped_);
+            socket.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), &overlapped_);
 
             return false;
         }
         else
         {
-            closeSocketService(socketServiceContainer, serviceId_);
+            asynchronousOperationsScheduler.eraseSocket(socketIdentifier_);
 
             return true;
         }
@@ -76,7 +69,7 @@ public:
         return "ReceiveAsynchronousOperation";
     }
 
-    Level reinterpretSystemErrorCode(const DWORD errorCode) const override
+    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
     {
         if (errorCode == ERROR_NETNAME_DELETED || errorCode == ERROR_CONNECTION_ABORTED)
         {
@@ -89,9 +82,9 @@ private:
     char receiveBuffer_[maximumReceiveBufferSize];
 };
 
-std::unique_ptr<AsynchronousOperation> createReceiveAsynchronousOperation(const SocketServiceId serviceId)
+std::unique_ptr<AsynchronousOperation> createReceiveAsynchronousOperation(const SocketIdentifier socketIdentifier)
 {
-    return std::make_unique<ReceiveAsynchronousOperation>(serviceId);
+    return std::make_unique<ReceiveAsynchronousOperation>(socketIdentifier);
 }
 
 }

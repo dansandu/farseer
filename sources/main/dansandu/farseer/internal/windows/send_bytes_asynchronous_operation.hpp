@@ -9,6 +9,6 @@ namespace dansandu::farseer::internal::windows::send_bytes_asynchronous_operatio
 {
 
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
-createSendBytesAsynchronousOperation(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes);
+createSendBytesAsynchronousOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes);
 
 }

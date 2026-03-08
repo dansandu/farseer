@@ -18,7 +18,7 @@ namespace dansandu::farseer::internal::protocol_reader
 {
 
 ProtocolReader::ProtocolReader(
-    UniqueFunction<void(const SocketServiceId, std::vector<uint8_t>&&)>&& serializedExpectedResponseConsumer)
+    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& serializedExpectedResponseConsumer)
     : serializedExpectedResponseConsumer_{std::move(serializedExpectedResponseConsumer)}
 {
 }
@@ -113,7 +113,7 @@ void ProtocolReader::readMessage(const ProtocolIdentifier messageIdentifier,
     }
 }
 
-void ProtocolReader::readRequest(const SocketServiceId receiverSocketServiceId,
+void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifier,
                                  const ProtocolIdentifier requestIdentifier,
                                  const ProtocolDescriptor& requestDescriptor, size_t& bitsOffset)
 {
@@ -135,7 +135,7 @@ void ProtocolReader::readRequest(const SocketServiceId receiverSocketServiceId,
             auto serializedExpectedResponse =
                 requestDescriptor.expectedResponseSerializer(expectedResponse, sequenceNumber);
 
-            serializedExpectedResponseConsumer_(receiverSocketServiceId, std::move(serializedExpectedResponse));
+            serializedExpectedResponseConsumer_(receivingSocketIdentifier, std::move(serializedExpectedResponse));
         }
         else
         {
@@ -183,7 +183,7 @@ void ProtocolReader::readExpectedResponse(const ProtocolIdentifier responseIdent
     }
 }
 
-void ProtocolReader::read(const SocketServiceId receiverSocketServiceId, const std::span<const uint8_t> bytes)
+void ProtocolReader::read(const SocketIdentifier receivingSocketIdentifier, const std::span<const uint8_t> bytes)
 {
     buffer_.insert(buffer_.end(), bytes.cbegin(), bytes.cend());
 
@@ -205,7 +205,7 @@ void ProtocolReader::read(const SocketServiceId receiverSocketServiceId, const s
     }
     else if (descriptor.protocolType == ProtocolType::request)
     {
-        readRequest(receiverSocketServiceId, identifier, descriptor, bitsOffset);
+        readRequest(receivingSocketIdentifier, identifier, descriptor, bitsOffset);
     }
     else if (descriptor.protocolType == ProtocolType::response)
     {

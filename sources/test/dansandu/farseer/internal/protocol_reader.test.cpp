@@ -5,7 +5,7 @@
 
 using dansandu::farseer::ProtocolIdentifier;
 using dansandu::farseer::ProtocolSequenceNumber;
-using dansandu::farseer::SocketServiceId;
+using dansandu::farseer::SocketIdentifier;
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::protocol_serialization::serializeMessageProtocol;
 using dansandu::farseer::sample_protocol::DynamicMessage;
@@ -14,11 +14,11 @@ using dansandu::farseer::sample_protocol::StaticMessage;
 
 TEST_CASE("protocol_reader")
 {
-    const auto receiverSocketServiceId = SocketServiceId{};
+    const auto receivingSocketIdentifier = SocketIdentifier{};
 
     auto outboundBuffer = std::vector<uint8_t>{};
 
-    auto protocolReader = ProtocolReader{[&](const SocketServiceId, std::vector<uint8_t>&& bytes)
+    auto protocolReader = ProtocolReader{[&](const SocketIdentifier, std::vector<uint8_t>&& bytes)
                                          { outboundBuffer.insert(outboundBuffer.end(), bytes.begin(), bytes.end()); }};
 
     SECTION("empty message")
@@ -30,7 +30,7 @@ TEST_CASE("protocol_reader")
         protocolReader.registerMessageConsumer(EmptyMessage::Metadata::getProtocolIdentifier(),
                                                [&protocol](std::any&& message) { protocol = std::move(message); });
 
-        protocolReader.read(receiverSocketServiceId, bytes);
+        protocolReader.read(receivingSocketIdentifier, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -53,7 +53,7 @@ TEST_CASE("protocol_reader")
         protocolReader.registerMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
                                                [&protocol](std::any&& message) { protocol = std::move(message); });
 
-        protocolReader.read(receiverSocketServiceId, bytes);
+        protocolReader.read(receivingSocketIdentifier, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -84,11 +84,11 @@ TEST_CASE("protocol_reader")
 
         const auto bytesSecondHalf = std::vector<uint8_t>(bytes.cbegin() + halfBytesCount, bytes.cend());
 
-        protocolReader.read(receiverSocketServiceId, bytesFirstHalf);
+        protocolReader.read(receivingSocketIdentifier, bytesFirstHalf);
 
         REQUIRE(!protocol.has_value());
 
-        protocolReader.read(receiverSocketServiceId, bytesSecondHalf);
+        protocolReader.read(receivingSocketIdentifier, bytesSecondHalf);
 
         REQUIRE(protocol.has_value());
 
@@ -123,7 +123,7 @@ TEST_CASE("protocol_reader")
         protocolReader.registerMessageConsumer(DynamicMessage::Metadata::getProtocolIdentifier(),
                                                [&protocol](std::any&& message) { protocol = std::move(message); });
 
-        protocolReader.read(receiverSocketServiceId, bytes);
+        protocolReader.read(receivingSocketIdentifier, bytes);
 
         REQUIRE(protocol.has_value());
 

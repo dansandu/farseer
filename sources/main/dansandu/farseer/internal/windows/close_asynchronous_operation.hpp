@@ -7,6 +7,6 @@ namespace dansandu::farseer::internal::windows::close_asynchronous_operation
 {
 
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
-createCloseAsynchronousOperation(const SocketServiceId serviceId);
+createCloseAsynchronousOperation(const SocketIdentifier socketIdentifier);
 
 }

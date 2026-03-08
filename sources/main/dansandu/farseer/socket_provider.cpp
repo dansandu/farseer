@@ -1,10 +1,9 @@
-#include "dansandu/farseer/socket_service_provider.hpp"
+#include "dansandu/farseer/socket_provider.hpp"
 #include "dansandu/ballotin/exception.hpp"
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/windows/asynchronous_operation.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
-#include "dansandu/farseer/internal/windows/socket_service.hpp"
 #include "dansandu/farseer/internal/windows/wsa_scope_guard.hpp"
 #include "dansandu/journey/logging.hpp"
 
@@ -16,7 +15,7 @@ using dansandu::farseer::internal::windows::asynchronous_operation::Asynchronous
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::wsa_scope_guard::WsaScopeGuard;
 
-namespace dansandu::farseer::socket_service_provider
+namespace dansandu::farseer::socket_provider
 {
 
 namespace
@@ -83,110 +82,110 @@ DWORD WINAPI consumeAsynchronousOperations(LPVOID parameter)
 
 }
 
-SocketServiceProvider::SocketServiceProvider(bool initializeWsa)
+SocketProvider::SocketProvider(bool initializeWsa)
     : implementation_{std::make_shared<SocketServiceProviderImplementation>(initializeWsa)}
 {
 }
 
-SocketServiceProvider::~SocketServiceProvider()
+SocketProvider::~SocketProvider()
 {
 }
 
-SocketServiceId SocketServiceProvider::listen(const std::wstring& ipAddress, const int port,
-                                              ConnectionCallbackType connectionCallback) const
+SocketIdentifier SocketProvider::listen(const std::wstring& ipAddress, const int port,
+                                        ConnectionCallback connectionCallback) const
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
     return impl->operations.createListenAsynchronousOperation(ipAddress, port, std::move(connectionCallback));
 }
 
-SocketServiceId SocketServiceProvider::connect(const std::wstring& ipAddress, const int port,
-                                               ConnectionCallbackType connectionCallback) const
+SocketIdentifier SocketProvider::connect(const std::wstring& ipAddress, const int port,
+                                         ConnectionCallback connectionCallback) const
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
     return impl->operations.createConnectAsynchronousOperation(ipAddress, port, std::move(connectionCallback));
 }
 
-ProtocolSequenceNumber SocketServiceProvider::generateSequenceNumber() const
+ProtocolSequenceNumber SocketProvider::generateSequenceNumber() const
 {
     const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
     return impl->sequencer.generate();
 }
 
-void SocketServiceProvider::sendBytes(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes) const
+void SocketProvider::sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) const
 {
-    if (serviceId != InvalidServiceId)
+    if (socketIdentifier != invalidSocketIdentifier)
     {
         const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-        impl->operations.createSendBytesAsynchronousOperation(serviceId, std::move(bytes));
+        impl->operations.createSendBytesAsynchronousOperation(socketIdentifier, std::move(bytes));
     }
     else
     {
-        THROW(std::logic_error, "Cannot send bytes using an InvalidServiceId");
+        THROW(std::logic_error, "Cannot send bytes using an invalidSocketIdentifier");
     }
 }
 
-void SocketServiceProvider::sendRequest(const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber,
-                                        std::vector<uint8_t>&& bytes,
-                                        UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) const
+void SocketProvider::sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+                                 std::vector<uint8_t>&& bytes,
+                                 UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) const
 {
-    if (serviceId != InvalidServiceId)
+    if (socketIdentifier != invalidSocketIdentifier)
     {
         const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-        impl->operations.createSendRequestAsynchronousOperation(serviceId, sequenceNumber, std::move(bytes),
+        impl->operations.createSendRequestAsynchronousOperation(socketIdentifier, sequenceNumber, std::move(bytes),
                                                                 std::move(expectedResponseConsumer));
     }
     else
     {
-        THROW(std::logic_error, "Cannot send bytes using an InvalidServiceId");
+        THROW(std::logic_error, "Cannot send bytes using an invalidSocketIdentifier");
     }
 }
 
-void SocketServiceProvider::registerMessageConsumer(const SocketServiceId serviceId,
-                                                    const ProtocolIdentifier protocolIdentifier,
-                                                    UniqueFunction<void(std::any&&)>&& messageConsumer) const
+void SocketProvider::registerMessageConsumer(const SocketIdentifier socketIdentifier,
+                                             const ProtocolIdentifier protocolIdentifier,
+                                             UniqueFunction<void(std::any&&)>&& messageConsumer) const
 {
-    if (serviceId != InvalidServiceId)
+    if (socketIdentifier != invalidSocketIdentifier)
     {
         const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-        impl->operations.createRegisterMessageConsumerAsynchronousOperation(serviceId, protocolIdentifier,
+        impl->operations.createRegisterMessageConsumerAsynchronousOperation(socketIdentifier, protocolIdentifier,
                                                                             std::move(messageConsumer));
     }
     else
     {
-        THROW(std::logic_error, "Cannot register a message consumer using an InvalidServiceId");
+        THROW(std::logic_error, "Cannot register a message consumer using an invalidSocketIdentifier");
     }
 }
 
-void SocketServiceProvider::registerRequestCallback(const SocketServiceId serviceId,
-                                                    const ProtocolIdentifier protocolIdentifier,
-                                                    UniqueFunction<std::any(std::any&&)>&& requestCallback) const
+void SocketProvider::registerRequestCallback(const SocketIdentifier socketIdentifier,
+                                             const ProtocolIdentifier protocolIdentifier,
+                                             UniqueFunction<std::any(std::any&&)>&& requestCallback) const
 {
-    if (serviceId != InvalidServiceId)
+    if (socketIdentifier != invalidSocketIdentifier)
     {
         const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-        impl->operations.createRegisterRequestCallbackAsynchronousOperation(serviceId, protocolIdentifier,
+        impl->operations.createRegisterRequestCallbackAsynchronousOperation(socketIdentifier, protocolIdentifier,
                                                                             std::move(requestCallback));
     }
     else
     {
-        THROW(std::logic_error, "Cannot register a request consumer using an InvalidServiceId");
+        THROW(std::logic_error, "Cannot register a request consumer using an invalidSocketIdentifier");
     }
 }
 
-void SocketServiceProvider::close(const SocketServiceId serviceId) const
+void SocketProvider::close(const SocketIdentifier socketIdentifier) const
 {
-    if (serviceId != InvalidServiceId)
+    if (socketIdentifier != invalidSocketIdentifier)
     {
         const auto impl = static_cast<SocketServiceProviderImplementation*>(implementation_.get());
 
-        impl->operations.createCloseAsynchronousOperation(serviceId);
+        impl->operations.createCloseAsynchronousOperation(socketIdentifier);
     }
 }
 

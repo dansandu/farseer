@@ -1,6 +1,6 @@
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
-#include "dansandu/farseer/socket_service_provider.hpp"
+#include "dansandu/farseer/socket_provider.hpp"
 #include "dansandu/journey/logging.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
@@ -9,10 +9,10 @@
 
 using dansandu::farseer::Expected;
 using dansandu::farseer::RequestProtocolError;
-using dansandu::farseer::SocketServiceEvent;
-using dansandu::farseer::SocketServiceId;
+using dansandu::farseer::SocketEvent;
+using dansandu::farseer::SocketIdentifier;
 using dansandu::farseer::sample_protocol::StressRequest;
-using dansandu::farseer::socket_service_provider::SocketServiceProvider;
+using dansandu::farseer::socket_provider::SocketProvider;
 
 using StressResponse = dansandu::farseer::sample_protocol::StressRequest::Response;
 
@@ -27,7 +27,7 @@ constexpr auto timeout = std::chrono::seconds(6);
 
 constexpr auto responseErrorMessage = "error message";
 
-std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketServiceProvider& socketServiceProvider,
+std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketProvider& socketServiceProvider,
                                                                 const StressRequest request)
 {
     auto openPromise = std::promise<void>{};
@@ -35,9 +35,9 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketServ
 
     const auto connectionId = socketServiceProvider.connect(
         localhost, serverPort,
-        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
+        [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
         {
-            if (event == SocketServiceEvent::clientOpen)
+            if (event == SocketEvent::clientOpen)
             {
                 openPromise.set_value();
             }
@@ -75,7 +75,7 @@ uint32_t salted(uint32_t value)
 TEST_CASE("localhost_single_instance")
 {
     const auto initializeWsa = true;
-    const auto socketServiceProvider = SocketServiceProvider{initializeWsa};
+    const auto socketServiceProvider = SocketProvider{initializeWsa};
 
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
@@ -84,9 +84,9 @@ TEST_CASE("localhost_single_instance")
 
     const auto listenerId = socketServiceProvider.listen(
         localhost, serverPort,
-        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
+        [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
         {
-            if (event == SocketServiceEvent::serverOpen)
+            if (event == SocketEvent::serverOpen)
             {
                 openPromise.set_value();
             }

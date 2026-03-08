@@ -1,14 +1,11 @@
 #include "dansandu/farseer/internal/windows/close_asynchronous_operation.hpp"
-#include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
+using dansandu::farseer::internal::windows::asynchronous_operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
-using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::socket_service::closeSocketService;
-using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
 namespace dansandu::farseer::internal::windows::close_asynchronous_operation
 {
@@ -16,17 +13,18 @@ namespace dansandu::farseer::internal::windows::close_asynchronous_operation
 class CloseAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    explicit CloseAsynchronousOperation(const SocketServiceId serviceId) : AsynchronousOperation{serviceId}
+    explicit CloseAsynchronousOperation(const SocketIdentifier socketIdentifier)
+        : AsynchronousOperation{socketIdentifier}
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                              const HANDLE completionPort) override
+    void postToCompletionPort(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler) override
     {
+        const auto completionPort = asynchronousOperationsScheduler.getCompletionPort();
+
         const auto numberOfBytesTransferred = 0;
         const auto postResult =
-            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, initialCompletionKey, &overlapped_);
+            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
 
         if (!postResult)
         {
@@ -34,11 +32,10 @@ public:
         }
     }
 
-    bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
+    bool finalize(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                   const DWORD numberOfBytesTransferred) override
     {
-        closeSocketService(socketServiceContainer, serviceId_);
+        asynchronousOperationsScheduler.eraseSocket(socketIdentifier_);
 
         return true;
     }
@@ -49,9 +46,9 @@ public:
     }
 };
 
-std::unique_ptr<AsynchronousOperation> createCloseAsynchronousOperation(const SocketServiceId serviceId)
+std::unique_ptr<AsynchronousOperation> createCloseAsynchronousOperation(const SocketIdentifier socketIdentifier)
 {
-    return std::make_unique<CloseAsynchronousOperation>(serviceId);
+    return std::make_unique<CloseAsynchronousOperation>(socketIdentifier);
 }
 
 }

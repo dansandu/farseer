@@ -12,11 +12,11 @@
 namespace dansandu::farseer
 {
 
+using dansandu::farseer::expected::Expected;
+
 using dansandu::farseer::exception::RequestProtocolError;
 
 using dansandu::ballotin::function::UniqueFunction;
-
-using dansandu::farseer::expected::Expected;
 
 class ProtocolIdentifierTag
 {
@@ -61,20 +61,20 @@ using ProtocolSequenceNumber = dansandu::ballotin::type_prototype::TypePrototype
 static_assert(sizeof(ProtocolSequenceNumber) == sizeof(typename ProtocolSequenceNumber::UnderlyingType),
               "Serialization requires that the ProtocolSequenceNumber size must match its underlying type size");
 
-class SocketServiceIdTag
+class SocketIdentifierTag
 {
 };
 
-using SocketServiceId = dansandu::ballotin::type_prototype::TypePrototype<
-    SocketServiceIdTag, unsigned long,
+using SocketIdentifier = dansandu::ballotin::type_prototype::TypePrototype<
+    SocketIdentifierTag, unsigned long,
     dansandu::ballotin::type_prototype::TypeFeature::underlyingConversion |
         dansandu::ballotin::type_prototype::TypeFeature::stringConversion |
         dansandu::ballotin::type_prototype::TypeFeature::equality |
         dansandu::ballotin::type_prototype::TypeFeature::inequality>;
 
-static constexpr SocketServiceId InvalidServiceId = SocketServiceId{};
+static constexpr SocketIdentifier invalidSocketIdentifier = SocketIdentifier{};
 
-enum class SocketServiceEvent
+enum class SocketEvent
 {
     serverOpen,
     serverClosed,
@@ -88,10 +88,9 @@ enum class SocketServiceEvent
 
 PRALINE_EXPORT ProtocolSize getProtocolSizeFromStdSize(const size_t size);
 
-PRALINE_EXPORT const char* toString(const SocketServiceEvent event);
+PRALINE_EXPORT const char* toString(const SocketEvent event);
 
-using ConnectionCallbackType =
-    UniqueFunction<void(const SocketServiceEvent event, const SocketServiceId socketServiceId)>;
+using ConnectionCallback = UniqueFunction<void(const SocketEvent event, const SocketIdentifier identifier)>;
 
 using ProtocolDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
                                       ProtocolSequenceNumber& sequenceNumber, std::any& protocol);

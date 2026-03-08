@@ -7,6 +7,6 @@ namespace dansandu::farseer::internal::windows::receive_asynchronous_operation
 {
 
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
-createReceiveAsynchronousOperation(const SocketServiceId serviceId);
+createReceiveAsynchronousOperation(const SocketIdentifier socketIdentifier);
 
 }
