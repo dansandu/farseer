@@ -27,13 +27,13 @@ constexpr auto timeout = std::chrono::seconds(6);
 
 constexpr auto responseErrorMessage = "error message";
 
-std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketProvider& socketServiceProvider,
+std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketProvider& socketProvider,
                                                                 const StressRequest request)
 {
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
-    const auto connectionId = socketServiceProvider.connect(
+    const auto connectionId = socketProvider.connect(
         localhost, serverPort,
         [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
         {
@@ -43,7 +43,7 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketProv
             }
         });
 
-    SCOPE_EXIT([&] { socketServiceProvider.close(connectionId); });
+    SCOPE_EXIT([&] { socketProvider.close(connectionId); });
 
     if (openFuture.wait_for(timeout) != std::future_status::ready)
     {
@@ -53,8 +53,10 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const SocketProv
     auto responsePromise = std::promise<Expected<StressResponse>>{};
     auto responseFuture = responsePromise.get_future();
 
-    socketServiceProvider.sendRequest(connectionId, request, [&responsePromise](Expected<StressResponse>&& response)
-                                      { responsePromise.set_value(std::move(response)); });
+    socketProvider.sendRequest(
+        connectionId, request,
+        [responsePromise = std::move(responsePromise)](Expected<StressResponse>&& response) mutable
+        { responsePromise.set_value(std::move(response)); });
 
     if (responseFuture.wait_for(timeout) == std::future_status::ready)
     {
@@ -75,14 +77,14 @@ uint32_t salted(uint32_t value)
 TEST_CASE("localhost_single_instance")
 {
     const auto initializeWsa = true;
-    const auto socketServiceProvider = SocketProvider{initializeWsa};
+    const auto socketProvider = SocketProvider{initializeWsa};
 
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
     LOG_INFO("Opening listening socket...");
 
-    const auto listenerId = socketServiceProvider.listen(
+    const auto listenerId = socketProvider.listen(
         localhost, serverPort,
         [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
         {
@@ -97,28 +99,28 @@ TEST_CASE("localhost_single_instance")
         {
             LOG_INFO("Closing server...");
 
-            socketServiceProvider.close(listenerId);
+            socketProvider.close(listenerId);
         });
 
     REQUIRE(openFuture.wait_for(timeout) == std::future_status::ready);
 
     LOG_INFO("Registering request callback...");
 
-    socketServiceProvider.registerRequestCallback<StressRequest>(
-        listenerId,
-        [](StressRequest&& request)
-        {
-            if (request.sent % 2U == 0U)
-            {
-                return StressResponse{
-                    .received = salted(request.sent),
-                };
-            }
-            else
-            {
-                throw RequestProtocolError{salted(request.sent), responseErrorMessage};
-            }
-        });
+    socketProvider.registerRequestCallback<StressRequest>(listenerId,
+                                                          [](StressRequest&& request)
+                                                          {
+                                                              if (request.sent % 2U == 0U)
+                                                              {
+                                                                  return StressResponse{
+                                                                      .received = salted(request.sent),
+                                                                  };
+                                                              }
+                                                              else
+                                                              {
+                                                                  throw RequestProtocolError{salted(request.sent),
+                                                                                             responseErrorMessage};
+                                                              }
+                                                          });
 
     const auto requests = {
         4108274513U, 2679407135U, 3357528569U, 3675811652U, 3525994765U, 3902187997U, 3466800233U,
@@ -131,8 +133,8 @@ TEST_CASE("localhost_single_instance")
 
     for (const auto request : requests)
     {
-        futures.push_back(std::async(std::launch::async, [socketServiceProvider, request]()
-                                     { return createClient(socketServiceProvider, StressRequest{.sent = request}); }));
+        futures.push_back(std::async(std::launch::async, [socketProvider, request]()
+                                     { return createClient(socketProvider, StressRequest{.sent = request}); }));
     }
 
     LOG_INFO("Waiting for clients to finish...");
