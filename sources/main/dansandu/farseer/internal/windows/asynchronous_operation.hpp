@@ -1,8 +1,9 @@
 #pragma once
 
 #include "dansandu/farseer/common.hpp"
+#include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
-#include "dansandu/farseer/internal/windows/socket_service.hpp"
+#include "dansandu/farseer/internal/windows/windows_socket.hpp"
 #include "dansandu/journey/logging.hpp"
 
 #include <map>
@@ -15,7 +16,15 @@
 namespace dansandu::farseer::internal::windows::asynchronous_operation
 {
 
-constexpr auto initialCompletionKey = InvalidServiceId.getUnderlying();
+constexpr auto defaultCompletionKey = invalidSocketIdentifier.getUnderlying();
+
+struct Socket
+{
+    dansandu::farseer::internal::windows::windows_socket::WindowsSocket socket;
+    dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
+    SocketIdentifier listeningSocketIdentifier;
+    ConnectionCallback connectionCallback;
+};
 
 class IAsynchronousOperationsScheduler
 {
@@ -31,18 +40,27 @@ public:
     {
     }
 
-    virtual void createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId) = 0;
+    virtual HANDLE getCompletionPort() = 0;
 
-    virtual void createReceiveAsynchronousOperation(const SocketServiceId serviceId) = 0;
+    virtual Socket& insertSocket(const SocketIdentifier socketIdentifier, Socket&& socket) = 0;
 
-    virtual void createSendBytesAsynchronousOperation(const SocketServiceId serviceId,
+    virtual Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier) = 0;
+
+    virtual void eraseSocket(const SocketIdentifier socketIdentifier) = 0;
+
+    virtual void createAcceptAsynchronousOperation(const SocketIdentifier listeningSocketIdentifier) = 0;
+
+    virtual void createReceiveAsynchronousOperation(const SocketIdentifier socketIdentifier) = 0;
+
+    virtual void createSendBytesAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                       std::vector<uint8_t>&& bytes) = 0;
 };
 
 class AsynchronousOperation
 {
 public:
-    explicit AsynchronousOperation(const SocketServiceId serviceId) : serviceId_{serviceId}, overlapped_{}
+    explicit AsynchronousOperation(const SocketIdentifier socketIdentifier)
+        : socketIdentifier_{socketIdentifier}, overlapped_{}
     {
         SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
@@ -57,26 +75,21 @@ public:
     {
     }
 
-    virtual void
-    postToCompletionPort(dansandu::farseer::internal::windows::socket_service::SocketServiceContainer& services,
-                         IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                         const HANDLE completionPort) = 0;
+    virtual void postToCompletionPort(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler) = 0;
 
-    virtual bool finalize(dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId>& sequencer,
-                          dansandu::farseer::internal::windows::socket_service::SocketServiceContainer& services,
-                          IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                          const HANDLE completionPort, const DWORD numberOfBytesTransferred) = 0;
+    virtual bool finalize(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
+                          const DWORD numberOfBytesTransferred) = 0;
 
     virtual const char* getName() const = 0;
 
-    virtual dansandu::journey::Level reinterpretSystemErrorCode(const DWORD errorCode) const
+    virtual dansandu::journey::Level getSystemErrorCodeLevel(const DWORD errorCode) const
     {
         return dansandu::journey::Level::error;
     }
 
-    SocketServiceId getServiceId() const
+    SocketIdentifier getSocketIdentifier() const
     {
-        return serviceId_;
+        return socketIdentifier_;
     }
 
     LPWSAOVERLAPPED getOverlapped()
@@ -85,7 +98,7 @@ public:
     }
 
 protected:
-    SocketServiceId serviceId_;
+    SocketIdentifier socketIdentifier_;
     WSAOVERLAPPED overlapped_;
 };
 
@@ -96,39 +109,48 @@ public:
 
     ~AsynchronousOperationScheduler() noexcept;
 
-    SocketServiceId createConnectAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                       ConnectionCallbackType&& connectionCallback);
+    HANDLE getCompletionPort() override;
 
-    SocketServiceId createListenAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                      ConnectionCallbackType&& connectionCallback);
+    Socket& insertSocket(const SocketIdentifier socketIdentifier, Socket&& socket) override;
 
-    void createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId) override;
+    Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier) override;
 
-    void createReceiveAsynchronousOperation(const SocketServiceId serviceId) override;
+    void eraseSocket(const SocketIdentifier socketIdentifier) override;
 
-    void createSendBytesAsynchronousOperation(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes) override;
+    SocketIdentifier createConnectAsynchronousOperation(const std::wstring& ipAddress, const int port,
+                                                        ConnectionCallback&& connectionCallback);
 
-    void createSendRequestAsynchronousOperation(const SocketServiceId serviceId,
-                                                const ProtocolSequenceNumber sequenceNumber,
+    SocketIdentifier createListenAsynchronousOperation(const std::wstring& ipAddress, const int port,
+                                                       ConnectionCallback&& connectionCallback);
+
+    void createAcceptAsynchronousOperation(const SocketIdentifier listeningSocketIdentifier) override;
+
+    void createReceiveAsynchronousOperation(const SocketIdentifier socketIdentifier) override;
+
+    void createSendBytesAsynchronousOperation(const SocketIdentifier socketIdentifier,
+                                              std::vector<uint8_t>&& bytes) override;
+
+    void createSendRequestAsynchronousOperation(const SocketIdentifier socketIdentifier,
+                                                const ProtocolSequenceNumber protocolSequenceNumber,
                                                 std::vector<uint8_t>&& bytes,
                                                 UniqueFunction<void(std::any&&)>&& expectedResponseConsumer);
 
-    void createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
+    void createRegisterMessageConsumerAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                             const ProtocolIdentifier protocolIdentifier,
                                                             UniqueFunction<void(std::any&&)>&& messageConsumer);
 
-    void createRegisterRequestCallbackAsynchronousOperation(const SocketServiceId serviceId,
+    void createRegisterRequestCallbackAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                             const ProtocolIdentifier protocolIdentifier,
                                                             UniqueFunction<std::any(std::any&&)>&& requestConsumer);
 
-    void createCloseAsynchronousOperation(const SocketServiceId serviceId);
+    void createCloseAsynchronousOperation(const SocketIdentifier socketIdentifier);
 
     void createAbortAsynchronousOperation();
 
     bool waitAndConsumeAsynchronousOperation();
 
 private:
-    SocketServiceId insertOperation(std::unique_ptr<AsynchronousOperation> operation);
+    void insertOperation(std::unique_ptr<AsynchronousOperation> operation);
 
     void handleSuccessfulAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const DWORD numberOfBytesTransferred);
 
@@ -137,8 +159,8 @@ private:
     void handleFailedAsynchronousOperation(const LPWSAOVERLAPPED overlapped, const std::wstring_view message);
 
     const HANDLE completionPort_;
-    dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId> serviceIdSequencer_;
-    dansandu::farseer::internal::windows::socket_service::SocketServiceContainer socketServiceContainer_;
+    dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier> socketIdentifierSequencer_;
+    std::map<SocketIdentifier, Socket> sockets_;
     std::map<LPWSAOVERLAPPED, std::unique_ptr<AsynchronousOperation>> operations_;
     mutable std::recursive_mutex operationsMutex_;
 };

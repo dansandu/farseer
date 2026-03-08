@@ -7,7 +7,7 @@ namespace dansandu::farseer::internal::windows::accept_asynchronous_operation
 {
 
 std::unique_ptr<dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation>
-createAcceptAsynchronousOperation(dansandu::farseer::internal::sequencer::Sequencer<SocketServiceId>& sequencer,
-                                  const SocketServiceId listeningServiceId);
+createAcceptAsynchronousOperation(const SocketIdentifier pendingAcceptSocketIdentifier,
+                                  const SocketIdentifier listeningSocketIdentifier);
 
 }

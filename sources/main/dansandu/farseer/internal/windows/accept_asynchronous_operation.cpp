@@ -1,11 +1,9 @@
 #include "dansandu/farseer/internal/windows/accept_asynchronous_operation.hpp"
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
-using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
-using dansandu::farseer::internal::windows::socket_service::SocketService;
-using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
+using dansandu::farseer::internal::windows::asynchronous_operation::Socket;
 
 namespace dansandu::farseer::internal::windows::accept_asynchronous_operation
 {
@@ -15,59 +13,50 @@ constexpr auto maximumReceiveBufferSize = 4096;
 class AcceptAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    AcceptAsynchronousOperation(Sequencer<SocketServiceId>& sequencer, const SocketServiceId listeningServiceId)
-        : AsynchronousOperation{sequencer.generate()}, listeningServiceId_{listeningServiceId}
+    AcceptAsynchronousOperation(const SocketIdentifier pendingAcceptSocketIdentifier,
+                                const SocketIdentifier listeningSocketIdentifier)
+        : AsynchronousOperation{pendingAcceptSocketIdentifier}, listeningSocketIdentifier_{listeningSocketIdentifier}
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                              const HANDLE completionPort) override
+    void postToCompletionPort(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler) override
     {
-        const auto listeningServicePosition = getServiceOrThrow(services, listeningServiceId_);
+        auto& listeningSocket = asynchronousOperationsScheduler.getSocketOrThrow(listeningSocketIdentifier_);
 
-        auto pendingAcceptSocket = listeningServicePosition->second.socket.postAccept(
-            receiveBuffer_, std::size(receiveBuffer_), serviceId_, completionPort, &overlapped_);
+        const auto completionPort = asynchronousOperationsScheduler.getCompletionPort();
 
-        const auto [servicePosition, serviceInserted] = services.insert(
-            {serviceId_, SocketService{
-                             .socket = std::move(pendingAcceptSocket),
-                             .protocolReader = ProtocolReader{[&scheduler = asynchronousOperationsScheduler](
-                                                                  const SocketServiceId receiverSocketServiceId,
-                                                                  std::vector<uint8_t>&& response)
-                                                              {
-                                                                  scheduler.createSendBytesAsynchronousOperation(
-                                                                      receiverSocketServiceId, std::move(response));
-                                                              }},
-                             .listeningServiceId = listeningServicePosition->first,
-                         }});
-
-        if (!serviceInserted)
-        {
-            THROW(std::logic_error, "Couldn't open accepting service with ID ", serviceId_.getUnderlying(),
-                  " because the ID is used by another service");
-        }
+        asynchronousOperationsScheduler.insertSocket(
+            socketIdentifier_,
+            Socket{
+                .socket = listeningSocket.socket.postAccept(receiveBuffer_, std::size(receiveBuffer_),
+                                                            socketIdentifier_, completionPort, &overlapped_),
+                .protocolReader = ProtocolReader{[&scheduler = asynchronousOperationsScheduler](
+                                                     const SocketIdentifier receivingSocketIdentifier,
+                                                     std::vector<uint8_t>&& response)
+                                                 {
+                                                     scheduler.createSendBytesAsynchronousOperation(
+                                                         receivingSocketIdentifier, std::move(response));
+                                                 }},
+                .listeningSocketIdentifier = listeningSocketIdentifier_,
+            });
     }
 
-    bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& services,
-                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
+    bool finalize(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                   const DWORD numberOfBytesTransferred) override
     {
-        const auto servicePosition = getServiceOrThrow(services, serviceId_);
+        auto& socket = asynchronousOperationsScheduler.getSocketOrThrow(socketIdentifier_);
 
-        const auto listeningServicePosition = getServiceOrThrow(services, listeningServiceId_);
+        auto& listeningSocket = asynchronousOperationsScheduler.getSocketOrThrow(listeningSocketIdentifier_);
 
-        auto& socket = servicePosition->second.socket;
+        socket.socket.accept(listeningSocket.socket);
 
-        socket.accept(listeningServicePosition->second.socket);
+        asynchronousOperationsScheduler.createAcceptAsynchronousOperation(listeningSocketIdentifier_);
 
-        asynchronousOperationsScheduler.createAcceptAsynchronousOperation(listeningServiceId_);
+        asynchronousOperationsScheduler.createReceiveAsynchronousOperation(socketIdentifier_);
 
-        asynchronousOperationsScheduler.createReceiveAsynchronousOperation(serviceId_);
+        listeningSocket.connectionCallback(SocketEvent::clientOpen, socketIdentifier_);
 
-        listeningServicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, serviceId_);
-
-        LOG_INFO("Accepted client socket with address ", socket.getIpAddress(), ':', socket.getPort());
+        LOG_INFO("Accepted client socket with address ", socket.socket.getIpAddress(), ':', socket.socket.getPort());
 
         return true;
     }
@@ -78,14 +67,15 @@ public:
     }
 
 private:
-    const SocketServiceId listeningServiceId_;
+    const SocketIdentifier listeningSocketIdentifier_;
     char receiveBuffer_[maximumReceiveBufferSize];
 };
 
-std::unique_ptr<AsynchronousOperation> createAcceptAsynchronousOperation(Sequencer<SocketServiceId>& sequencer,
-                                                                         const SocketServiceId listeningServiceId)
+std::unique_ptr<AsynchronousOperation>
+createAcceptAsynchronousOperation(const SocketIdentifier pendingAcceptSocketIdentifier,
+                                  const SocketIdentifier listeningSocketIdentifier)
 {
-    return std::make_unique<AcceptAsynchronousOperation>(sequencer, listeningServiceId);
+    return std::make_unique<AcceptAsynchronousOperation>(pendingAcceptSocketIdentifier, listeningSocketIdentifier);
 }
 
 }

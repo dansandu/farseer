@@ -30,28 +30,28 @@ ProtocolSize getProtocolSizeFromStdSize(const size_t size)
     }
 }
 
-const char* toString(const SocketServiceEvent event)
+const char* toString(const SocketEvent event)
 {
     switch (event)
     {
-    case SocketServiceEvent::serverOpen:
+    case SocketEvent::serverOpen:
         return "serverOpen";
-    case SocketServiceEvent::serverClosed:
+    case SocketEvent::serverClosed:
         return "serverClosed";
-    case SocketServiceEvent::serverAborted:
+    case SocketEvent::serverAborted:
         return "serverAborted";
-    case SocketServiceEvent::clientOpen:
+    case SocketEvent::clientOpen:
         return "clientOpen";
-    case SocketServiceEvent::clientBytesReceived:
+    case SocketEvent::clientBytesReceived:
         return "clientBytesReceived";
-    case SocketServiceEvent::clientBytesSent:
+    case SocketEvent::clientBytesSent:
         return "clientBytesSent";
-    case SocketServiceEvent::clientClosed:
+    case SocketEvent::clientClosed:
         return "clientClosed";
-    case SocketServiceEvent::clientAborted:
+    case SocketEvent::clientAborted:
         return "clientAborted";
     default:
-        THROW(std::logic_error, "Unknown SocketServiceEvent");
+        THROW(std::logic_error, "Unknown SocketEvent");
     }
 }
 

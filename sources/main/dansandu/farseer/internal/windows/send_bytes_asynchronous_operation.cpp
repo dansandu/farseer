@@ -1,13 +1,10 @@
 #include "dansandu/farseer/internal/windows/send_bytes_asynchronous_operation.hpp"
-#include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 
-using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
+using dansandu::farseer::internal::windows::asynchronous_operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
-using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
 namespace dansandu::farseer::internal::windows::send_bytes_asynchronous_operation
 {
@@ -15,18 +12,18 @@ namespace dansandu::farseer::internal::windows::send_bytes_asynchronous_operatio
 class SendBytesAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    SendBytesAsynchronousOperation(const SocketServiceId serviceId, std::vector<uint8_t>&& bytes)
-        : AsynchronousOperation{serviceId}, bytes_{std::move(bytes)}, sendBytesPending_{false}
+    SendBytesAsynchronousOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes)
+        : AsynchronousOperation{socketIdentifier}, bytes_{std::move(bytes)}, sendBytesPending_{false}
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                              const HANDLE completionPort) override
+    void postToCompletionPort(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler) override
     {
+        const auto completionPort = asynchronousOperationsScheduler.getCompletionPort();
+
         const auto numberOfBytesTransferred = 0;
         const auto postResult =
-            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, initialCompletionKey, &overlapped_);
+            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
 
         if (!postResult)
         {
@@ -34,26 +31,25 @@ public:
         }
     }
 
-    bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
+    bool finalize(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                   const DWORD numberOfBytesTransferred) override
     {
         if (!sendBytesPending_)
         {
             sendBytesPending_ = true;
 
-            const auto servicePosition = getServiceOrThrow(socketServiceContainer, serviceId_);
+            auto& socket = asynchronousOperationsScheduler.getSocketOrThrow(socketIdentifier_);
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
-            servicePosition->second.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()),
-                                                    static_cast<ULONG>(bytes_.size()), &overlapped_);
+            socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()),
+                                   &overlapped_);
 
             return false;
         }
         else
         {
-            LOG_INFO("Sent bytes using service ID ", serviceId_.getUnderlying());
+            LOG_INFO("Sent bytes using service ID ", socketIdentifier_.getUnderlying());
 
             return true;
         }
@@ -69,10 +65,10 @@ private:
     bool sendBytesPending_;
 };
 
-std::unique_ptr<AsynchronousOperation> createSendBytesAsynchronousOperation(const SocketServiceId serviceId,
+std::unique_ptr<AsynchronousOperation> createSendBytesAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                                             std::vector<uint8_t>&& bytes)
 {
-    return std::make_unique<SendBytesAsynchronousOperation>(serviceId, std::move(bytes));
+    return std::make_unique<SendBytesAsynchronousOperation>(socketIdentifier, std::move(bytes));
 }
 
 }

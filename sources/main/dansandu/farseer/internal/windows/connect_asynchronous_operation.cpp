@@ -1,16 +1,13 @@
 #include "dansandu/farseer/internal/windows/connect_asynchronous_operation.hpp"
-#include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
-using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
+using dansandu::farseer::internal::windows::asynchronous_operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
-using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
+using dansandu::farseer::internal::windows::asynchronous_operation::Socket;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::socket_service::SocketService;
-using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 using dansandu::farseer::internal::windows::windows_socket::WindowsSocket;
 
 namespace dansandu::farseer::internal::windows::connect_asynchronous_operation
@@ -19,9 +16,9 @@ namespace dansandu::farseer::internal::windows::connect_asynchronous_operation
 class ConnectAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    ConnectAsynchronousOperation(Sequencer<SocketServiceId>& sequencer, const std::wstring& ipAddress, const int port,
-                                 ConnectionCallbackType&& connectionCallback)
-        : AsynchronousOperation{sequencer.generate()},
+    ConnectAsynchronousOperation(const SocketIdentifier socketIdentifier, const std::wstring& ipAddress, const int port,
+                                 ConnectionCallback&& connectionCallback)
+        : AsynchronousOperation{socketIdentifier},
           ipAddress_{ipAddress},
           port_{port},
           connectionCallback_{std::move(connectionCallback)},
@@ -29,13 +26,13 @@ public:
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                              const HANDLE completionPort) override
+    void postToCompletionPort(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler) override
     {
+        const auto completionPort = asynchronousOperationsScheduler.getCompletionPort();
+
         const auto numberOfBytesTransferred = 0;
         const auto postResult =
-            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, initialCompletionKey, &overlapped_);
+            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
 
         if (!postResult)
         {
@@ -43,37 +40,33 @@ public:
         }
     }
 
-    bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
+    bool finalize(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                   const DWORD numberOfBytesTransferred) override
     {
         if (!connectionPending_)
         {
-            auto socket = WindowsSocket{completionPort, serviceId_};
+            const auto completionPort = asynchronousOperationsScheduler.getCompletionPort();
+
+            auto tempSocket = WindowsSocket{completionPort, socketIdentifier_};
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
-            socket.postConnect(ipAddress_, port_, &overlapped_);
+            tempSocket.postConnect(ipAddress_, port_, &overlapped_);
 
-            const auto [servicePosition, serviceInserted] = socketServiceContainer.insert(
-                {serviceId_, SocketService{
-                                 .socket = std::move(socket),
-                                 .protocolReader = ProtocolReader{[&scheduler = asynchronousOperationsScheduler](
-                                                                      const SocketServiceId receiverSocketServiceId,
-                                                                      std::vector<uint8_t>&& response)
-                                                                  {
-                                                                      scheduler.createSendBytesAsynchronousOperation(
-                                                                          receiverSocketServiceId, std::move(response));
-                                                                  }},
-                                 .listeningServiceId = InvalidServiceId,
-                                 .connectionCallback = std::move(connectionCallback_),
-                             }});
-
-            if (!serviceInserted)
-            {
-                THROW(std::logic_error, "Couldn't open connection service with ID ", serviceId_.getUnderlying(),
-                      " because the ID is used by another service");
-            }
+            asynchronousOperationsScheduler.insertSocket(
+                socketIdentifier_,
+                Socket{
+                    .socket = std::move(tempSocket),
+                    .protocolReader = ProtocolReader{[&scheduler = asynchronousOperationsScheduler](
+                                                         const SocketIdentifier receivingSocketIdentifier,
+                                                         std::vector<uint8_t>&& response)
+                                                     {
+                                                         scheduler.createSendBytesAsynchronousOperation(
+                                                             receivingSocketIdentifier, std::move(response));
+                                                     }},
+                    .listeningSocketIdentifier = invalidSocketIdentifier,
+                    .connectionCallback = std::move(connectionCallback_),
+                });
 
             connectionPending_ = true;
 
@@ -81,17 +74,15 @@ public:
         }
         else
         {
-            const auto servicePosition = getServiceOrThrow(socketServiceContainer, serviceId_);
+            auto& socket = asynchronousOperationsScheduler.getSocketOrThrow(socketIdentifier_);
 
-            auto& socket = servicePosition->second.socket;
+            socket.socket.connect();
 
-            socket.connect();
+            socket.connectionCallback(SocketEvent::clientOpen, socketIdentifier_);
 
-            servicePosition->second.connectionCallback(SocketServiceEvent::clientOpen, serviceId_);
+            asynchronousOperationsScheduler.createReceiveAsynchronousOperation(socketIdentifier_);
 
-            asynchronousOperationsScheduler.createReceiveAsynchronousOperation(serviceId_);
-
-            LOG_INFO("Connected to socket with address ", socket.getIpAddress(), ':', socket.getPort());
+            LOG_INFO("Connected to socket with address ", socket.socket.getIpAddress(), ':', socket.socket.getPort());
 
             return true;
         }
@@ -105,15 +96,16 @@ public:
 private:
     const std::wstring ipAddress_;
     const int port_;
-    ConnectionCallbackType connectionCallback_;
+    ConnectionCallback connectionCallback_;
     bool connectionPending_;
 };
 
-std::unique_ptr<AsynchronousOperation> createConnectAsynchronousOperation(Sequencer<SocketServiceId>& sequencer,
+std::unique_ptr<AsynchronousOperation> createConnectAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                                           const std::wstring& ipAddress, const int port,
-                                                                          ConnectionCallbackType&& connectionCallback)
+                                                                          ConnectionCallback&& connectionCallback)
 {
-    return std::make_unique<ConnectAsynchronousOperation>(sequencer, ipAddress, port, std::move(connectionCallback));
+    return std::make_unique<ConnectAsynchronousOperation>(socketIdentifier, ipAddress, port,
+                                                          std::move(connectionCallback));
 }
 
 }

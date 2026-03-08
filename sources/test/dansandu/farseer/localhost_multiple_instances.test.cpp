@@ -1,6 +1,6 @@
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
-#include "dansandu/farseer/socket_service_provider.hpp"
+#include "dansandu/farseer/socket_provider.hpp"
 #include "dansandu/journey/logging.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
@@ -9,10 +9,10 @@
 
 using dansandu::farseer::Expected;
 using dansandu::farseer::RequestProtocolError;
-using dansandu::farseer::SocketServiceEvent;
-using dansandu::farseer::SocketServiceId;
+using dansandu::farseer::SocketEvent;
+using dansandu::farseer::SocketIdentifier;
 using dansandu::farseer::sample_protocol::StressRequest;
-using dansandu::farseer::socket_service_provider::SocketServiceProvider;
+using dansandu::farseer::socket_provider::SocketProvider;
 
 using StressResponse = dansandu::farseer::sample_protocol::StressRequest::Response;
 
@@ -30,20 +30,20 @@ constexpr auto responseErrorMessage = "error message";
 std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequest request)
 {
     const auto initializeWsa = false;
-    const auto client = SocketServiceProvider{initializeWsa};
+    const auto client = SocketProvider{initializeWsa};
 
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
-    const auto connectionId = client.connect(
-        localhost, serverPort,
-        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
-        {
-            if (event == SocketServiceEvent::clientOpen)
-            {
-                openPromise.set_value();
-            }
-        });
+    const auto connectionId =
+        client.connect(localhost, serverPort,
+                       [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
+                       {
+                           if (event == SocketEvent::clientOpen)
+                           {
+                               openPromise.set_value();
+                           }
+                       });
 
     SCOPE_EXIT([&] { client.close(connectionId); });
 
@@ -77,22 +77,22 @@ uint32_t salted(uint32_t value)
 TEST_CASE("localhost_multiple_instances")
 {
     const auto initializeWsa = true;
-    const auto server = SocketServiceProvider{initializeWsa};
+    const auto server = SocketProvider{initializeWsa};
 
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
     LOG_INFO("Opening listening socket...");
 
-    const auto listenerId = server.listen(
-        localhost, serverPort,
-        [openPromise = std::move(openPromise)](const SocketServiceEvent event, const SocketServiceId) mutable
-        {
-            if (event == SocketServiceEvent::serverOpen)
-            {
-                openPromise.set_value();
-            }
-        });
+    const auto listenerId =
+        server.listen(localhost, serverPort,
+                      [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
+                      {
+                          if (event == SocketEvent::serverOpen)
+                          {
+                              openPromise.set_value();
+                          }
+                      });
 
     REQUIRE(openFuture.wait_for(timeout) == std::future_status::ready);
 

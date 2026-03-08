@@ -25,7 +25,7 @@ class WindowsSocket
 public:
     WindowsSocket();
 
-    WindowsSocket(const HANDLE completionPort, const SocketServiceId serviceId);
+    WindowsSocket(const HANDLE completionPort, const SocketIdentifier socketIdentifier);
 
     WindowsSocket(const WindowsSocket&) = delete;
 
@@ -40,7 +40,7 @@ public:
     void listen(const std::wstring& ipAddress, const int port);
 
     WindowsSocket postAccept(CHAR* const receiveBuffer, const DWORD receiveBufferSize,
-                             const SocketServiceId pendingAcceptServiceId, const HANDLE completionPort,
+                             const SocketIdentifier pendingAcceptSocketIdentifier, const HANDLE completionPort,
                              const LPWSAOVERLAPPED overlapped) const;
 
     void accept(const WindowsSocket& listeningSocket);

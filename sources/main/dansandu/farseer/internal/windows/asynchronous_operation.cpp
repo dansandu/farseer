@@ -17,6 +17,7 @@ using dansandu::farseer::exception::InternalSocketServiceException;
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::error::getLastErrorCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
+using dansandu::journey::exception::WideException;
 
 namespace dansandu::farseer::internal::windows::asynchronous_operation
 {
@@ -31,7 +32,7 @@ HANDLE initializeIoCompletionPort()
     const auto numberOfConcurrentThreads = DWORD{0};
 
     const auto completionPort =
-        ::CreateIoCompletionPort(handle, existingCompletionPort, initialCompletionKey, numberOfConcurrentThreads);
+        ::CreateIoCompletionPort(handle, existingCompletionPort, defaultCompletionKey, numberOfConcurrentThreads);
 
     if (completionPort != nullptr)
     {
@@ -44,7 +45,7 @@ HANDLE initializeIoCompletionPort()
 }
 
 AsynchronousOperationScheduler::AsynchronousOperationScheduler()
-    : completionPort_{initializeIoCompletionPort()}, serviceIdSequencer_{initialCompletionKey + 1}
+    : completionPort_{initializeIoCompletionPort()}, socketIdentifierSequencer_{defaultCompletionKey + 1}
 {
 }
 
@@ -53,102 +54,176 @@ AsynchronousOperationScheduler::~AsynchronousOperationScheduler() noexcept
     ::CloseHandle(completionPort_);
 }
 
-SocketServiceId AsynchronousOperationScheduler::insertOperation(std::unique_ptr<AsynchronousOperation> operation)
+HANDLE AsynchronousOperationScheduler::getCompletionPort()
+{
+    return completionPort_;
+}
+
+Socket& AsynchronousOperationScheduler::insertSocket(const SocketIdentifier socketIdentifier, Socket&& socket)
+{
+    const auto [position, inserted] = sockets_.emplace(socketIdentifier, std::move(socket));
+
+    if (!inserted)
+    {
+        THROW(std::logic_error, "Couldn't insert socket with ID ", socketIdentifier.getUnderlying(),
+              " because the ID is used by another socket");
+    }
+
+    return position->second;
+}
+
+Socket& AsynchronousOperationScheduler::getSocketOrThrow(const SocketIdentifier socketIdentifier)
+{
+    const auto position = sockets_.find(socketIdentifier);
+
+    if (position != sockets_.end())
+    {
+        return position->second;
+    }
+
+    WTHROW(InternalSocketServiceException, "Couldn't find socket with ID ", socketIdentifier.getUnderlying());
+}
+
+void AsynchronousOperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
+{
+    const auto position = sockets_.find(socketIdentifier);
+
+    if (position != sockets_.end())
+    {
+        SCOPE_EXIT([&] { sockets_.erase(position); });
+
+        const auto& socket = position->second;
+
+        try
+        {
+            if (socket.listeningSocketIdentifier != invalidSocketIdentifier)
+            {
+                const auto listeningSocketPosition = sockets_.find(socket.listeningSocketIdentifier);
+
+                if (listeningSocketPosition != sockets_.end())
+                {
+                    listeningSocketPosition->second.connectionCallback(SocketEvent::clientClosed, socketIdentifier);
+                }
+            }
+            else
+            {
+                socket.connectionCallback(SocketEvent::serverClosed, socketIdentifier);
+            }
+        }
+        catch (const WideException& wideException)
+        {
+            LOG_ERROR("Wide exception was thrown while trying to close socket with message: ",
+                      wideException.getMessage());
+        }
+        catch (const std::exception& exception)
+        {
+            LOG_ERROR("Exception was thrown while trying to close socket with message: ", exception.what());
+        }
+
+        LOG_INFO("Socket with ID ", socketIdentifier.getUnderlying(), " and address ", socket.socket.getIpAddress(),
+                 ':', socket.socket.getPort(), " was closed");
+    }
+}
+
+void AsynchronousOperationScheduler::insertOperation(std::unique_ptr<AsynchronousOperation> operation)
 {
     const auto overlapped = operation->getOverlapped();
     const auto name = operation->getName();
-    const auto serviceId = operation->getServiceId();
+    const auto socketIdentifier = operation->getSocketIdentifier();
 
     const auto lock = std::lock_guard<std::recursive_mutex>{operationsMutex_};
     const auto [position, inserted] = operations_.insert({overlapped, std::move(operation)});
 
     if (!inserted)
     {
-        THROW(std::logic_error, "Couldn't push ", name, " with service ID ", serviceId.getUnderlying(),
+        THROW(std::logic_error, "Couldn't push ", name, " with service ID ", socketIdentifier.getUnderlying(),
               " because operation already exists");
     }
 
     SCOPE_FAILURE([&]() { operations_.erase(position); });
 
-    position->second->postToCompletionPort(socketServiceContainer_, *this, completionPort_);
+    position->second->postToCompletionPort(*this);
 
-    LOG_DEBUG("Inserted ", name, " with service ID ", serviceId.getUnderlying());
-
-    return serviceId;
+    LOG_DEBUG("Inserted ", name, " with service ID ", socketIdentifier.getUnderlying());
 }
 
-SocketServiceId
+SocketIdentifier
 AsynchronousOperationScheduler::createConnectAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                                   ConnectionCallbackType&& connectionCallback)
+                                                                   ConnectionCallback&& connectionCallback)
 {
-    return insertOperation(
+    const auto socketIdentifier = socketIdentifierSequencer_.generate();
+    insertOperation(
         dansandu::farseer::internal::windows::connect_asynchronous_operation::createConnectAsynchronousOperation(
-            serviceIdSequencer_, ipAddress, port, std::move(connectionCallback)));
+            socketIdentifier, ipAddress, port, std::move(connectionCallback)));
+    return socketIdentifier;
 }
 
-SocketServiceId
+SocketIdentifier
 AsynchronousOperationScheduler::createListenAsynchronousOperation(const std::wstring& ipAddress, const int port,
-                                                                  ConnectionCallbackType&& connectionCallback)
+                                                                  ConnectionCallback&& connectionCallback)
 {
-    return insertOperation(
+    const auto socketIdentifier = socketIdentifierSequencer_.generate();
+    insertOperation(
         dansandu::farseer::internal::windows::listen_asynchronous_operation::createListenAsynchronousOperation(
-            serviceIdSequencer_, ipAddress, port, std::move(connectionCallback)));
+            socketIdentifier, ipAddress, port, std::move(connectionCallback)));
+    return socketIdentifier;
 }
 
-void AsynchronousOperationScheduler::createAcceptAsynchronousOperation(const SocketServiceId listeningServiceId)
+void AsynchronousOperationScheduler::createAcceptAsynchronousOperation(const SocketIdentifier listeningSocketIdentifier)
 {
+    const auto pendingAcceptSocketIdentifier = socketIdentifierSequencer_.generate();
     insertOperation(
         dansandu::farseer::internal::windows::accept_asynchronous_operation::createAcceptAsynchronousOperation(
-            serviceIdSequencer_, listeningServiceId));
+            pendingAcceptSocketIdentifier, listeningSocketIdentifier));
 }
 
-void AsynchronousOperationScheduler::createReceiveAsynchronousOperation(const SocketServiceId serviceId)
+void AsynchronousOperationScheduler::createReceiveAsynchronousOperation(const SocketIdentifier socketIdentifier)
 {
     insertOperation(
         dansandu::farseer::internal::windows::receive_asynchronous_operation::createReceiveAsynchronousOperation(
-            serviceId));
+            socketIdentifier));
 }
 
 void AsynchronousOperationScheduler::createRegisterMessageConsumerAsynchronousOperation(
-    const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<void(std::any&&)>&& messageConsumer)
 {
     insertOperation(dansandu::farseer::internal::windows::register_message_consumer_asynchronous_operation::
-                        createRegisterMessageConsumerAsynchronousOperation(serviceId, protocolIdentifier,
+                        createRegisterMessageConsumerAsynchronousOperation(socketIdentifier, protocolIdentifier,
                                                                            std::move(messageConsumer)));
 }
 
 void AsynchronousOperationScheduler::createRegisterRequestCallbackAsynchronousOperation(
-    const SocketServiceId serviceId, const ProtocolIdentifier protocolIdentifier,
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<std::any(std::any&&)>&& requestConsumer)
 {
     insertOperation(dansandu::farseer::internal::windows::register_request_callback_asynchronous_operation::
-                        createRegisterRequestCallbackAsynchronousOperation(serviceId, protocolIdentifier,
+                        createRegisterRequestCallbackAsynchronousOperation(socketIdentifier, protocolIdentifier,
                                                                            std::move(requestConsumer)));
 }
 
-void AsynchronousOperationScheduler::createSendBytesAsynchronousOperation(const SocketServiceId serviceId,
+void AsynchronousOperationScheduler::createSendBytesAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                                           std::vector<uint8_t>&& bytes)
 {
     insertOperation(
         dansandu::farseer::internal::windows::send_bytes_asynchronous_operation::createSendBytesAsynchronousOperation(
-            serviceId, std::move(bytes)));
+            socketIdentifier, std::move(bytes)));
 }
 
 void AsynchronousOperationScheduler::createSendRequestAsynchronousOperation(
-    const SocketServiceId serviceId, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>&& bytes,
-    UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
 {
     insertOperation(dansandu::farseer::internal::windows::send_request_asynchronous_operation::
-                        createSendRequestAsynchronousOperation(serviceId, sequenceNumber, std::move(bytes),
-                                                               std::move(expectedResponseConsumer)));
+                        createSendRequestAsynchronousOperation(socketIdentifier, protocolSequenceNumber,
+                                                               std::move(bytes), std::move(expectedResponseConsumer)));
 }
 
-void AsynchronousOperationScheduler::createCloseAsynchronousOperation(const SocketServiceId serviceId)
+void AsynchronousOperationScheduler::createCloseAsynchronousOperation(const SocketIdentifier socketIdentifier)
 {
     insertOperation(
         dansandu::farseer::internal::windows::close_asynchronous_operation::createCloseAsynchronousOperation(
-            serviceId));
+            socketIdentifier));
 }
 
 void AsynchronousOperationScheduler::createAbortAsynchronousOperation()
@@ -156,7 +231,7 @@ void AsynchronousOperationScheduler::createAbortAsynchronousOperation()
     const auto numberOfBytesTransferred = 0;
     const auto overlapped = LPOVERLAPPED{nullptr};
     const auto postResult =
-        ::PostQueuedCompletionStatus(completionPort_, numberOfBytesTransferred, initialCompletionKey, overlapped);
+        ::PostQueuedCompletionStatus(completionPort_, numberOfBytesTransferred, defaultCompletionKey, overlapped);
 
     if (postResult == 0)
     {
@@ -182,7 +257,7 @@ bool AsynchronousOperationScheduler::waitAndConsumeAsynchronousOperation()
     {
         if (dequeueResult == TRUE)
         {
-            if (completionKey == initialCompletionKey && overlapped == nullptr)
+            if (completionKey == defaultCompletionKey && overlapped == nullptr)
             {
                 LOG_DEBUG("Received abort operation");
 
@@ -207,7 +282,7 @@ bool AsynchronousOperationScheduler::waitAndConsumeAsynchronousOperation()
             handleFailedAsynchronousOperation(overlapped, errorCode);
         }
     }
-    catch (const InternalSocketServiceException& exception)
+    catch (const WideException& exception)
     {
         handleFailedAsynchronousOperation(overlapped, exception.getMessage());
     }
@@ -228,22 +303,21 @@ void AsynchronousOperationScheduler::handleSuccessfulAsynchronousOperation(const
     if (position != operations_.cend())
     {
         const auto name = position->second->getName();
-        const auto serviceId = position->second->getServiceId();
+        const auto socketIdentifier = position->second->getSocketIdentifier();
 
-        LOG_DEBUG("Executing ", name, " with service ID ", serviceId.getUnderlying());
+        LOG_DEBUG("Executing ", name, " with service ID ", socketIdentifier.getUnderlying());
 
-        const auto pop = position->second->finalize(serviceIdSequencer_, socketServiceContainer_, *this,
-                                                    completionPort_, numberOfBytesTransferred);
+        const auto popOperation = position->second->finalize(*this, numberOfBytesTransferred);
 
-        if (pop)
+        if (popOperation)
         {
             operations_.erase(position);
 
-            LOG_DEBUG("Erased ", name, " with service ID ", serviceId.getUnderlying());
+            LOG_DEBUG("Erased ", name, " with service ID ", socketIdentifier.getUnderlying());
         }
         else
         {
-            LOG_DEBUG("Keeping ", name, " with service ID ", serviceId.getUnderlying());
+            LOG_DEBUG("Keeping ", name, " with service ID ", socketIdentifier.getUnderlying());
         }
     }
     else
@@ -263,11 +337,11 @@ void AsynchronousOperationScheduler::handleFailedAsynchronousOperation(const LPW
         SCOPE_EXIT([&] { operations_.erase(position); });
 
         const auto name = position->second->getName();
-        const auto serviceId = position->second->getServiceId().getUnderlying();
-        const auto level = position->second->reinterpretSystemErrorCode(errorCode);
+        const auto socketIdentifier = position->second->getSocketIdentifier().getUnderlying();
+        const auto level = position->second->getSystemErrorCodeLevel(errorCode);
         const auto message = getErrorMessageFromCode(errorCode);
 
-        LOG(level, name, " with service ID ", serviceId, " failed: ", message);
+        LOG(level, name, " with service ID ", socketIdentifier, " failed: ", message);
     }
     else
     {
@@ -288,15 +362,15 @@ void AsynchronousOperationScheduler::handleFailedAsynchronousOperation(const LPW
         SCOPE_EXIT([&] { operations_.erase(position); });
 
         const auto name = position->second->getName();
-        const auto serviceId = position->second->getServiceId().getUnderlying();
+        const auto socketIdentifier = position->second->getSocketIdentifier().getUnderlying();
 
         if (message.empty())
         {
-            LOG_ERROR(name, " with service ID ", serviceId, " failed");
+            LOG_ERROR(name, " with service ID ", socketIdentifier, " failed");
         }
         else
         {
-            LOG_ERROR(name, " with service ID ", serviceId, " failed: ", message);
+            LOG_ERROR(name, " with service ID ", socketIdentifier, " failed: ", message);
         }
     }
     else

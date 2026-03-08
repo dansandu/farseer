@@ -1,13 +1,10 @@
 #include "dansandu/farseer/internal/windows/register_message_consumer_asynchronous_operation.hpp"
-#include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 
-using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::farseer::internal::windows::asynchronous_operation::AsynchronousOperation;
+using dansandu::farseer::internal::windows::asynchronous_operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::asynchronous_operation::IAsynchronousOperationsScheduler;
-using dansandu::farseer::internal::windows::asynchronous_operation::initialCompletionKey;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::socket_service::SocketServiceContainer;
 
 namespace dansandu::farseer::internal::windows::register_message_consumer_asynchronous_operation
 {
@@ -15,22 +12,22 @@ namespace dansandu::farseer::internal::windows::register_message_consumer_asynch
 class RegisterMessageConsumerAsynchronousOperation : public AsynchronousOperation
 {
 public:
-    RegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
+    RegisterMessageConsumerAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                  const ProtocolIdentifier protocolIdentifier,
                                                  UniqueFunction<void(std::any&&)>&& messageConsumer)
-        : AsynchronousOperation{serviceId},
+        : AsynchronousOperation{socketIdentifier},
           protocolIdentifier_{protocolIdentifier},
           messageConsumer_{std::move(messageConsumer)}
     {
     }
 
-    void postToCompletionPort(SocketServiceContainer& services,
-                              IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
-                              const HANDLE completionPort) override
+    void postToCompletionPort(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler) override
     {
+        const auto completionPort = asynchronousOperationsScheduler.getCompletionPort();
+
         const auto numberOfBytesTransferred = 0;
         const auto postResult =
-            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, initialCompletionKey, &overlapped_);
+            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
 
         if (!postResult)
         {
@@ -38,17 +35,15 @@ public:
         }
     }
 
-    bool finalize(Sequencer<SocketServiceId>& sequencer, SocketServiceContainer& socketServiceContainer,
-                  IAsynchronousOperationsScheduler& asynchronousOperationsScheduler, const HANDLE completionPort,
+    bool finalize(IAsynchronousOperationsScheduler& asynchronousOperationsScheduler,
                   const DWORD numberOfBytesTransferred) override
     {
-        const auto servicePosition = getServiceOrThrow(socketServiceContainer, serviceId_);
+        auto& socket = asynchronousOperationsScheduler.getSocketOrThrow(socketIdentifier_);
 
-        servicePosition->second.protocolReader.registerMessageConsumer(protocolIdentifier_,
-                                                                       std::move(messageConsumer_));
+        socket.protocolReader.registerMessageConsumer(protocolIdentifier_, std::move(messageConsumer_));
 
         LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier_.getUnderlying(),
-                 " and socket service ID ", serviceId_.getUnderlying());
+                 " and socket service ID ", socketIdentifier_.getUnderlying());
 
         return true;
     }
@@ -64,11 +59,11 @@ private:
 };
 
 std::unique_ptr<AsynchronousOperation>
-createRegisterMessageConsumerAsynchronousOperation(const SocketServiceId serviceId,
+createRegisterMessageConsumerAsynchronousOperation(const SocketIdentifier socketIdentifier,
                                                    const ProtocolIdentifier protocolIdentifier,
                                                    UniqueFunction<void(std::any&&)>&& messageConsumer)
 {
-    return std::make_unique<RegisterMessageConsumerAsynchronousOperation>(serviceId, protocolIdentifier,
+    return std::make_unique<RegisterMessageConsumerAsynchronousOperation>(socketIdentifier, protocolIdentifier,
                                                                           std::move(messageConsumer));
 }
 
