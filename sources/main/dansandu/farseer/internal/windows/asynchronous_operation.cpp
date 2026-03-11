@@ -13,7 +13,7 @@
 #include "dansandu/farseer/internal/windows/send_request_asynchronous_operation.hpp"
 
 using dansandu::ballotin::string::toWideString;
-using dansandu::farseer::exception::InternalSocketServiceException;
+using dansandu::farseer::exception::InternalSocketError;
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::error::getLastErrorCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
@@ -81,7 +81,7 @@ Socket& AsynchronousOperationScheduler::getSocketOrThrow(const SocketIdentifier 
         return position->second;
     }
 
-    WTHROW(InternalSocketServiceException, "Couldn't find socket with ID ", socketIdentifier.getUnderlying());
+    WTHROW(InternalSocketError, "Couldn't find socket with ID ", socketIdentifier.getUnderlying());
 }
 
 void AsynchronousOperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
@@ -136,7 +136,7 @@ void AsynchronousOperationScheduler::insertOperation(std::unique_ptr<Asynchronou
 
     if (!inserted)
     {
-        THROW(std::logic_error, "Couldn't push ", name, " with service ID ", socketIdentifier.getUnderlying(),
+        THROW(std::logic_error, "Couldn't push ", name, " with socket ID ", socketIdentifier.getUnderlying(),
               " because operation already exists");
     }
 
@@ -144,7 +144,7 @@ void AsynchronousOperationScheduler::insertOperation(std::unique_ptr<Asynchronou
 
     position->second->postToCompletionPort(*this);
 
-    LOG_DEBUG("Inserted ", name, " with service ID ", socketIdentifier.getUnderlying());
+    LOG_DEBUG("Inserted ", name, " with socket ID ", socketIdentifier.getUnderlying());
 }
 
 SocketIdentifier
@@ -305,7 +305,7 @@ void AsynchronousOperationScheduler::handleSuccessfulAsynchronousOperation(const
         const auto name = position->second->getName();
         const auto socketIdentifier = position->second->getSocketIdentifier();
 
-        LOG_DEBUG("Executing ", name, " with service ID ", socketIdentifier.getUnderlying());
+        LOG_DEBUG("Executing ", name, " with socket ID ", socketIdentifier.getUnderlying());
 
         const auto popOperation = position->second->finalize(*this, numberOfBytesTransferred);
 
@@ -313,11 +313,11 @@ void AsynchronousOperationScheduler::handleSuccessfulAsynchronousOperation(const
         {
             operations_.erase(position);
 
-            LOG_DEBUG("Erased ", name, " with service ID ", socketIdentifier.getUnderlying());
+            LOG_DEBUG("Erased ", name, " with socket ID ", socketIdentifier.getUnderlying());
         }
         else
         {
-            LOG_DEBUG("Keeping ", name, " with service ID ", socketIdentifier.getUnderlying());
+            LOG_DEBUG("Keeping ", name, " with socket ID ", socketIdentifier.getUnderlying());
         }
     }
     else
@@ -341,7 +341,7 @@ void AsynchronousOperationScheduler::handleFailedAsynchronousOperation(const LPW
         const auto level = position->second->getSystemErrorCodeLevel(errorCode);
         const auto message = getErrorMessageFromCode(errorCode);
 
-        LOG(level, name, " with service ID ", socketIdentifier, " failed: ", message);
+        LOG(level, name, " with socket ID ", socketIdentifier, " failed: ", message);
     }
     else
     {
@@ -366,11 +366,11 @@ void AsynchronousOperationScheduler::handleFailedAsynchronousOperation(const LPW
 
         if (message.empty())
         {
-            LOG_ERROR(name, " with service ID ", socketIdentifier, " failed");
+            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed");
         }
         else
         {
-            LOG_ERROR(name, " with service ID ", socketIdentifier, " failed: ", message);
+            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed: ", message);
         }
     }
     else

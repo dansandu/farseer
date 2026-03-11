@@ -1,6 +1,6 @@
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
-using dansandu::farseer::exception::InternalSocketServiceException;
+using dansandu::farseer::exception::InternalSocketError;
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::error::getLastWsaErrorMessage;
@@ -37,13 +37,12 @@ WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketIdentifier
         if (completionPortResult == nullptr)
         {
             ::closesocket(socket_);
-            WTHROW(InternalSocketServiceException, "CreateIoCompletionPort associate failed with error ",
-                   getLastErrorMessage());
+            WTHROW(InternalSocketError, "CreateIoCompletionPort associate failed with error ", getLastErrorMessage());
         }
     }
     else
     {
-        WTHROW(InternalSocketServiceException, "Creating socket failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "Creating socket failed with error ", getLastWsaErrorMessage());
     }
 }
 
@@ -92,17 +91,17 @@ void WindowsSocket::listen(const std::wstring& ipAddress, const int port)
 {
     if (socket_ == INVALID_SOCKET)
     {
-        WTHROW(InternalSocketServiceException, "Cannot listen on an invalid socket");
+        WTHROW(InternalSocketError, "Cannot listen on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot listen on a connection socket");
+        WTHROW(InternalSocketError, "Cannot listen on a connection socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Socket is already listening");
+        WTHROW(InternalSocketError, "Socket is already listening");
     }
 
     auto localAddress = ::sockaddr_in{};
@@ -112,17 +111,17 @@ void WindowsSocket::listen(const std::wstring& ipAddress, const int port)
     const auto netResult = ::InetPton(AF_INET, ipAddress.c_str(), &localAddress.sin_addr.s_addr);
     if (netResult == 0)
     {
-        WTHROW(InternalSocketServiceException, "Invalid IP address ", ipAddress);
+        WTHROW(InternalSocketError, "Invalid IP address ", ipAddress);
     }
     else if (netResult < 0)
     {
-        WTHROW(InternalSocketServiceException, "InetPton failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "InetPton failed with error ", getLastWsaErrorMessage());
     }
 
     const auto bindResult = ::bind(socket_, reinterpret_cast<SOCKADDR*>(&localAddress), sizeof(localAddress));
     if (bindResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "Binding to socket failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "Binding to socket failed with error ", getLastWsaErrorMessage());
     }
 
     const auto maximumListeningQueueSize = 100;
@@ -130,7 +129,7 @@ void WindowsSocket::listen(const std::wstring& ipAddress, const int port)
     const auto listenResult = ::listen(socket_, maximumListeningQueueSize);
     if (listenResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "Listening to socket failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "Listening to socket failed with error ", getLastWsaErrorMessage());
     }
 
     const auto overlapped = LPWSAOVERLAPPED{nullptr};
@@ -144,7 +143,7 @@ void WindowsSocket::listen(const std::wstring& ipAddress, const int port)
                                      overlapped, completionRoutine);
     if (ioResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "WSAIoctl failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "WSAIoctl failed with error ", getLastWsaErrorMessage());
     }
 
     ipAddress_ = ipAddress;
@@ -157,22 +156,22 @@ WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD r
 {
     if (socket_ == INVALID_SOCKET)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post accept on an invalid socket");
+        WTHROW(InternalSocketError, "Cannot post accept on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post accept on a connection socket");
+        WTHROW(InternalSocketError, "Cannot post accept on a connection socket");
     }
 
     if (acceptFunction_ == nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Socket must first call listen before accepting connections");
+        WTHROW(InternalSocketError, "Socket must first call listen before accepting connections");
     }
 
     if (receiveBufferSize < 2 * (sizeof(::sockaddr_in) + 16))
     {
-        WTHROW(InternalSocketServiceException,
+        WTHROW(InternalSocketError,
                "The receive buffer must have enough space to store the local and remote address of the connection");
     }
 
@@ -191,8 +190,7 @@ WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD r
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != ERROR_IO_PENDING)
         {
-            WTHROW(InternalSocketServiceException, "Accepting socket failed with error ",
-                   getErrorMessageFromCode(errorCode));
+            WTHROW(InternalSocketError, "Accepting socket failed with error ", getErrorMessageFromCode(errorCode));
         }
     }
 
@@ -203,22 +201,22 @@ void WindowsSocket::accept(const WindowsSocket& listeningSocket)
 {
     if (socket_ == INVALID_SOCKET)
     {
-        WTHROW(InternalSocketServiceException, "Cannot accept on an invalid socket");
+        WTHROW(InternalSocketError, "Cannot accept on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot accept on a connection socket");
+        WTHROW(InternalSocketError, "Cannot accept on a connection socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot accept on a listening socket");
+        WTHROW(InternalSocketError, "Cannot accept on a listening socket");
     }
 
     if (listeningSocket.acceptFunction_ == nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Socket passed to accept is not a listening socket");
+        WTHROW(InternalSocketError, "Socket passed to accept is not a listening socket");
     }
 
     const auto optionalValue = reinterpret_cast<const char*>(&listeningSocket.socket_);
@@ -228,7 +226,7 @@ void WindowsSocket::accept(const WindowsSocket& listeningSocket)
         ::setsockopt(socket_, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, optionalValue, optionalValueLength);
     if (setsockoptResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "setsockopt failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "setsockopt failed with error ", getLastWsaErrorMessage());
     }
 
     auto remoteAddress = ::sockaddr_in{};
@@ -241,11 +239,11 @@ void WindowsSocket::accept(const WindowsSocket& listeningSocket)
         ::getpeername(socket_, reinterpret_cast<SOCKADDR*>(&remoteAddress), &remoteAddressSize);
     if (getpeernameResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "getpeername failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "getpeername failed with error ", getLastWsaErrorMessage());
     }
     else if (remoteAddressSize != expectedAddressSize)
     {
-        WTHROW(InternalSocketServiceException, "getpeername truncated the address because the buffer is to small (",
+        WTHROW(InternalSocketError, "getpeername truncated the address because the buffer is to small (",
                expectedAddressSize, " bytes were supplied but ", remoteAddressSize, " bytes are needed)");
     }
 
@@ -254,7 +252,7 @@ void WindowsSocket::accept(const WindowsSocket& listeningSocket)
     const auto netResult = ::InetNtop(AF_INET, &remoteAddress.sin_addr.s_addr, ipAddressBuffer, INET_ADDRSTRLEN);
     if (netResult == NULL)
     {
-        WTHROW(InternalSocketServiceException, "InetNtop failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "InetNtop failed with error ", getLastWsaErrorMessage());
     }
 
     ipAddress_ = ipAddressBuffer;
@@ -266,17 +264,17 @@ void WindowsSocket::postConnect(const std::wstring& ipAddress, const int port, c
 {
     if (socket_ == INVALID_SOCKET)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post connect on an invalid socket");
+        WTHROW(InternalSocketError, "Cannot post connect on an invalid socket");
     }
 
     if (connectFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Socket is already connected");
+        WTHROW(InternalSocketError, "Socket is already connected");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post connect on a listening socket");
+        WTHROW(InternalSocketError, "Cannot post connect on a listening socket");
     }
 
     auto localAddress = ::sockaddr_in{};
@@ -287,7 +285,7 @@ void WindowsSocket::postConnect(const std::wstring& ipAddress, const int port, c
     const auto bindResult = ::bind(socket_, reinterpret_cast<SOCKADDR*>(&localAddress), sizeof(localAddress));
     if (bindResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "Binding to socket failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "Binding to socket failed with error ", getLastWsaErrorMessage());
     }
 
     const auto ioOverlapped = LPWSAOVERLAPPED{nullptr};
@@ -301,7 +299,7 @@ void WindowsSocket::postConnect(const std::wstring& ipAddress, const int port, c
                                      ioOverlapped, completionRoutine);
     if (ioResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "WSAIoctl failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "WSAIoctl failed with error ", getLastWsaErrorMessage());
     }
 
     auto remoteAddress = ::sockaddr_in{};
@@ -311,11 +309,11 @@ void WindowsSocket::postConnect(const std::wstring& ipAddress, const int port, c
     const auto netResult = ::InetPton(AF_INET, ipAddress.c_str(), &remoteAddress.sin_addr.s_addr);
     if (netResult == 0)
     {
-        WTHROW(InternalSocketServiceException, "Invalid IP address ", ipAddress);
+        WTHROW(InternalSocketError, "Invalid IP address ", ipAddress);
     }
     else if (netResult < 0)
     {
-        WTHROW(InternalSocketServiceException, "InetPton failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "InetPton failed with error ", getLastWsaErrorMessage());
     }
 
     const auto sendBuffer = PVOID{nullptr};
@@ -329,8 +327,7 @@ void WindowsSocket::postConnect(const std::wstring& ipAddress, const int port, c
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != ERROR_IO_PENDING)
         {
-            WTHROW(InternalSocketServiceException, "Connecting socket failed with error ",
-                   getErrorMessageFromCode(errorCode));
+            WTHROW(InternalSocketError, "Connecting socket failed with error ", getErrorMessageFromCode(errorCode));
         }
     }
 
@@ -342,17 +339,17 @@ void WindowsSocket::connect()
 {
     if (socket_ == INVALID_SOCKET)
     {
-        WTHROW(InternalSocketServiceException, "Cannot connect on an invalid socket");
+        WTHROW(InternalSocketError, "Cannot connect on an invalid socket");
     }
 
     if (connectFunction_ == nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Socket must call postConnect before calling connect");
+        WTHROW(InternalSocketError, "Socket must call postConnect before calling connect");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot connect on a listening socket");
+        WTHROW(InternalSocketError, "Cannot connect on a listening socket");
     }
 
     const auto optionalValue = static_cast<const char*>(nullptr);
@@ -362,7 +359,7 @@ void WindowsSocket::connect()
         ::setsockopt(socket_, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, optionalValue, optionalValueLength);
     if (setsockoptResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketServiceException, "setsockopt failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "setsockopt failed with error ", getLastWsaErrorMessage());
     }
 }
 
@@ -371,12 +368,12 @@ void WindowsSocket::postReceive(CHAR* const receiveBuffer, const ULONG receiveBu
 {
     if (socket_ == INVALID_SOCKET)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post receive on an invalid socket");
+        WTHROW(InternalSocketError, "Cannot post receive on an invalid socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post receive on a listening socket");
+        WTHROW(InternalSocketError, "Cannot post receive on a listening socket");
     }
 
     auto wsaBuffer = WSABUF{.len = receiveBufferSize, .buf = receiveBuffer};
@@ -395,7 +392,7 @@ void WindowsSocket::postReceive(CHAR* const receiveBuffer, const ULONG receiveBu
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != WSA_IO_PENDING)
         {
-            WTHROW(InternalSocketServiceException, "WSARecv failed with error ", getErrorMessageFromCode(errorCode));
+            WTHROW(InternalSocketError, "WSARecv failed with error ", getErrorMessageFromCode(errorCode));
         }
     }
 }
@@ -405,12 +402,12 @@ void WindowsSocket::postSend(CHAR* const bytesToSend, const ULONG numberOfBytesT
 {
     if (socket_ == INVALID_SOCKET)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post send on an invalid socket");
+        WTHROW(InternalSocketError, "Cannot post send on an invalid socket");
     }
 
     if (acceptFunction_ != nullptr)
     {
-        WTHROW(InternalSocketServiceException, "Cannot post send on a listening socket");
+        WTHROW(InternalSocketError, "Cannot post send on a listening socket");
     }
 
     auto wsaBuffer = WSABUF{.len = numberOfBytesToSend, .buf = bytesToSend};
@@ -427,7 +424,7 @@ void WindowsSocket::postSend(CHAR* const bytesToSend, const ULONG numberOfBytesT
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != WSA_IO_PENDING)
         {
-            WTHROW(InternalSocketServiceException, "WSASend failed with error ", getErrorMessageFromCode(errorCode));
+            WTHROW(InternalSocketError, "WSASend failed with error ", getErrorMessageFromCode(errorCode));
         }
     }
 }
