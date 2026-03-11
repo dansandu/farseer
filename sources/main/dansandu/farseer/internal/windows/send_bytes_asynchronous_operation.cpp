@@ -49,7 +49,7 @@ public:
         }
         else
         {
-            LOG_INFO("Sent bytes using service ID ", socketIdentifier_.getUnderlying());
+            LOG_INFO("Sent bytes using socket ID ", socketIdentifier_.getUnderlying());
 
             return true;
         }

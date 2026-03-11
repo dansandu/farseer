@@ -43,7 +43,7 @@ public:
         socket.protocolReader.registerRequestConsumer(protocolIdentifier_, std::move(requestConsumer_));
 
         LOG_INFO("Registered request consumer with protocol ID ", protocolIdentifier_.getUnderlying(),
-                 " and socket service ID ", socketIdentifier_.getUnderlying());
+                 " and socket socket ID ", socketIdentifier_.getUnderlying());
 
         return true;
     }

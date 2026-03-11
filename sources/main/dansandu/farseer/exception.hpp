@@ -99,7 +99,7 @@ public:
     using ProtocolValidationError::ProtocolValidationError;
 };
 
-class InternalSocketServiceException : public dansandu::journey::exception::WideException
+class InternalSocketError : public dansandu::journey::exception::WideException
 {
 public:
     using WideException::WideException;

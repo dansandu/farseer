@@ -58,7 +58,7 @@ public:
         }
         else
         {
-            LOG_INFO("Sent request bytes using service ID ", socketIdentifier_.getUnderlying());
+            LOG_INFO("Sent request bytes using socket ID ", socketIdentifier_.getUnderlying());
 
             return true;
         }
