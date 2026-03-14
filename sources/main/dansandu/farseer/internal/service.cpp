@@ -11,7 +11,7 @@ using dansandu::farseer::internal::cpp_protocol::generateProtocolCppHeader;
 using dansandu::farseer::internal::cpp_protocol::generateProtocolCppSource;
 using dansandu::farseer::internal::protocol_definition_parsing::parseProtocolDefinition;
 
-namespace dansandu::farseer::service
+namespace dansandu::farseer::internal::service
 {
 
 namespace

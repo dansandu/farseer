@@ -15,9 +15,7 @@ namespace dansandu::farseer::socket_provider
 class PRALINE_EXPORT SocketProvider
 {
 public:
-    explicit SocketProvider(bool initializeWsa);
-
-    ~SocketProvider();
+    explicit SocketProvider(const bool initializeWsa);
 
     SocketIdentifier listen(const std::wstring& ipAddress, const int port, ConnectionCallback connectionCallback) const;
 
@@ -27,6 +25,11 @@ public:
     template<typename Message>
     void sendMessage(const SocketIdentifier socketIdentifier, const Message& message) const
     {
+        if (socketIdentifier == invalidSocketIdentifier)
+        {
+            THROW(std::logic_error, "Cannot send message using an invalidSocketIdentifier");
+        }
+
         using dansandu::farseer::protocol_serialization::serializeMessageProtocol;
         sendBytes(socketIdentifier, serializeMessageProtocol(message));
     }
@@ -35,6 +38,11 @@ public:
     void sendRequest(const SocketIdentifier socketIdentifier, const Request& request,
                      UniqueFunction<void(Expected<typename Request::Response>&&)> expectedResponseConsumer) const
     {
+        if (socketIdentifier == invalidSocketIdentifier)
+        {
+            THROW(std::logic_error, "Cannot send request using an invalidSocketIdentifier");
+        }
+
         using dansandu::farseer::protocol_serialization::serializeRequestProtocol;
         const auto sequenceNumber = generateSequenceNumber();
         sendRequest(socketIdentifier, sequenceNumber, serializeRequestProtocol(request, sequenceNumber),
@@ -49,6 +57,11 @@ public:
     void registerMessageConsumer(const SocketIdentifier socketIdentifier,
                                  UniqueFunction<void(Message&&)> messageConsumer) const
     {
+        if (socketIdentifier == invalidSocketIdentifier)
+        {
+            THROW(std::logic_error, "Cannot register message consumer using an invalidSocketIdentifier");
+        }
+
         registerMessageConsumer(socketIdentifier, Message::Metadata::getProtocolIdentifier(),
                                 [messageConsumer = std::move(messageConsumer)](std::any&& message)
                                 { messageConsumer(std::any_cast<Message&&>(std::move(message))); });
@@ -58,6 +71,11 @@ public:
     void registerRequestCallback(const SocketIdentifier socketIdentifier,
                                  UniqueFunction<typename Request::Response(Request&&)> requestCallback) const
     {
+        if (socketIdentifier == invalidSocketIdentifier)
+        {
+            THROW(std::logic_error, "Cannot register request callback using an invalidSocketIdentifier");
+        }
+
         registerRequestCallback(
             socketIdentifier, Request::Metadata::getProtocolIdentifier(),
             [requestCallback = std::move(requestCallback)](std::any&& request) -> std::any
