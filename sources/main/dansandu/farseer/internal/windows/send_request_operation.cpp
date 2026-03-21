@@ -1,0 +1,88 @@
+#if defined(_WIN32)
+#include "dansandu/farseer/internal/windows/send_request_operation.hpp"
+#include "dansandu/farseer/internal/windows/error.hpp"
+
+using dansandu::farseer::internal::windows::error::getLastErrorMessage;
+using dansandu::farseer::internal::windows::operation_scheduler::defaultCompletionKey;
+using dansandu::farseer::internal::windows::operation_scheduler::IOperationScheduler;
+using dansandu::farseer::internal::windows::operation_scheduler::Operation;
+
+namespace dansandu::farseer::internal::windows::send_request_operation
+{
+
+class SendRequestOperation : public Operation
+{
+public:
+    SendRequestOperation(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+                         std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
+        : Operation{socketIdentifier},
+          protocolSequenceNumber_{protocolSequenceNumber},
+          bytes_{std::move(bytes)},
+          expectedResponseConsumer_{std::move(expectedResponseConsumer)},
+          sendBytesPending_{false}
+    {
+    }
+
+    void postToCompletionPort(IOperationScheduler& operationScheduler) override
+    {
+        const auto completionPort = operationScheduler.getCompletionPort();
+
+        const auto numberOfBytesTransferred = 0;
+        const auto postResult =
+            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
+
+        if (!postResult)
+        {
+            THROW(std::runtime_error, "Posting ", getName(), " failed with error ", getLastErrorMessage());
+        }
+    }
+
+    bool finalize(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
+    {
+        if (!sendBytesPending_)
+        {
+            sendBytesPending_ = true;
+
+            auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
+
+            socket.protocolReader.registerOneShotExpectedResponseConsumer(protocolSequenceNumber_,
+                                                                          std::move(expectedResponseConsumer_));
+
+            SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
+
+            socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()),
+                                   &overlapped_);
+
+            return false;
+        }
+        else
+        {
+            LOG_INFO("Sent request bytes using socket ID ", socketIdentifier_.getUnderlying());
+
+            return true;
+        }
+    }
+
+    const char* getName() const override
+    {
+        return "SendRequestOperation";
+    }
+
+private:
+    ProtocolSequenceNumber protocolSequenceNumber_;
+    std::vector<uint8_t> bytes_;
+    UniqueFunction<void(std::any&&)> expectedResponseConsumer_;
+    bool sendBytesPending_;
+};
+
+std::unique_ptr<Operation> createSendRequestOperation(const SocketIdentifier socketIdentifier,
+                                                      const ProtocolSequenceNumber protocolSequenceNumber,
+                                                      std::vector<uint8_t>&& bytes,
+                                                      UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
+{
+    return std::make_unique<SendRequestOperation>(socketIdentifier, protocolSequenceNumber, std::move(bytes),
+                                                  std::move(expectedResponseConsumer));
+}
+
+}
+#endif
