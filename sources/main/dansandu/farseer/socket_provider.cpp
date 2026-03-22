@@ -1,20 +1,18 @@
 #include "dansandu/farseer/socket_provider.hpp"
 #include "dansandu/farseer/internal/socket_provider_implementation.hpp"
-#include "dansandu/farseer/internal/windows/windows_socket_provider_implementation.hpp"
 
+using dansandu::farseer::internal::socket_provider_implementation::createSocketProviderImplementation;
 using dansandu::farseer::internal::socket_provider_implementation::ISocketProviderImplementation;
-using dansandu::farseer::internal::windows::windows_socket_provider_implementation::
-    createWindowsSocketProviderImplementation;
 
 namespace dansandu::farseer::socket_provider
 {
 
 SocketProvider::SocketProvider(const bool initializeWsa)
-    : implementation_{createWindowsSocketProviderImplementation(initializeWsa)}
+    : implementation_{createSocketProviderImplementation(initializeWsa)}
 {
 }
 
-SocketIdentifier SocketProvider::listen(const std::wstring& ipAddress, const int port,
+SocketIdentifier SocketProvider::listen(const std::string& ipAddress, const int port,
                                         ConnectionCallback connectionCallback) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());
@@ -22,7 +20,7 @@ SocketIdentifier SocketProvider::listen(const std::wstring& ipAddress, const int
     return impl->listen(ipAddress, port, std::move(connectionCallback));
 }
 
-SocketIdentifier SocketProvider::connect(const std::wstring& ipAddress, const int port,
+SocketIdentifier SocketProvider::connect(const std::string& ipAddress, const int port,
                                          ConnectionCallback connectionCallback) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());

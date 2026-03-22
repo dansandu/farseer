@@ -2,6 +2,10 @@
 
 #include "dansandu/farseer/common.hpp"
 
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace dansandu::farseer::internal::socket_provider_implementation
 {
 
@@ -19,10 +23,10 @@ public:
     {
     }
 
-    virtual SocketIdentifier listen(const std::wstring& ipAddress, const int port,
+    virtual SocketIdentifier listen(const std::string& ipAddress, const int port,
                                     ConnectionCallback&& connectionCallback) = 0;
 
-    virtual SocketIdentifier connect(const std::wstring& ipAddress, const int port,
+    virtual SocketIdentifier connect(const std::string& ipAddress, const int port,
                                      ConnectionCallback&& connectionCallback) = 0;
 
     virtual ProtocolSequenceNumber generateSequenceNumber() = 0;
@@ -43,5 +47,7 @@ public:
 
     virtual void close(const SocketIdentifier socketIdentifier) = 0;
 };
+
+std::shared_ptr<ISocketProviderImplementation> createSocketProviderImplementation(const bool initializeWsa);
 
 }

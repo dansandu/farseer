@@ -23,8 +23,6 @@ namespace dansandu::farseer::internal::windows::windows_socket
 class WindowsSocket
 {
 public:
-    WindowsSocket();
-
     WindowsSocket(const HANDLE completionPort, const SocketIdentifier socketIdentifier);
 
     WindowsSocket(const WindowsSocket&) = delete;
@@ -37,7 +35,7 @@ public:
 
     ~WindowsSocket() noexcept;
 
-    void listen(const std::wstring& ipAddress, const int port);
+    void listen(const std::string& ipAddress, const int port);
 
     WindowsSocket postAccept(CHAR* const receiveBuffer, const DWORD receiveBufferSize,
                              const SocketIdentifier pendingAcceptSocketIdentifier, const HANDLE completionPort,
@@ -45,7 +43,7 @@ public:
 
     void accept(const WindowsSocket& listeningSocket);
 
-    void postConnect(const std::wstring& ipAddress, const int port, const LPWSAOVERLAPPED overlapped);
+    void postConnect(const std::string& ipAddress, const int port, const LPWSAOVERLAPPED overlapped);
 
     void connect();
 
@@ -53,7 +51,7 @@ public:
 
     void postSend(CHAR* const bytesToSend, const ULONG numberOfBytesToSend, const LPWSAOVERLAPPED overlapped) const;
 
-    const std::wstring& getIpAddress() const
+    const std::string& getIpAddress() const
     {
         return ipAddress_;
     }
@@ -67,7 +65,7 @@ private:
     SOCKET socket_;
     LPFN_ACCEPTEX acceptFunction_;
     LPFN_CONNECTEX connectFunction_;
-    std::wstring ipAddress_;
+    std::string ipAddress_;
     int port_;
 };
 
