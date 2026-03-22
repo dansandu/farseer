@@ -77,19 +77,11 @@ void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlap
     }
     catch (const WideException& exception)
     {
-        handleOperationExecutionFailure(overlapped, exception.getMessage());
-        return;
+        handleOperationExecutionFailure(*operation, discard, exception.getMessage());
     }
     catch (const std::exception& exception)
     {
-        handleOperationExecutionFailure(overlapped, toWideString(exception.what()));
-        return;
-    }
-
-    if (!discard)
-    {
-        LOG_DEBUG("Keeping ", operation->getName(), " with socket ID ",
-                  operation->getSocketIdentifier().getUnderlying());
+        handleOperationExecutionFailure(*operation, discard, toWideString(exception.what()));
     }
 }
 
@@ -117,39 +109,25 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
     }
 }
 
-void OperationContainer::handleOperationExecutionFailure(const LPWSAOVERLAPPED overlapped,
+void OperationContainer::handleOperationExecutionFailure(Operation& operation, const bool discarded,
                                                          const std::wstring_view message)
 {
-    const auto lock = std::lock_guard<std::mutex>{mutex_};
-    const auto position = operations_.find(overlapped);
+    SCOPE_EXIT(
+        [&]
+        {
+            if (!discarded)
+            {
+                const auto lock = std::lock_guard<std::mutex>{mutex_};
+                const auto position = operations_.find(operation.getOverlapped());
 
-    if (position != operations_.cend())
-    {
-        SCOPE_EXIT([&] { operations_.erase(position); });
+                operations_.erase(position);
+            }
+        });
 
-        const auto name = position->second->getName();
-        const auto socketIdentifier = position->second->getSocketIdentifier().getUnderlying();
+    const auto name = operation.getName();
+    const auto socketIdentifier = operation.getSocketIdentifier().getUnderlying();
 
-        if (message.empty())
-        {
-            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed");
-        }
-        else
-        {
-            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed: ", message);
-        }
-    }
-    else
-    {
-        if (message.empty())
-        {
-            LOG_ERROR("Unknown operation failed");
-        }
-        else
-        {
-            LOG_ERROR("Unknown operation failed: ", message);
-        }
-    }
+    LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed: ", message);
 }
 
 }
