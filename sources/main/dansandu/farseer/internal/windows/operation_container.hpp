@@ -22,7 +22,9 @@ public:
     void handleFailedOperation(const LPWSAOVERLAPPED overlapped, const DWORD errorCode);
 
 private:
-    void handleOperationExecutionFailure(const LPWSAOVERLAPPED overlapped, const std::wstring_view message);
+    void
+    handleOperationExecutionFailure(dansandu::farseer::internal::windows::i_operation_scheduler::Operation& operation,
+                                    const bool discarded, const std::wstring_view message);
 
     std::map<LPWSAOVERLAPPED, std::unique_ptr<dansandu::farseer::internal::windows::i_operation_scheduler::Operation>>
         operations_;
