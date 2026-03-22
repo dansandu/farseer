@@ -1,3 +1,4 @@
+#if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/error.hpp"
 #include "dansandu/ballotin/string.hpp"
 #include "dansandu/journey/logging.hpp"
@@ -66,3 +67,4 @@ std::string getLastWsaErrorMessage()
 }
 
 }
+#endif

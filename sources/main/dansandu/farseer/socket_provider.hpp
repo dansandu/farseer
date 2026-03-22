@@ -17,10 +17,9 @@ class PRALINE_EXPORT SocketProvider
 public:
     explicit SocketProvider(const bool initializeWsa);
 
-    SocketIdentifier listen(const std::wstring& ipAddress, const int port, ConnectionCallback connectionCallback) const;
+    SocketIdentifier listen(const std::string& ipAddress, const int port, ConnectionCallback connectionCallback) const;
 
-    SocketIdentifier connect(const std::wstring& ipAddress, const int port,
-                             ConnectionCallback connectionCallback) const;
+    SocketIdentifier connect(const std::string& ipAddress, const int port, ConnectionCallback connectionCallback) const;
 
     template<typename Message>
     void sendMessage(const SocketIdentifier socketIdentifier, const Message& message) const
