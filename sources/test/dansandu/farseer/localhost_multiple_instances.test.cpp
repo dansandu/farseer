@@ -19,7 +19,7 @@ using StressResponse = dansandu::farseer::sample_protocol::StressRequest::Respon
 namespace
 {
 
-constexpr auto localhost = L"127.0.0.1";
+constexpr auto localhost = "127.0.0.1";
 
 constexpr auto serverPort = 34777;
 
