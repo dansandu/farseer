@@ -59,6 +59,8 @@ public:
 private:
     void scheduleAbortOperation();
 
+    void consumeOperationsWork();
+
     void consumeOperations();
 
     const HANDLE completionPort_;

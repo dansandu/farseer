@@ -97,8 +97,8 @@ std::vector<uint8_t> serializeExpectedResponseProtocol(const std::any& expectedR
 }
 
 template<typename Message>
-bool tryDeserializeMessageProtocol(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
-                                   ProtocolSequenceNumber& sequenceNumber, std::any& message)
+bool tryDeserializeMessageProtocol(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ProtocolSequenceNumber&,
+                                   std::any& message)
 {
     using dansandu::ballotin::binary::bitsPerByte;
     using dansandu::farseer::binary_serialization::BinarySerializer;

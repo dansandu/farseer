@@ -1,10 +1,12 @@
 #if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/operation_container.hpp"
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 #include "dansandu/journey/exception.hpp"
 
 using dansandu::ballotin::string::toWideString;
+using dansandu::farseer::exception::InternalSocketError;
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
 using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
@@ -17,14 +19,14 @@ void OperationContainer::insert(std::unique_ptr<Operation>&& operation, IOperati
 {
     const auto overlapped = operation->getOverlapped();
     const auto name = operation->getName();
-    const auto socketIdentifier = operation->getSocketIdentifier();
+    const auto socketIdentifier = operation->getSocketIdentifier().getUnderlying();
 
     const auto lock = std::lock_guard<std::mutex>{mutex_};
     const auto [position, inserted] = operations_.insert({overlapped, std::move(operation)});
 
     if (!inserted)
     {
-        THROW(std::logic_error, "Couldn't insert ", name, " with socket ID ", socketIdentifier.getUnderlying(),
+        THROW(std::logic_error, "Couldn't insert ", name, " with socket ID ", socketIdentifier,
               " because operation already exists");
     }
 
@@ -32,7 +34,7 @@ void OperationContainer::insert(std::unique_ptr<Operation>&& operation, IOperati
 
     position->second->postToCompletionPort(operationScheduler);
 
-    LOG_DEBUG("Inserted ", name, " with socket ID ", socketIdentifier.getUnderlying());
+    LOG_DEBUG("Inserted ", name, " with socket ID ", socketIdentifier);
 }
 
 void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlapped,
@@ -51,8 +53,7 @@ void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlap
 
         if (position == operations_.cend())
         {
-            LOG_ERROR("Couldn't find operation");
-            return;
+            WTHROW(InternalSocketError, "Couldn't find operation");
         }
 
         operation = position->second.get();
@@ -92,7 +93,7 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
 
     if (position != operations_.cend())
     {
-        SCOPE_EXIT([&] { operations_.erase(position); });
+        SCOPE_EXIT([&]() { operations_.erase(position); });
 
         const auto name = position->second->getName();
         const auto socketIdentifier = position->second->getSocketIdentifier().getUnderlying();
@@ -113,13 +114,12 @@ void OperationContainer::handleOperationExecutionFailure(Operation& operation, c
                                                          const std::wstring_view message)
 {
     SCOPE_EXIT(
-        [&]
+        [&]()
         {
             if (!discarded)
             {
                 const auto lock = std::lock_guard<std::mutex>{mutex_};
                 const auto position = operations_.find(operation.getOverlapped());
-
                 operations_.erase(position);
             }
         });
