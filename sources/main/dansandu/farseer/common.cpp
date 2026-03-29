@@ -2,6 +2,8 @@
 #include "dansandu/ballotin/binary.hpp"
 #include "dansandu/ballotin/exception.hpp"
 
+#include <type_traits>
+
 using dansandu::ballotin::binary::bitsPerByte;
 
 namespace dansandu::farseer
@@ -11,18 +13,20 @@ ProtocolSize getProtocolSizeFromStdSize(const size_t size)
 {
     using UnderlyingType = typename ProtocolSize::UnderlyingType;
 
+    static_assert(std::is_unsigned_v<UnderlyingType>);
+
     if constexpr (sizeof(size_t) > sizeof(UnderlyingType))
     {
-        const auto limit = size_t{1} << (sizeof(UnderlyingType) * bitsPerByte);
+        const auto limit = 1uz << (sizeof(UnderlyingType) * bitsPerByte);
         if (size < limit)
         {
             return ProtocolSize{static_cast<UnderlyingType>(size)};
         }
         THROW(std::runtime_error, "The size ", size, " exceeds the protocol size limit of ", limit);
     }
-    else if constexpr (sizeof(size_t) == sizeof(UnderlyingType))
+    else if constexpr (std::is_same_v<size_t, UnderlyingType>)
     {
-        return ProtocolSize{size};
+        return ProtocolSize{static_cast<UnderlyingType>(size)};
     }
     else
     {

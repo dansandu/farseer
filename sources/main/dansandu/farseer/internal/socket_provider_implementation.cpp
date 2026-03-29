@@ -17,6 +17,7 @@ std::shared_ptr<ISocketProviderImplementation> createSocketProviderImplementatio
     return dansandu::farseer::internal::windows::windows_socket_provider_implementation::
         createWindowsSocketProviderImplementation(initializeWsa);
 #elif defined(__linux__)
+    static_cast<void>(initializeWsa);
     return dansandu::farseer::internal::linux::linux_socket_provider_implementation::
         createLinuxSocketProviderImplementation();
 #else

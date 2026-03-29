@@ -132,6 +132,9 @@ void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
             {
                 socket.connectionCallback(SocketEvent::serverClosed, socketIdentifier);
             }
+
+            LOG_INFO("Socket with ID ", socketIdentifier.getUnderlying(), " and address ", socket.socket.getIpAddress(),
+                     ':', socket.socket.getPort(), " was closed");
         }
         catch (const WideException& wideException)
         {
@@ -142,9 +145,6 @@ void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
         {
             LOG_ERROR("Exception was thrown while trying to close socket with message: ", exception.what());
         }
-
-        LOG_INFO("Socket with ID ", socketIdentifier.getUnderlying(), " and address ", socket.socket.getIpAddress(),
-                 ':', socket.socket.getPort(), " was closed");
     }
 }
 
@@ -233,10 +233,8 @@ void OperationScheduler::scheduleAbortOperation()
     }
 }
 
-void OperationScheduler::consumeOperations()
+void OperationScheduler::consumeOperationsWork()
 {
-    LOG_DEBUG("Started operations consumer thread");
-
     while (true)
     {
         auto numberOfBytesTransferred = DWORD{0};
@@ -252,8 +250,7 @@ void OperationScheduler::consumeOperations()
             if (completionKey == defaultCompletionKey && overlapped == nullptr)
             {
                 LOG_DEBUG("Received abort operation");
-
-                break;
+                return;
             }
 
             operationContainer_.handleSuccessfulOperation(overlapped, numberOfBytesTransferred, *this);
@@ -266,16 +263,32 @@ void OperationScheduler::consumeOperations()
             {
                 const auto errorMessage = getErrorMessageFromCode(errorCode);
 
-                LOG_ERROR("Could not dequeue operation from completion queue: ", errorMessage);
-
-                break;
+                WTHROW(InternalSocketError, "Could not dequeue operation from completion queue: ", errorMessage);
             }
 
             operationContainer_.handleFailedOperation(overlapped, errorCode);
         }
     }
+}
 
-    LOG_DEBUG("Exiting operations consumer thread");
+void OperationScheduler::consumeOperations()
+{
+    LOG_DEBUG("Started operations consumer thread");
+
+    try
+    {
+        consumeOperationsWork();
+
+        LOG_DEBUG("Exiting operations consumer thread gracefully");
+    }
+    catch (const WideException& exception)
+    {
+        LOG_CRITICAL("Operations consumer thread exited with wide exception: ", exception.getMessage());
+    }
+    catch (const std::exception& exception)
+    {
+        LOG_CRITICAL("Operations consumer thread exited with exception: ", exception.what());
+    }
 }
 
 }
