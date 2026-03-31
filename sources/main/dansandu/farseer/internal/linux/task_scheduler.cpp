@@ -57,7 +57,8 @@ int createEventPollFileDescriptor(const int eventFileDescriptor)
 }
 
 TaskScheduler::TaskScheduler()
-    : taskQueue_{},
+    : socketIdentifierSequencer_{invalidSocketIdentifier.getUnderlying() + 1u},
+      taskQueue_{},
       eventFileDescriptor_{taskQueue_.getEventFileDescriptor()},
       eventPollFileDescriptor_{createEventPollFileDescriptor(eventFileDescriptor_)},
       thread_{&TaskScheduler::consumeEvents, this}
@@ -210,18 +211,23 @@ bool consumeTasks(ITaskScheduler& taskScheduler, TaskQueue& taskQueue, std::vect
             return true;
         }
 
+        const auto taskSocketIdentifier = task->getSocketIdentifier().getUnderlying();
+        const auto taskName = task->getName();
+
+        LOG_DEBUG("Executing ", taskName, " with socket ID ", taskSocketIdentifier);
+
         try
         {
             task->execute(taskScheduler);
         }
         catch (const WideException& exception)
         {
-            LOG_ERROR(task->getName(), " with socket ID ", task->getSocketIdentifier().getUnderlying(),
+            LOG_ERROR(taskName, " with socket ID ", taskSocketIdentifier,
                       " execution failed with wide exception: ", exception.getMessage());
         }
         catch (const std::exception& exception)
         {
-            LOG_ERROR(task->getName(), " with socket ID ", task->getSocketIdentifier().getUnderlying(),
+            LOG_ERROR(taskName, " with socket ID ", taskSocketIdentifier,
                       " execution failed with exception: ", exception.what());
         }
     }

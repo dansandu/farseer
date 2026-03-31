@@ -61,7 +61,7 @@ HANDLE initializeIoCompletionPort()
 
 OperationScheduler::OperationScheduler()
     : completionPort_{initializeIoCompletionPort()},
-      socketIdentifierSequencer_{defaultCompletionKey + 1},
+      socketIdentifierSequencer_{invalidSocketIdentifier.getUnderlying() + 1u},
       thread_{&OperationScheduler::consumeOperations, this}
 {
 }
