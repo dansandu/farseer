@@ -115,25 +115,49 @@ void generateProtocolMetadataDefinition(const std::string& name, const std::vect
            << "    return ::dansandu::farseer::ProtocolIdentifier{" << hashCode << "U};\n"
            << "}\n"
            << "\n"
-           << name << " " << name << "::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)\n"
-           << "{\n"
+           << name << " " << name;
+
+    if (fields.empty())
+    {
+        stream << "::Metadata::deserialize(const std::vector<uint8_t>&, size_t&)\n";
+    }
+    else
+    {
+        stream << "::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)\n";
+    }
+
+    stream << "{\n"
            << "    auto protocol = " << name << "{};\n";
+
     for (const auto& field : fields)
     {
         stream << "    protocol." << field.name
                << " = ::dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
                << ">::deserialize(bytes, bitsOffset);\n";
     }
+
     stream << "    return protocol;\n"
            << "}\n"
            << "\n"
-           << "void " << name << "::Metadata::serialize(const " << name << "& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset)\n"
-           << "{\n";
+           << "void " << name << "::Metadata::serialize(const " << name;
+
+    if (fields.empty())
+    {
+        stream << "&, std::vector<uint8_t>&, size_t&)\n";
+    }
+    else
+    {
+        stream << "& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset)\n";
+    }
+
+    stream << "{\n";
+
     for (const auto& field : fields)
     {
         stream << "    ::dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
                << ">::serialize(protocol." << field.name << ", bytes, bitsOffset);\n";
     }
+
     stream << "}\n\n";
     // clang-format on
 }

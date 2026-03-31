@@ -25,7 +25,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 32);
+        REQUIRE(bitsOffset == 32uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -47,7 +47,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 64);
+        REQUIRE(bitsOffset == 64uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -68,7 +68,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 32);
+        REQUIRE(bitsOffset == 32uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -90,7 +90,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 64);
+        REQUIRE(bitsOffset == 64uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -112,7 +112,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 64);
+        REQUIRE(bitsOffset == 64uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -133,7 +133,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 1);
+        REQUIRE(bitsOffset == 1uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -156,7 +156,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 96);
+        REQUIRE(bitsOffset == 96uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -184,7 +184,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actual == expected);
 
-        REQUIRE(bitsOffset == 224);
+        REQUIRE(bitsOffset == 224uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -208,7 +208,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(actualMap == expectedMap);
 
-        REQUIRE(bitsOffset == 248);
+        REQUIRE(bitsOffset == 248uz);
 
         auto actualBytes = std::vector<uint8_t>{};
 
@@ -230,7 +230,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(StaticMessage::Metadata::hasStaticSize);
 
-        REQUIRE(StaticMessage::Metadata::staticNumberOfBits.getUnderlying() == 33);
+        REQUIRE(StaticMessage::Metadata::staticNumberOfBits.getUnderlying() == 33u);
 
         BinarySerializer<StaticMessage>::serialize(message, bytes, bitsCount);
 
@@ -253,7 +253,7 @@ TEST_CASE("binary_serialization")
 
         REQUIRE(EmptyMessage::Metadata::hasStaticSize);
 
-        REQUIRE(EmptyMessage::Metadata::staticNumberOfBits.getUnderlying() == 0);
+        REQUIRE(EmptyMessage::Metadata::staticNumberOfBits.getUnderlying() == 0u);
 
         BinarySerializer<EmptyMessage>::serialize(message, bytes, bitsCount);
 

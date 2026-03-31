@@ -23,7 +23,7 @@ TEST_CASE("protocol_serialization")
 
         const auto bytes = serializeMessageProtocol(message);
 
-        REQUIRE(bytes.size() == 9);
+        REQUIRE(bytes.size() == 9uz);
 
         const auto expectedBytes = std::vector<uint8_t>({0xB4, 0x88, 0x24, 0xF6, 0x00, 0x00, 0x1E, 0xF1, 0x80});
 
@@ -36,7 +36,7 @@ TEST_CASE("protocol_serialization")
 
         const auto bytes = serializeMessageProtocol(message);
 
-        REQUIRE(bytes.size() == 4);
+        REQUIRE(bytes.size() == 4uz);
 
         const auto expectedBytes = std::vector<uint8_t>({0x71, 0xD1, 0xB1, 0x7C});
 
@@ -62,7 +62,7 @@ TEST_CASE("protocol_serialization")
 
         const auto bytes = serializeMessageProtocol(message);
 
-        REQUIRE(bytes.size() == 34);
+        REQUIRE(bytes.size() == 34uz);
 
         const auto expectedBytes = std::vector<uint8_t>({
             0x56, 0x1D, 0x30, 0x77, 0x00, 0x00, 0x00, 0xCA, 0x00, 0x00, 0x00, 0x02, 0x00, 0x70, 0x63, 0x2D, 0x7F,
@@ -83,7 +83,7 @@ TEST_CASE("protocol_serialization")
 
         const auto bytes = serializeRequestProtocol(request, sequenceNumber);
 
-        REQUIRE(bytes.size() == 35);
+        REQUIRE(bytes.size() == 35uz);
 
         const auto expectedBytes = std::vector<uint8_t>(
             {0x2A, 0x04, 0xA4, 0x74, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xCE, 0x00, 0x00, 0x00, 0x98, 0x00, 0x00,
@@ -107,7 +107,7 @@ TEST_CASE("protocol_serialization")
 
             const auto bytes = serializeExpectedResponseProtocol<Response>(response, sequenceNumber);
 
-            REQUIRE(bytes.size() == 56);
+            REQUIRE(bytes.size() == 56uz);
 
             const auto expectedBytes = std::vector<uint8_t>(
                 {0x59, 0x4C, 0x62, 0xD5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF1, 0x5D, 0x00, 0x00,
@@ -130,7 +130,7 @@ TEST_CASE("protocol_serialization")
 
             const auto bytes = serializeExpectedResponseProtocol<Response>(response, sequenceNumber);
 
-            REQUIRE(bytes.size() == 37);
+            REQUIRE(bytes.size() == 37uz);
 
             const auto expectedBytes =
                 std::vector<uint8_t>({0x59, 0x4C, 0x62, 0xD5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x9B, 0x00,
