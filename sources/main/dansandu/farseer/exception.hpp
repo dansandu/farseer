@@ -3,6 +3,7 @@
 #include "dansandu/ballotin/string.hpp"
 #include "dansandu/journey/exception.hpp"
 
+#include <cstdint>
 #include <stdexcept>
 
 namespace dansandu::farseer::exception

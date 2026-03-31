@@ -36,6 +36,7 @@ TEST_CASE("protocol_validation")
                             },
                     },
                 },
+            .requests = {},
         };
 
         REQUIRE_THROW(MessageNameNotDefinedError, validateProtocolDefinition(protocolDefinition));
@@ -61,8 +62,10 @@ TEST_CASE("protocol_validation")
                     MessageProtocolDefinition{
                         .fileNamespace = "organization.artifact.module",
                         .name = "House",
+                        .fields = {},
                     },
                 },
+            .requests = {},
         };
 
         REQUIRE_THROW(MessageNameNotDefinedError, validateProtocolDefinition(protocolDefinition));
@@ -97,6 +100,7 @@ TEST_CASE("protocol_validation")
                             },
                     },
                 },
+            .requests = {},
         };
 
         REQUIRE_THROW(DuplicateProtocolNameError, validateProtocolDefinition(protocolDefinition));
@@ -124,6 +128,7 @@ TEST_CASE("protocol_validation")
                             },
                     },
                 },
+            .requests = {},
         };
 
         REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocolDefinition(protocolDefinition));
@@ -155,6 +160,7 @@ TEST_CASE("protocol_validation")
                             },
                     },
                 },
+            .requests = {},
         };
 
         REQUIRE_THROW(DuplicateFieldNameError, validateProtocolDefinition(protocolDefinition));
@@ -164,6 +170,7 @@ TEST_CASE("protocol_validation")
     {
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
+            .messages = {},
             .requests =
                 {
                     RequestProtocolDefinition{
@@ -176,6 +183,7 @@ TEST_CASE("protocol_validation")
                                     .name = "residence",
                                 },
                             },
+                        .responseFields = {},
                     },
                 },
         };
@@ -213,6 +221,7 @@ TEST_CASE("protocol_validation")
                                     .name = "fullName",
                                 },
                             },
+                        .responseFields = {},
                     },
                 },
         };
@@ -224,6 +233,7 @@ TEST_CASE("protocol_validation")
     {
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
+            .messages = {},
             .requests =
                 {
                     RequestProtocolDefinition{
@@ -240,6 +250,7 @@ TEST_CASE("protocol_validation")
                                     .name = "parent",
                                 },
                             },
+                        .responseFields = {},
                     },
                 },
         };
@@ -251,6 +262,7 @@ TEST_CASE("protocol_validation")
     {
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
+            .messages = {},
             .requests =
                 {
                     RequestProtocolDefinition{
@@ -271,6 +283,7 @@ TEST_CASE("protocol_validation")
                                     .name = "id",
                                 },
                             },
+                        .responseFields = {},
                     },
                 },
         };
@@ -282,11 +295,13 @@ TEST_CASE("protocol_validation")
     {
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
+            .messages = {},
             .requests =
                 {
                     RequestProtocolDefinition{
                         .fileNamespace = "organization.artifact.module",
                         .name = "Product",
+                        .requestFields = {},
                         .responseFields =
                             {
                                 FieldDefinition{
