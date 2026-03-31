@@ -68,8 +68,17 @@ void TaskQueue::insert(std::unique_ptr<ITask>&& task)
         WTHROW(InternalSocketError, "Error writing to event file descriptor ", getLastErrorMessage());
     }
 
-    LOG_DEBUG("Inserted ", tasks_.back()->getName(), " with socket ID ",
-              tasks_.back()->getSocketIdentifier().getUnderlying());
+    auto& insertedTask = tasks_.back();
+
+    if (insertedTask)
+    {
+        LOG_DEBUG("Inserted ", insertedTask->getName(), " with socket ID ",
+                  insertedTask->getSocketIdentifier().getUnderlying());
+    }
+    else
+    {
+        LOG_DEBUG("Inserted abort task");
+    }
 }
 
 void TaskQueue::transfer(std::vector<std::unique_ptr<ITask>>& output)
