@@ -23,9 +23,36 @@ constexpr auto localhost = "127.0.0.1";
 
 constexpr auto serverPort = 34777;
 
-constexpr auto timeout = std::chrono::seconds(6);
+constexpr auto clientTimeout = std::chrono::seconds(3);
+
+constexpr auto serverTimeout = std::chrono::seconds(4);
 
 constexpr auto responseErrorMessage = "error message";
+
+template<typename T>
+T waitForFutureOrThrow(std::future<T>& future, const char* const instance, const std::chrono::milliseconds timeout)
+{
+    const auto connectionStatus = future.wait_for(timeout);
+
+    if (connectionStatus == std::future_status::timeout)
+    {
+        THROW(std::runtime_error, instance, " timed out");
+    }
+
+    if (connectionStatus == std::future_status::deferred)
+    {
+        THROW(std::runtime_error, instance, " was deferred");
+    }
+
+    if constexpr (std::is_same_v<T, void>)
+    {
+        future.get();
+    }
+    else
+    {
+        return future.get();
+    }
+}
 
 std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequest request)
 {
@@ -47,10 +74,7 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequ
 
     SCOPE_EXIT([&] { client.close(connectionId); });
 
-    if (openFuture.wait_for(timeout) != std::future_status::ready)
-    {
-        return {request, Expected<StressResponse>::fromInternalServerError()};
-    }
+    waitForFutureOrThrow(openFuture, "Client connection", clientTimeout);
 
     auto responsePromise = std::promise<Expected<StressResponse>>{};
     auto responseFuture = responsePromise.get_future();
@@ -59,12 +83,7 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequ
                        [responsePromise = std::move(responsePromise)](Expected<StressResponse>&& response) mutable
                        { responsePromise.set_value(std::move(response)); });
 
-    if (responseFuture.wait_for(timeout) == std::future_status::ready)
-    {
-        return {request, responseFuture.get()};
-    }
-
-    return {request, Expected<StressResponse>::fromInternalServerError()};
+    return {request, waitForFutureOrThrow(responseFuture, "Client response", clientTimeout)};
 }
 
 uint32_t salted(uint32_t value)
@@ -95,7 +114,9 @@ TEST_CASE("localhost_multiple_instances")
                           }
                       });
 
-    REQUIRE(openFuture.wait_for(timeout) == std::future_status::ready);
+    SCOPE_EXIT([&]() { server.close(listenerId); });
+
+    waitForFutureOrThrow(openFuture, "Server open", serverTimeout);
 
     LOG_INFO("Registering request callback...");
 
@@ -134,31 +155,25 @@ TEST_CASE("localhost_multiple_instances")
 
     for (auto index = size_t{}; index < futures.size(); ++index)
     {
-        REQUIRE(futures[index].wait_for(timeout) == std::future_status::ready);
-
-        LOG_INFO(index + 1U, "/", futures.size(), " clients finished");
-
-        const auto& [request, expected] = futures[index].get();
+        const auto [request, response] = waitForFutureOrThrow(futures[index], "Client work", serverTimeout);
 
         if (request.sent % 2U == 0U)
         {
-            REQUIRE(expected.success());
+            REQUIRE(response.success());
 
-            REQUIRE(request.sent == salted(expected.getValue().received));
+            REQUIRE(request.sent == salted(response.getValue().received));
         }
         else
         {
-            REQUIRE(expected.failure());
+            REQUIRE(response.failure());
 
-            REQUIRE(request.sent == salted(expected.getErrorCode()));
+            REQUIRE(request.sent == salted(response.getErrorCode()));
 
-            REQUIRE(responseErrorMessage == expected.getErrorMessage());
+            REQUIRE(responseErrorMessage == response.getErrorMessage());
         }
+
+        LOG_INFO(index + 1U, "/", futures.size(), " clients finished");
     }
-
-    LOG_INFO("Closing server...");
-
-    server.close(listenerId);
 
     LOG_INFO("All requests are done!");
 }

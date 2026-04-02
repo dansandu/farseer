@@ -222,18 +222,18 @@ void TaskScheduler::handleSocketEventWork(Socket& socket, const uint32_t events)
 
             const auto acceptedSocketIdentifier = socketIdentifierSequencer_.generate();
 
-            auto& acceptedSocket =
-                insertSocket(acceptedSocketIdentifier,
-                             Socket{
-                                 .socketIdentifier = acceptedSocketIdentifier,
-                                 .socket = std::move(*candidateSocket),
-                                 .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                                      std::vector<uint8_t>&& response) {
-                                     scheduleSendBytesTask(receivingSocketIdentifier, std::move(response));
-                                 }},
-                                 .listeningSocketIdentifier = socket.socketIdentifier,
-                                 .connectionCallback = {},
-                             });
+            auto& acceptedSocket = insertSocket(
+                acceptedSocketIdentifier,
+                Socket{
+                    .socketIdentifier = acceptedSocketIdentifier,
+                    .socket = std::move(*candidateSocket),
+                    .protocolReader =
+                        ProtocolReader{
+                            [&](const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>&& response)
+                            { scheduleSendBytesTask(receivingSocketIdentifier, std::move(response)); }},
+                    .listeningSocketIdentifier = socket.socketIdentifier,
+                    .connectionCallback = {},
+                });
 
             LOG_INFO("Accepted client socket ID ", acceptedSocketIdentifier.getUnderlying(), " and address ",
                      acceptedSocket.socket.getIpAddress(), ':', acceptedSocket.socket.getPort());

@@ -42,9 +42,11 @@ public:
                 .socket = listeningSocket.socket.postAccept(receiveBuffer_, std::size(receiveBuffer_),
                                                             socketIdentifier_, completionPort, &overlapped_),
                 .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                     std::vector<uint8_t>&& response) {
-                    operationScheduler.scheduleSendBytesOperation(receivingSocketIdentifier, std::move(response));
-                }},
+                                                     std::vector<uint8_t>&& response)
+                                                 {
+                                                     operationScheduler.scheduleSendBytesOperation(
+                                                         receivingSocketIdentifier, std::move(response));
+                                                 }},
                 .listeningSocketIdentifier = listeningSocketIdentifier_,
             });
     }

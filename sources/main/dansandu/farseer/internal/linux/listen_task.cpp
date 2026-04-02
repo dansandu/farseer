@@ -44,10 +44,10 @@ public:
             Socket{
                 .socketIdentifier = socketIdentifier_,
                 .socket = LinuxSocket::listen(ipAddress_, port_, taskScheduler.getEventPollFileDescriptor()),
-                .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                     std::vector<uint8_t>&& response) {
-                    taskScheduler.scheduleSendBytesTask(receivingSocketIdentifier, std::move(response));
-                }},
+                .protocolReader =
+                    ProtocolReader{
+                        [&](const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>&& response)
+                        { taskScheduler.scheduleSendBytesTask(receivingSocketIdentifier, std::move(response)); }},
                 .listeningSocketIdentifier = invalidSocketIdentifier,
                 .connectionCallback = std::move(connectionCallback_),
             });
