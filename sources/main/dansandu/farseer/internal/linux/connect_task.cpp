@@ -41,6 +41,7 @@ public:
         taskScheduler.insertSocket(
             socketIdentifier_,
             Socket{
+                .socketIdentifier = socketIdentifier_,
                 .socket = LinuxSocket::connect(ipAddress_, port_, taskScheduler.getEventPollFileDescriptor()),
                 .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
                                                      std::vector<uint8_t>&& response) {

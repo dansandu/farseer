@@ -279,7 +279,7 @@ void OperationScheduler::consumeOperations()
     {
         consumeOperationsWork();
 
-        LOG_DEBUG("Exiting operations consumer thread gracefully");
+        LOG_DEBUG("Gracefully exited operations consumer thread");
     }
     catch (const WideException& exception)
     {

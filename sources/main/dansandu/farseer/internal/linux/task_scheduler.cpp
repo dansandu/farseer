@@ -4,8 +4,10 @@
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/linux/connect_task.hpp"
 #include "dansandu/farseer/internal/linux/error.hpp"
+#include "dansandu/farseer/internal/linux/linux_socket.hpp"
 #include "dansandu/farseer/internal/linux/listen_task.hpp"
 #include "dansandu/farseer/internal/linux/send_bytes_task.hpp"
+#include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/journey/logging.hpp"
 
 #include <string.h>
@@ -17,9 +19,11 @@ using dansandu::farseer::internal::linux::error::getLastErrorMessage;
 using dansandu::farseer::internal::linux::i_task_scheduler::ITask;
 using dansandu::farseer::internal::linux::i_task_scheduler::ITaskScheduler;
 using dansandu::farseer::internal::linux::i_task_scheduler::Socket;
+using dansandu::farseer::internal::linux::linux_socket::SocketType;
 using dansandu::farseer::internal::linux::listen_task::createListenTask;
 using dansandu::farseer::internal::linux::send_bytes_task::createSendBytesTask;
 using dansandu::farseer::internal::linux::task_queue::TaskQueue;
+using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::journey::exception::WideException;
 
 namespace dansandu::farseer::internal::linux::task_scheduler
@@ -70,6 +74,19 @@ TaskScheduler::~TaskScheduler() noexcept
     scheduleAbortTask();
 
     thread_.join();
+
+    const auto event = nullptr;
+
+    const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_DEL, eventFileDescriptor_, event);
+
+    if (subscribeResult == -1)
+    {
+        LOG_ERROR("Unsubscribing event from event poll failed with error: ", getLastErrorMessage());
+    }
+
+    fileDescriptorsToSockets_.clear();
+
+    sockets_.clear();
 
     ::close(eventPollFileDescriptor_);
 }
@@ -190,9 +207,106 @@ void TaskScheduler::scheduleAbortTask()
     taskQueue_.insert(nullptr);
 }
 
-void TaskScheduler::handleSocketEvent(const int socketFileDescriptor)
+void TaskScheduler::handleSocketEventWork(Socket& socket, const uint32_t events)
 {
-    static_cast<void>(socketFileDescriptor);
+    if (socket.socket.getSocketType() == SocketType::listening)
+    {
+        while (true)
+        {
+            auto candidateSocket = socket.socket.accept();
+
+            if (!candidateSocket)
+            {
+                break;
+            }
+
+            const auto acceptedSocketIdentifier = socketIdentifierSequencer_.generate();
+
+            auto& acceptedSocket =
+                insertSocket(acceptedSocketIdentifier,
+                             Socket{
+                                 .socketIdentifier = acceptedSocketIdentifier,
+                                 .socket = std::move(*candidateSocket),
+                                 .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
+                                                                      std::vector<uint8_t>&& response) {
+                                     scheduleSendBytesTask(receivingSocketIdentifier, std::move(response));
+                                 }},
+                                 .listeningSocketIdentifier = socket.socketIdentifier,
+                                 .connectionCallback = {},
+                             });
+
+            LOG_INFO("Accepted client socket ID ", acceptedSocketIdentifier.getUnderlying(), " and address ",
+                     acceptedSocket.socket.getIpAddress(), ':', acceptedSocket.socket.getPort());
+        }
+    }
+    else
+    {
+        if (events & EPOLLOUT)
+        {
+            LOG_INFO("Connected to socket ID ", socket.socketIdentifier.getUnderlying(), " and address ",
+                     socket.socket.getIpAddress(), ':', socket.socket.getPort());
+        }
+
+        if (events & EPOLLIN)
+        {
+            LOG_INFO("Received bytes from socket ID ", socket.socketIdentifier.getUnderlying(), " and address ",
+                     socket.socket.getIpAddress(), ':', socket.socket.getPort());
+
+            socket.socket.receive();
+        }
+
+        if (events & EPOLLRDHUP)
+        {
+            LOG_INFO("Connection closed with socket ID ", socket.socketIdentifier.getUnderlying(), " and address ",
+                     socket.socket.getIpAddress(), ':', socket.socket.getPort());
+        }
+
+        if (events & EPOLLERR)
+        {
+            LOG_INFO("Connection aborted with socket ID ", socket.socketIdentifier.getUnderlying(), " and address ",
+                     socket.socket.getIpAddress(), ':', socket.socket.getPort());
+        }
+    }
+}
+
+void TaskScheduler::handleSocketEvent(const int socketFileDescriptor, const uint32_t events)
+{
+    const auto socketPosition = fileDescriptorsToSockets_.find(socketFileDescriptor);
+
+    if (socketPosition == fileDescriptorsToSockets_.end())
+    {
+        LOG_ERROR("Unsubscribing unused socket");
+
+        const auto event = nullptr;
+
+        const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_DEL, socketFileDescriptor, event);
+
+        if (subscribeResult == -1)
+        {
+            LOG_ERROR("Unsubscribing unused socket to epoll failed with error: ", getLastErrorMessage());
+        }
+
+        return;
+    }
+
+    const auto socketIdentifier = socketPosition->second->socketIdentifier.getUnderlying();
+
+    LOG_DEBUG("Processing events for socket with ID ", socketIdentifier);
+
+    try
+    {
+        handleSocketEventWork(*(socketPosition->second), events);
+    }
+    catch (const WideException& exception)
+    {
+        LOG_ERROR("Processing events for socket with ID ", socketIdentifier,
+                  "failed with wide exception: ", exception.getMessage());
+    }
+    catch (const std::exception& exception)
+    {
+        LOG_ERROR("Processing events for socket with ID ", socketIdentifier,
+                  "failed with exception: ", exception.what());
+    }
 }
 
 namespace
@@ -283,7 +397,7 @@ void TaskScheduler::consumeEventsWork()
             }
             else
             {
-                handleSocketEvent(events[index].data.fd);
+                handleSocketEvent(events[index].data.fd, events[index].events);
             }
         }
 
@@ -299,7 +413,7 @@ void TaskScheduler::consumeEvents()
     {
         consumeEventsWork();
 
-        LOG_DEBUG("Exiting events consumer thread gracefully");
+        LOG_DEBUG("Gracefully exited events consumer thread");
     }
     catch (const WideException& exception)
     {

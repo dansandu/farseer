@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace dansandu::farseer::internal::linux::linux_socket
 {
@@ -30,7 +32,11 @@ public:
 
     ~LinuxSocket() noexcept;
 
+    std::optional<LinuxSocket> accept();
+
     void send(const uint8_t* const bytes, const size_t numberOfBytes);
+
+    std::vector<uint8_t> receive();
 
     SocketType getSocketType() const
     {
@@ -53,10 +59,12 @@ public:
     }
 
 private:
-    LinuxSocket();
+    LinuxSocket(SocketType socketType, const int socket, const int eventPollFileDescriptor,
+                const std::string& ipAddress, const int port);
 
     SocketType socketType_;
     int socket_;
+    int eventPollFileDescriptor_;
     std::string ipAddress_;
     int port_;
 };

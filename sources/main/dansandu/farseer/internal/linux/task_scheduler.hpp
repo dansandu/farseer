@@ -5,6 +5,7 @@
 #include "dansandu/farseer/internal/linux/task_queue.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -43,7 +44,10 @@ public:
 private:
     void scheduleAbortTask();
 
-    void handleSocketEvent(const int socketFileDescriptor);
+    void handleSocketEventWork(dansandu::farseer::internal::linux::i_task_scheduler::Socket& socket,
+                               const uint32_t events);
+
+    void handleSocketEvent(const int socketFileDescriptor, const uint32_t events);
 
     void consumeEventsWork();
 
