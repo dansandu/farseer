@@ -111,7 +111,7 @@ void WindowsSocket::listen(const std::string& ipAddress, const int port)
     localAddress.sin_family = AF_INET;
     localAddress.sin_port = ::htons(port);
 
-    const auto netResult = ::inet_pton(AF_INET, ipAddress.c_str(), &localAddress.sin_addr.s_addr);
+    const auto netResult = ::inet_pton(AF_INET, ipAddress.c_str(), &localAddress.sin_addr);
     if (netResult == 0)
     {
         WTHROW(InternalSocketError, "Invalid IP address ", ipAddress);
@@ -253,7 +253,7 @@ void WindowsSocket::accept(const WindowsSocket& listeningSocket)
 
     char ipAddressBuffer[INET_ADDRSTRLEN];
 
-    const auto netResult = ::inet_ntop(AF_INET, &remoteAddress.sin_addr.s_addr, ipAddressBuffer, INET_ADDRSTRLEN);
+    const auto netResult = ::inet_ntop(AF_INET, &remoteAddress.sin_addr, ipAddressBuffer, INET_ADDRSTRLEN);
     if (netResult == NULL)
     {
         WTHROW(InternalSocketError, "inet_ntop failed with error ", getLastWsaErrorMessage());
@@ -314,7 +314,7 @@ void WindowsSocket::postConnect(const std::string& ipAddress, const int port, co
     remoteAddress.sin_family = AF_INET;
     remoteAddress.sin_port = ::htons(port);
 
-    const auto netResult = ::inet_pton(AF_INET, ipAddress.c_str(), &remoteAddress.sin_addr.s_addr);
+    const auto netResult = ::inet_pton(AF_INET, ipAddress.c_str(), &remoteAddress.sin_addr);
     if (netResult == 0)
     {
         WTHROW(InternalSocketError, "Invalid IP address ", ipAddress);

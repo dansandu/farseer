@@ -11,17 +11,32 @@ using dansandu::ballotin::string::format;
 namespace dansandu::farseer::internal::linux::error
 {
 
+std::string getErrorMessage(const int errorCode)
+{
+    const auto errorName = ::strerrorname_np(errorCode);
+
+    if (!errorName)
+    {
+        return "Failed to generate error name from error code";
+    }
+
+    errno = 0;
+
+    const auto errorDescription = ::strerror(errorCode);
+
+    if (errno)
+    {
+        return "Failed to generate error message from error code";
+    }
+
+    const auto message = format(errorName, "(", errorCode, ") ", errorDescription);
+
+    return message;
+}
+
 std::string getLastErrorMessage()
 {
-    const auto lastErrorCode = errno;
-    errno = 0;
-    const auto errorMessage = ::strerror(lastErrorCode);
-    if (errno == 0)
-    {
-        const auto message = format(lastErrorCode, " ", errorMessage);
-        return message;
-    }
-    return "Failed to generate error message from error code";
+    return getErrorMessage(errno);
 }
 
 }

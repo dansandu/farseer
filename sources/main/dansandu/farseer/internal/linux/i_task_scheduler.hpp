@@ -12,6 +12,7 @@ namespace dansandu::farseer::internal::linux::i_task_scheduler
 
 struct Socket
 {
+    const SocketIdentifier socketIdentifier;
     dansandu::farseer::internal::linux::linux_socket::LinuxSocket socket;
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
     SocketIdentifier listeningSocketIdentifier;
