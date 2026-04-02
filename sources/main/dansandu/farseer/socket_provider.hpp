@@ -45,7 +45,8 @@ public:
         using dansandu::farseer::protocol_serialization::serializeRequestProtocol;
         const auto sequenceNumber = generateSequenceNumber();
         sendRequest(socketIdentifier, sequenceNumber, serializeRequestProtocol(request, sequenceNumber),
-                    [expectedResponseConsumer = std::move(expectedResponseConsumer)](std::any&& expectedResponse) {
+                    [expectedResponseConsumer = std::move(expectedResponseConsumer)](std::any&& expectedResponse)
+                    {
                         expectedResponseConsumer(
                             std::any_cast<Expected<typename Request::Response>&&>(std::move(expectedResponse)));
                     });

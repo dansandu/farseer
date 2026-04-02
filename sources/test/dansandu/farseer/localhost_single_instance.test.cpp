@@ -114,13 +114,7 @@ TEST_CASE("localhost_single_instance")
             }
         });
 
-    SCOPE_EXIT(
-        [&]
-        {
-            LOG_INFO("Closing server...");
-
-            socketProvider.close(listenerId);
-        });
+    SCOPE_EXIT([&]() { socketProvider.close(listenerId); });
 
     waitForFutureOrThrow(openFuture, "Server open", serverTimeout);
 
