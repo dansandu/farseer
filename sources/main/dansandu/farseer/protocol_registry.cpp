@@ -1,5 +1,4 @@
 #include "dansandu/farseer/protocol_registry.hpp"
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/exception.hpp"
 

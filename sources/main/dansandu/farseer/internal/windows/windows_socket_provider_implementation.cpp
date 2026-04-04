@@ -41,11 +41,6 @@ public:
         return operationScheduler_.scheduleConnectOperation(ipAddress, port, std::move(connectionCallback));
     }
 
-    ProtocolSequenceNumber generateSequenceNumber() override
-    {
-        return protocolSequencer_.generate();
-    }
-
     void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) override
     {
         operationScheduler_.scheduleSendBytesOperation(socketIdentifier, std::move(bytes));
@@ -75,6 +70,11 @@ public:
     void close(const SocketIdentifier socketIdentifier) override
     {
         operationScheduler_.scheduleCloseOperation(socketIdentifier);
+    }
+
+    ProtocolSequenceNumber generateSequenceNumber() override
+    {
+        return protocolSequencer_.generate();
     }
 
 private:

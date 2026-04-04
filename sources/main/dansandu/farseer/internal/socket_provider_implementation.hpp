@@ -19,17 +19,13 @@ public:
 
     ISocketProviderImplementation() = default;
 
-    virtual ~ISocketProviderImplementation() noexcept
-    {
-    }
+    virtual ~ISocketProviderImplementation() noexcept = default;
 
     virtual SocketIdentifier listen(const std::string& ipAddress, const int port,
                                     ConnectionCallback&& connectionCallback) = 0;
 
     virtual SocketIdentifier connect(const std::string& ipAddress, const int port,
                                      ConnectionCallback&& connectionCallback) = 0;
-
-    virtual ProtocolSequenceNumber generateSequenceNumber() = 0;
 
     virtual void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
 
@@ -46,6 +42,8 @@ public:
                                          UniqueFunction<std::any(std::any&&)>&& requestCallback) = 0;
 
     virtual void close(const SocketIdentifier socketIdentifier) = 0;
+
+    virtual ProtocolSequenceNumber generateSequenceNumber() = 0;
 };
 
 std::shared_ptr<ISocketProviderImplementation> createSocketProviderImplementation(const bool initializeWsa);

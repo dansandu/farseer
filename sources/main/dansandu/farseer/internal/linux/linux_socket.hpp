@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,7 @@ enum class SocketType
 class LinuxSocket
 {
 public:
+    LinuxSocket() = delete;
     LinuxSocket(const LinuxSocket&) = delete;
     LinuxSocket& operator=(const LinuxSocket&) = delete;
 
@@ -34,14 +36,9 @@ public:
 
     std::optional<LinuxSocket> accept();
 
-    void send(const uint8_t* const bytes, const size_t numberOfBytes);
+    void sendBytes(const std::span<uint8_t> bytes);
 
-    std::vector<uint8_t> receive();
-
-    SocketType getSocketType() const
-    {
-        return socketType_;
-    }
+    std::vector<uint8_t> receiveBytes();
 
     const std::string& getIpAddress() const
     {
@@ -53,20 +50,25 @@ public:
         return port_;
     }
 
-    int getFileDescriptor() const
+    int getSocketFileDescriptor() const
     {
         return socket_;
     }
 
-private:
-    LinuxSocket(SocketType socketType, const int socket, const int eventPollFileDescriptor,
-                const std::string& ipAddress, const int port);
+    SocketType getSocketType() const
+    {
+        return socketType_;
+    }
 
-    SocketType socketType_;
-    int socket_;
-    int eventPollFileDescriptor_;
+private:
+    LinuxSocket(const std::string& ipAddress, const int port, const int socket, const int eventPollFileDescriptor,
+                const SocketType socketType);
+
     std::string ipAddress_;
     int port_;
+    int socket_;
+    int eventPollFileDescriptor_;
+    SocketType socketType_;
 };
 
 }

@@ -1,13 +1,9 @@
 #if defined(__linux__)
 #include "dansandu/farseer/internal/linux/send_bytes_task.hpp"
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/internal/linux/i_task_scheduler.hpp"
-#include "dansandu/farseer/internal/linux/linux_socket.hpp"
-#include "dansandu/farseer/internal/protocol_reader.hpp"
 
-using dansandu::farseer::internal::linux::i_task_scheduler::ITask;
-using dansandu::farseer::internal::linux::i_task_scheduler::ITaskScheduler;
-using dansandu::farseer::internal::protocol_reader::ProtocolReader;
+using dansandu::farseer::internal::linux::socket_container::SocketContainer;
+using dansandu::farseer::internal::linux::task::ITask;
 
 namespace dansandu::farseer::internal::linux::send_bytes_task
 {
@@ -30,11 +26,9 @@ public:
         return socketIdentifier_;
     }
 
-    void execute(ITaskScheduler& taskScheduler) override
+    void execute(SocketContainer& socketContainer) override
     {
-        auto& socket = taskScheduler.getSocketOrThrow(socketIdentifier_);
-
-        socket.socket.send(bytes_.data(), bytes_.size());
+        socketContainer.sendBytes(socketIdentifier_, bytes_);
     }
 
 private:

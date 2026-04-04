@@ -1,5 +1,4 @@
 #include "dansandu/farseer/internal/protocol_validation.hpp"
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/protocol_definition.hpp"
 
