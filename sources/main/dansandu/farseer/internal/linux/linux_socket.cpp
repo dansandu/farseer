@@ -1,6 +1,5 @@
 #if defined(__linux__)
 #include "dansandu/farseer/internal/linux/linux_socket.hpp"
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/linux/error.hpp"
@@ -23,15 +22,15 @@ namespace dansandu::farseer::internal::linux::linux_socket
 namespace
 {
 
-constexpr auto invalidSocket = -1;
+constexpr auto invalidFileDescriptor = -1;
 
 int createSocket()
 {
     const auto result = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 
-    if (result == invalidSocket)
+    if (result == invalidFileDescriptor)
     {
-        WTHROW(InternalSocketError, "Creating linux socket failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error creating socket: ", getLastErrorMessage());
     }
 
     return result;
@@ -39,9 +38,9 @@ int createSocket()
 
 void closeSocketOrLog(const int socket)
 {
-    if (socket != invalidSocket && ::close(socket) == -1)
+    if (socket != invalidFileDescriptor && ::close(socket) == -1)
     {
-        LOG_ERROR("Closing linux socket failed with error: ", getLastErrorMessage());
+        LOG_ERROR("Error closing socket: ", getLastErrorMessage());
     }
 }
 
@@ -62,27 +61,30 @@ LinuxSocket LinuxSocket::listen(const std::string& ipAddress, const int port, co
     localAddress.sin_port = ::htons(port);
 
     const auto netResult = ::inet_pton(AF_INET, ipAddress.c_str(), &localAddress.sin_addr);
+
     if (netResult == 0)
     {
         WTHROW(InternalSocketError, "Invalid IP address ", ipAddress);
     }
     else if (netResult < 0)
     {
-        WTHROW(InternalSocketError, "inet_pton failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error converting IP address: ", getLastErrorMessage());
     }
 
     const auto bindResult = ::bind(socket, reinterpret_cast<const ::sockaddr*>(&localAddress), sizeof(localAddress));
+
     if (bindResult != 0)
     {
-        WTHROW(InternalSocketError, "Binding to socket failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error binding socket: ", getLastErrorMessage());
     }
 
     const auto maximumListeningQueueSize = 1000;
 
     const auto listenResult = ::listen(socket, maximumListeningQueueSize);
+
     if (listenResult != 0)
     {
-        WTHROW(InternalSocketError, "Listening to socket failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error listening to socket: ", getLastErrorMessage());
     }
 
     ::epoll_event event;
@@ -97,10 +99,10 @@ LinuxSocket LinuxSocket::listen(const std::string& ipAddress, const int port, co
 
     if (subscribeResult != 0)
     {
-        WTHROW(InternalSocketError, "Subscribing listening socket to epoll failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error subscribing listening socket to event poll: ", getLastErrorMessage());
     }
 
-    return LinuxSocket{SocketType::listening, socket, eventPollFileDescriptor, ipAddress, port};
+    return LinuxSocket{ipAddress, port, socket, eventPollFileDescriptor, SocketType::listening};
 }
 
 LinuxSocket LinuxSocket::connect(const std::string& ipAddress, const int port, const int eventPollFileDescriptor)
@@ -118,24 +120,26 @@ LinuxSocket LinuxSocket::connect(const std::string& ipAddress, const int port, c
     remoteAddress.sin_port = ::htons(port);
 
     const auto netResult = ::inet_pton(AF_INET, ipAddress.c_str(), &remoteAddress.sin_addr);
+
     if (netResult == 0)
     {
         WTHROW(InternalSocketError, "Invalid IP address ", ipAddress);
     }
     else if (netResult < 0)
     {
-        WTHROW(InternalSocketError, "inet_pton failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error converting IP address: ", getLastErrorMessage());
     }
 
     const auto connectResult =
         ::connect(socket, reinterpret_cast<const ::sockaddr*>(&remoteAddress), sizeof(remoteAddress));
+
     if (connectResult == -1)
     {
         const auto errorCode = errno;
 
         if (errorCode != EINPROGRESS)
         {
-            WTHROW(InternalSocketError, "connect failed with error: ", getLastErrorMessage());
+            WTHROW(InternalSocketError, "Error connecting to socket: ", getLastErrorMessage());
         }
     }
 
@@ -151,40 +155,39 @@ LinuxSocket LinuxSocket::connect(const std::string& ipAddress, const int port, c
 
     if (subscribeResult != 0)
     {
-        WTHROW(InternalSocketError,
-               "Subscribing connection socket to epoll failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error subscribing connecting socket to event poll: ", getLastErrorMessage());
     }
 
-    return LinuxSocket{SocketType::connection, socket, eventPollFileDescriptor, ipAddress, port};
+    return LinuxSocket{ipAddress, port, socket, eventPollFileDescriptor, SocketType::connection};
 }
 
-LinuxSocket::LinuxSocket(SocketType socketType, const int socket, const int eventPollFileDescriptor,
-                         const std::string& ipAddress, const int port)
-    : socketType_{socketType},
+LinuxSocket::LinuxSocket(const std::string& ipAddress, const int port, const int socket,
+                         const int eventPollFileDescriptor, const SocketType socketType)
+    : ipAddress_{ipAddress},
+      port_{port},
       socket_{socket},
       eventPollFileDescriptor_{eventPollFileDescriptor},
-      ipAddress_{ipAddress},
-      port_{port}
+      socketType_{socketType}
 {
 }
 
 LinuxSocket::LinuxSocket(LinuxSocket&& other) noexcept
-    : socketType_{other.socketType_},
+    : ipAddress_{std::move(other.ipAddress_)},
+      port_{other.port_},
       socket_{other.socket_},
       eventPollFileDescriptor_{other.eventPollFileDescriptor_},
-      ipAddress_{std::move(other.ipAddress_)},
-      port_{other.port_}
+      socketType_{other.socketType_}
 {
-    other.socketType_ = SocketType::unbound;
-    other.socket_ = invalidSocket;
-    other.eventPollFileDescriptor_ = invalidSocket;
     other.ipAddress_.clear();
     other.port_ = 0;
+    other.socket_ = invalidFileDescriptor;
+    other.eventPollFileDescriptor_ = invalidFileDescriptor;
+    other.socketType_ = SocketType::unbound;
 }
 
 LinuxSocket::~LinuxSocket() noexcept
 {
-    if (socket_ == invalidSocket)
+    if (socketType_ == SocketType::unbound)
     {
         return;
     }
@@ -195,7 +198,7 @@ LinuxSocket::~LinuxSocket() noexcept
 
     if (subscribeResult == -1)
     {
-        LOG_ERROR("Unsubscribing socket from event poll failed with error: ", getLastErrorMessage());
+        LOG_ERROR("Error unsubscribing socket from event poll: ", getLastErrorMessage());
     }
 
     closeSocketOrLog(socket_);
@@ -207,17 +210,17 @@ LinuxSocket& LinuxSocket::operator=(LinuxSocket&& other) noexcept
     {
         closeSocketOrLog(socket_);
 
-        socketType_ = other.socketType_;
-        socket_ = other.socket_;
-        eventPollFileDescriptor_ = other.eventPollFileDescriptor_;
         ipAddress_ = std::move(other.ipAddress_);
         port_ = other.port_;
+        socket_ = other.socket_;
+        eventPollFileDescriptor_ = other.eventPollFileDescriptor_;
+        socketType_ = other.socketType_;
 
-        other.socketType_ = SocketType::unbound;
-        other.socket_ = invalidSocket;
-        other.eventPollFileDescriptor_ = invalidSocket;
         other.ipAddress_.clear();
         other.port_ = 0;
+        other.socket_ = invalidFileDescriptor;
+        other.eventPollFileDescriptor_ = invalidFileDescriptor;
+        other.socketType_ = SocketType::unbound;
     }
 
     return *this;
@@ -236,9 +239,9 @@ std::optional<LinuxSocket> LinuxSocket::accept()
 
     std::memset(&remoteAddress, 0, sizeof(remoteAddress));
 
-    const auto socket = ::accept(socket_, reinterpret_cast<::sockaddr*>(&remoteAddress), &remoteAddressSize);
+    const auto acceptedSocket = ::accept(socket_, reinterpret_cast<::sockaddr*>(&remoteAddress), &remoteAddressSize);
 
-    if (socket == invalidSocket)
+    if (acceptedSocket == invalidFileDescriptor)
     {
         const auto errorCode = errno;
 
@@ -247,15 +250,15 @@ std::optional<LinuxSocket> LinuxSocket::accept()
             return {};
         }
 
-        WTHROW(InternalSocketError, "Accepting connection failed with error: ", getErrorMessage(errorCode));
+        WTHROW(InternalSocketError, "Error accepting socket: ", getErrorMessage(errorCode));
     }
     else
     {
-        SCOPE_FAILURE([&]() { closeSocketOrLog(socket); });
+        SCOPE_FAILURE([&]() { closeSocketOrLog(acceptedSocket); });
 
         if (remoteAddressSize != sizeof(remoteAddress))
         {
-            WTHROW(InternalSocketError, "Accepting connection failed because the address wouldn't fit the buffer");
+            WTHROW(InternalSocketError, "Accept failed because the address wouldn't fit the buffer");
         }
 
         char ipAddressBuffer[INET_ADDRSTRLEN];
@@ -264,7 +267,7 @@ std::optional<LinuxSocket> LinuxSocket::accept()
 
         if (netResult == nullptr)
         {
-            WTHROW(InternalSocketError, "inet_ntop failed with error ", getLastErrorMessage());
+            WTHROW(InternalSocketError, "Error converting IP address: ", getLastErrorMessage());
         }
 
         const auto port = ::ntohs(remoteAddress.sin_port);
@@ -275,21 +278,20 @@ std::optional<LinuxSocket> LinuxSocket::accept()
 
         event.events = EPOLLOUT | EPOLLET;
 
-        event.data.fd = socket;
+        event.data.fd = acceptedSocket;
 
-        const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_ADD, socket, &event);
+        const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_ADD, acceptedSocket, &event);
 
         if (subscribeResult != 0)
         {
-            WTHROW(InternalSocketError,
-                   "Subscribing accepted socket to epoll failed with error: ", getLastErrorMessage());
+            WTHROW(InternalSocketError, "Error subscribing accepted socket to event poll: ", getLastErrorMessage());
         }
 
-        return LinuxSocket{SocketType::accepted, socket, eventPollFileDescriptor_, ipAddressBuffer, port};
+        return LinuxSocket{ipAddressBuffer, port, acceptedSocket, eventPollFileDescriptor_, SocketType::accepted};
     }
 }
 
-void LinuxSocket::send(const uint8_t* const bytes, const size_t numberOfBytes)
+void LinuxSocket::sendBytes(const std::span<uint8_t> bytes)
 {
     if (socketType_ == SocketType::unbound)
     {
@@ -303,15 +305,15 @@ void LinuxSocket::send(const uint8_t* const bytes, const size_t numberOfBytes)
 
     const auto flags = 0;
 
-    const auto sendResult = ::send(socket_, bytes, numberOfBytes, flags);
+    const auto sendResult = ::send(socket_, bytes.data(), bytes.size(), flags);
 
     if (sendResult == -1)
     {
-        WTHROW(InternalSocketError, "Send bytes failed with error: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error sending bytes to socket: ", getLastErrorMessage());
     }
 }
 
-std::vector<uint8_t> LinuxSocket::receive()
+std::vector<uint8_t> LinuxSocket::receiveBytes()
 {
     if (socketType_ == SocketType::unbound)
     {
@@ -325,15 +327,15 @@ std::vector<uint8_t> LinuxSocket::receive()
 
     auto result = std::vector<uint8_t>{};
 
-    constexpr auto bufferSize = 4096uz;
+    constexpr auto maximumBufferSize = 4096uz;
 
-    uint8_t buffer[bufferSize];
+    uint8_t buffer[maximumBufferSize];
 
     const auto flags = 0;
 
     while (true)
     {
-        const auto receiveResult = ::recv(socket_, buffer, bufferSize, flags);
+        const auto receiveResult = ::recv(socket_, buffer, maximumBufferSize, flags);
 
         if (receiveResult == -1)
         {
@@ -344,7 +346,7 @@ std::vector<uint8_t> LinuxSocket::receive()
                 break;
             }
 
-            WTHROW(InternalSocketError, "Receive bytes failed with error: ", getErrorMessage(errorCode));
+            WTHROW(InternalSocketError, "Error receiving bytes from socket: ", getErrorMessage(errorCode));
         }
         else
         {

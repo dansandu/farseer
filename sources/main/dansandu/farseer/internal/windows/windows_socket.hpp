@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"

@@ -1,6 +1,5 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/ballotin/binary.hpp"
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"

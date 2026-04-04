@@ -1,15 +1,9 @@
 #if defined(__linux__)
 #include "dansandu/farseer/internal/linux/connect_task.hpp"
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/internal/linux/i_task_scheduler.hpp"
-#include "dansandu/farseer/internal/linux/linux_socket.hpp"
-#include "dansandu/farseer/internal/protocol_reader.hpp"
 
-using dansandu::farseer::internal::linux::i_task_scheduler::ITask;
-using dansandu::farseer::internal::linux::i_task_scheduler::ITaskScheduler;
-using dansandu::farseer::internal::linux::i_task_scheduler::Socket;
-using dansandu::farseer::internal::linux::linux_socket::LinuxSocket;
-using dansandu::farseer::internal::protocol_reader::ProtocolReader;
+using dansandu::farseer::internal::linux::socket_container::SocketContainer;
+using dansandu::farseer::internal::linux::task::ITask;
 
 namespace dansandu::farseer::internal::linux::connect_task
 {
@@ -36,20 +30,9 @@ public:
         return socketIdentifier_;
     }
 
-    void execute(ITaskScheduler& taskScheduler) override
+    void execute(SocketContainer& socketContainer) override
     {
-        taskScheduler.insertSocket(
-            socketIdentifier_,
-            Socket{
-                .socketIdentifier = socketIdentifier_,
-                .socket = LinuxSocket::connect(ipAddress_, port_, taskScheduler.getEventPollFileDescriptor()),
-                .protocolReader =
-                    ProtocolReader{
-                        [&](const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>&& response)
-                        { taskScheduler.scheduleSendBytesTask(receivingSocketIdentifier, std::move(response)); }},
-                .listeningSocketIdentifier = invalidSocketIdentifier,
-                .connectionCallback = std::move(connectionCallback_),
-            });
+        socketContainer.connect(socketIdentifier_, ipAddress_, port_, std::move(connectionCallback_));
     }
 
 private:

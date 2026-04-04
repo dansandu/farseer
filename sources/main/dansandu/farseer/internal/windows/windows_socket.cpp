@@ -16,7 +16,7 @@ void closeSocketOrLog(const SOCKET socket)
 {
     if (socket != INVALID_SOCKET && ::closesocket(socket) != 0)
     {
-        LOG_CRITICAL("Closing windows socket failed with error ", getLastWsaErrorMessage());
+        LOG_ERROR("Error closing windows socket: ", getLastWsaErrorMessage());
     }
 }
 

@@ -155,7 +155,7 @@ TEST_CASE("localhost_multiple_instances")
 
     for (auto index = size_t{}; index < futures.size(); ++index)
     {
-        const auto [request, response] = waitForFutureOrThrow(futures[index], "Client work", serverTimeout);
+        const auto [request, response] = waitForFutureOrThrow(futures[index], "Client request", serverTimeout);
 
         if (request.sent % 2U == 0U)
         {
