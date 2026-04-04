@@ -5,7 +5,6 @@
 #include "dansandu/farseer/internal/linux/error.hpp"
 #include "dansandu/journey/logging.hpp"
 
-#include <sys/epoll.h>
 #include <sys/eventfd.h>
 
 #include <cstring>
@@ -16,6 +15,7 @@
 
 using dansandu::farseer::exception::InternalSocketError;
 using dansandu::farseer::internal::linux::error::getLastErrorMessage;
+using dansandu::farseer::internal::linux::event_poll::EventPoll;
 using dansandu::farseer::internal::linux::task::ITask;
 
 namespace dansandu::farseer::internal::linux::task_queue
@@ -30,11 +30,11 @@ void closeEventOrLog(const int eventFileDescriptor)
 
     if (closeResult == -1)
     {
-        LOG_ERROR("Error closing event: ", getLastErrorMessage());
+        LOG_ERROR("Error closing event file descriptor: ", getLastErrorMessage());
     }
 }
 
-int createEventFileDescriptor(const int eventPollFileDescriptor)
+int createEventFileDescriptor(EventPoll& eventPoll)
 {
     const auto initialValue = 0U;
     const auto flags = 0;
@@ -42,46 +42,26 @@ int createEventFileDescriptor(const int eventPollFileDescriptor)
 
     if (eventFileDescriptor == -1)
     {
-        WTHROW(InternalSocketError, "Error creating event: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error creating event file descriptor: ", getLastErrorMessage());
     }
 
     SCOPE_FAILURE([&]() { closeEventOrLog(eventFileDescriptor); });
 
-    ::epoll_event event;
-
-    std::memset(&event, 0, sizeof(event));
-
-    event.events = EPOLLIN | EPOLLET;
-    event.data.fd = eventFileDescriptor;
-
-    const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor, EPOLL_CTL_ADD, eventFileDescriptor, &event);
-
-    if (subscribeResult != 0)
-    {
-        WTHROW(InternalSocketError, "Error subscribing event to event poll: ", getLastErrorMessage());
-    }
+    eventPoll.subscribe(eventFileDescriptor, EPOLLIN | EPOLLET);
 
     return eventFileDescriptor;
 }
 
 }
 
-TaskQueue::TaskQueue(const int eventPollFileDescriptor)
-    : eventPollFileDescriptor_{eventPollFileDescriptor},
-      eventFileDescriptor_{createEventFileDescriptor(eventPollFileDescriptor)}
+TaskQueue::TaskQueue(EventPoll& eventPoll)
+    : eventPoll_{eventPoll}, eventFileDescriptor_{createEventFileDescriptor(eventPoll)}
 {
 }
 
 TaskQueue::~TaskQueue() noexcept
 {
-    const auto event = nullptr;
-
-    const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_DEL, eventFileDescriptor_, event);
-
-    if (subscribeResult == -1)
-    {
-        LOG_ERROR("Error unsubscribing event from event poll: ", getLastErrorMessage());
-    }
+    eventPoll_.unsubscribe(eventFileDescriptor_);
 
     closeEventOrLog(eventFileDescriptor_);
 }
@@ -104,7 +84,7 @@ void TaskQueue::insert(std::unique_ptr<ITask>&& task)
 
     if (writeResult == -1)
     {
-        WTHROW(InternalSocketError, "Error writing event: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error writing to event file descriptor: ", getLastErrorMessage());
     }
 
     auto& insertedTask = tasks_.back();

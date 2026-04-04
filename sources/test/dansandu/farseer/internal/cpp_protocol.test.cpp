@@ -80,7 +80,7 @@ void MyMessage::Metadata::serialize(const MyMessage& protocol, std::vector<uint8
 namespace
 {
 
-const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = 
+const auto DANSANDU_JOURNEY_UNIQUE_NAME =
     ::dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerMessageProtocol<organization::artifact::protocol::MyMessage>();
 
 }
@@ -213,7 +213,7 @@ void MyRequest::Response::Metadata::serialize(const MyRequest::Response& protoco
 namespace
 {
 
-const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = 
+const auto DANSANDU_JOURNEY_UNIQUE_NAME =
     ::dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerRequestProtocol<organization::artifact::protocol::MyRequest>();
 
 }

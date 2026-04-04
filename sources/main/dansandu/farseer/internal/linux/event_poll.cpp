@@ -4,7 +4,7 @@
 #include "dansandu/farseer/internal/linux/error.hpp"
 #include "dansandu/journey/logging.hpp"
 
-#include <sys/epoll.h>
+#include <cstring>
 #include <unistd.h>
 
 using dansandu::farseer::exception::InternalSocketError;
@@ -19,6 +19,7 @@ namespace
 int createEventPollFileDescriptor()
 {
     const auto flags = 0;
+
     const auto eventPollFileDescriptor = ::epoll_create1(flags);
 
     if (eventPollFileDescriptor == -1)
@@ -43,6 +44,67 @@ EventPoll::~EventPoll() noexcept
     {
         LOG_ERROR("Error closing event poll: ", getLastErrorMessage());
     }
+}
+
+void EventPoll::subscribe(const int fileDescriptor, const uint32_t events)
+{
+    ::epoll_event event;
+
+    std::memset(&event, 0, sizeof(event));
+
+    event.events = events;
+    event.data.fd = fileDescriptor;
+
+    const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_ADD, fileDescriptor, &event);
+
+    if (subscribeResult != 0)
+    {
+        WTHROW(InternalSocketError, "Error subscribing file descriptor to event poll: ", getLastErrorMessage());
+    }
+}
+
+void EventPoll::modify(const int fileDescriptor, const uint32_t events)
+{
+    ::epoll_event event;
+
+    std::memset(&event, 0, sizeof(event));
+
+    event.events = events;
+    event.data.fd = fileDescriptor;
+
+    const auto modifyResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_MOD, fileDescriptor, &event);
+
+    if (modifyResult != 0)
+    {
+        WTHROW(InternalSocketError, "Error modifying file descriptor event poll: ", getLastErrorMessage());
+    }
+}
+
+void EventPoll::unsubscribe(const int fileDescriptor)
+{
+    const auto event = nullptr;
+
+    const auto unsubscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_DEL, fileDescriptor, event);
+
+    if (unsubscribeResult != 0)
+    {
+        LOG_ERROR("Error unsubscribing file descriptor from event poll: ", getLastErrorMessage());
+    }
+}
+
+int EventPoll::wait(std::vector<::epoll_event>& events)
+{
+    const auto timeout = -1;
+
+    const auto numberOfPendingEvents =
+        ::epoll_wait(eventPollFileDescriptor_, events.data(), static_cast<int>(events.size()), timeout);
+
+    if (numberOfPendingEvents == -1)
+    {
+        WTHROW(InternalSocketError, "Error waiting for event poll: ", getLastErrorMessage());
+    }
+
+    return numberOfPendingEvents;
 }
 
 }

@@ -63,7 +63,8 @@ public:
 
         listeningSocket.connectionCallback(SocketEvent::clientOpen, socketIdentifier_);
 
-        LOG_INFO("Accepted client socket with address ", socket.socket.getIpAddress(), ':', socket.socket.getPort());
+        LOG_INFO("Accepted client socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
+                 ":", socket.socket.getPort());
     }
 
 private:

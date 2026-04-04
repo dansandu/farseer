@@ -1,5 +1,6 @@
 #pragma once
 
+#include "dansandu/farseer/internal/linux/event_poll.hpp"
 #include "dansandu/farseer/internal/linux/task.hpp"
 
 #include <memory>
@@ -17,7 +18,7 @@ public:
     TaskQueue& operator=(const TaskQueue&) = delete;
     TaskQueue& operator=(TaskQueue&&) noexcept = delete;
 
-    explicit TaskQueue(const int eventPollFileDescriptor);
+    explicit TaskQueue(dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll);
 
     ~TaskQueue() noexcept;
 
@@ -28,7 +29,7 @@ public:
     void transfer(std::vector<std::unique_ptr<dansandu::farseer::internal::linux::task::ITask>>& output);
 
 private:
-    const int eventPollFileDescriptor_;
+    dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll_;
     const int eventFileDescriptor_;
     std::vector<std::unique_ptr<dansandu::farseer::internal::linux::task::ITask>> tasks_;
     std::mutex mutex_;
