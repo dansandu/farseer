@@ -52,12 +52,14 @@ public:
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
+            LOG_DEBUG("Sending ", bytes_.size(), " bytes to socket with ID ", socketIdentifier.getUnderlying());
+
             socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()),
                                    &overlapped_);
         }
         else
         {
-            LOG_INFO("Sent bytes using socket ID ", socketIdentifier_.getUnderlying());
+            LOG_INFO("Sent ", bytes_.size(), " bytes to socket with ID ", socketIdentifier_.getUnderlying());
         }
     }
 

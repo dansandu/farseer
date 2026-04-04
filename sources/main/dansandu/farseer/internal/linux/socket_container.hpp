@@ -1,10 +1,12 @@
 #pragma once
 
 #include "dansandu/farseer/common.hpp"
+#include "dansandu/farseer/internal/linux/event_poll.hpp"
 #include "dansandu/farseer/internal/linux/linux_socket.hpp"
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
 
+#include <cstdint>
 #include <map>
 #include <span>
 #include <string>
@@ -30,7 +32,7 @@ public:
     SocketContainer& operator=(const SocketContainer&) = delete;
     SocketContainer& operator=(SocketContainer&& other) noexcept = delete;
 
-    explicit SocketContainer(const int eventPollFileDescriptor);
+    explicit SocketContainer(dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll);
 
     ~SocketContainer() noexcept;
 
@@ -54,7 +56,7 @@ public:
     }
 
 private:
-    Socket& insertSocket(Socket&& socket);
+    Socket& insertSocket(const uint32_t events, Socket&& socket);
 
     Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier);
 
@@ -62,9 +64,9 @@ private:
         Socket& socket, const uint32_t socketEvents,
         dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier>& socketIdentifierSequencer);
 
+    dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll_;
     std::map<SocketIdentifier, Socket> sockets_;
     std::map<int, Socket*> fileDescriptorsToSockets_;
-    const int eventPollFileDescriptor_;
 };
 
 }

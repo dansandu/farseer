@@ -46,7 +46,7 @@ void closeSocketOrLog(const int socket)
 
 }
 
-LinuxSocket LinuxSocket::listen(const std::string& ipAddress, const int port, const int eventPollFileDescriptor)
+LinuxSocket LinuxSocket::listen(const std::string& ipAddress, const int port)
 {
     const auto socket = createSocket();
 
@@ -87,25 +87,10 @@ LinuxSocket LinuxSocket::listen(const std::string& ipAddress, const int port, co
         WTHROW(InternalSocketError, "Error listening to socket: ", getLastErrorMessage());
     }
 
-    ::epoll_event event;
-
-    std::memset(&event, 0, sizeof(event));
-
-    event.events = EPOLLIN | EPOLLET;
-
-    event.data.fd = socket;
-
-    const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor, EPOLL_CTL_ADD, socket, &event);
-
-    if (subscribeResult != 0)
-    {
-        WTHROW(InternalSocketError, "Error subscribing listening socket to event poll: ", getLastErrorMessage());
-    }
-
-    return LinuxSocket{ipAddress, port, socket, eventPollFileDescriptor, SocketType::listening};
+    return LinuxSocket{ipAddress, port, socket, SocketType::listening};
 }
 
-LinuxSocket LinuxSocket::connect(const std::string& ipAddress, const int port, const int eventPollFileDescriptor)
+LinuxSocket LinuxSocket::connect(const std::string& ipAddress, const int port)
 {
     const auto socket = createSocket();
 
@@ -143,31 +128,11 @@ LinuxSocket LinuxSocket::connect(const std::string& ipAddress, const int port, c
         }
     }
 
-    ::epoll_event event;
-
-    std::memset(&event, 0, sizeof(event));
-
-    event.events = EPOLLOUT | EPOLLET;
-
-    event.data.fd = socket;
-
-    const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor, EPOLL_CTL_ADD, socket, &event);
-
-    if (subscribeResult != 0)
-    {
-        WTHROW(InternalSocketError, "Error subscribing connecting socket to event poll: ", getLastErrorMessage());
-    }
-
-    return LinuxSocket{ipAddress, port, socket, eventPollFileDescriptor, SocketType::connection};
+    return LinuxSocket{ipAddress, port, socket, SocketType::connection};
 }
 
-LinuxSocket::LinuxSocket(const std::string& ipAddress, const int port, const int socket,
-                         const int eventPollFileDescriptor, const SocketType socketType)
-    : ipAddress_{ipAddress},
-      port_{port},
-      socket_{socket},
-      eventPollFileDescriptor_{eventPollFileDescriptor},
-      socketType_{socketType}
+LinuxSocket::LinuxSocket(const std::string& ipAddress, const int port, const int socket, const SocketType socketType)
+    : ipAddress_{ipAddress}, port_{port}, socket_{socket}, socketType_{socketType}
 {
 }
 
@@ -175,32 +140,16 @@ LinuxSocket::LinuxSocket(LinuxSocket&& other) noexcept
     : ipAddress_{std::move(other.ipAddress_)},
       port_{other.port_},
       socket_{other.socket_},
-      eventPollFileDescriptor_{other.eventPollFileDescriptor_},
       socketType_{other.socketType_}
 {
     other.ipAddress_.clear();
     other.port_ = 0;
     other.socket_ = invalidFileDescriptor;
-    other.eventPollFileDescriptor_ = invalidFileDescriptor;
     other.socketType_ = SocketType::unbound;
 }
 
 LinuxSocket::~LinuxSocket() noexcept
 {
-    if (socketType_ == SocketType::unbound)
-    {
-        return;
-    }
-
-    const auto event = nullptr;
-
-    const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_DEL, socket_, event);
-
-    if (subscribeResult == -1)
-    {
-        LOG_ERROR("Error unsubscribing socket from event poll: ", getLastErrorMessage());
-    }
-
     closeSocketOrLog(socket_);
 }
 
@@ -213,13 +162,11 @@ LinuxSocket& LinuxSocket::operator=(LinuxSocket&& other) noexcept
         ipAddress_ = std::move(other.ipAddress_);
         port_ = other.port_;
         socket_ = other.socket_;
-        eventPollFileDescriptor_ = other.eventPollFileDescriptor_;
         socketType_ = other.socketType_;
 
         other.ipAddress_.clear();
         other.port_ = 0;
         other.socket_ = invalidFileDescriptor;
-        other.eventPollFileDescriptor_ = invalidFileDescriptor;
         other.socketType_ = SocketType::unbound;
     }
 
@@ -272,22 +219,7 @@ std::optional<LinuxSocket> LinuxSocket::accept()
 
         const auto port = ::ntohs(remoteAddress.sin_port);
 
-        ::epoll_event event;
-
-        std::memset(&event, 0, sizeof(event));
-
-        event.events = EPOLLOUT | EPOLLET;
-
-        event.data.fd = acceptedSocket;
-
-        const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_ADD, acceptedSocket, &event);
-
-        if (subscribeResult != 0)
-        {
-            WTHROW(InternalSocketError, "Error subscribing accepted socket to event poll: ", getLastErrorMessage());
-        }
-
-        return LinuxSocket{ipAddressBuffer, port, acceptedSocket, eventPollFileDescriptor_, SocketType::accepted};
+        return LinuxSocket{ipAddressBuffer, port, acceptedSocket, SocketType::accepted};
     }
 }
 

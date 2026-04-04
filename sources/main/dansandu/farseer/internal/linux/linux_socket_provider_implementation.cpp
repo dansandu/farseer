@@ -16,8 +16,6 @@
 #include "dansandu/farseer/internal/socket_provider_implementation.hpp"
 #include "dansandu/journey/logging.hpp"
 
-#include <sys/epoll.h>
-
 #include <cstring>
 #include <map>
 #include <memory>
@@ -53,8 +51,8 @@ public:
         : socketIdentifierSequencer_{invalidSocketIdentifier.getUnderlying() + 1u},
           protocolSequencer_{},
           eventPoll_{},
-          taskQueue_{eventPoll_.getEventPollFileDescriptor()},
-          socketContainer_{eventPoll_.getEventPollFileDescriptor()},
+          taskQueue_{eventPoll_},
+          socketContainer_{eventPoll_},
           thread_{&LinuxSocketProviderImplementation::consumeEvents, this}
     {
     }
@@ -156,11 +154,9 @@ private:
 
     void consumeEventsWork()
     {
-        const auto eventPollFileDescriptor = eventPoll_.getEventPollFileDescriptor();
-
         const auto eventFileDescriptor = taskQueue_.getEventFileDescriptor();
 
-        auto events = std::vector<epoll_event>{};
+        auto events = std::vector<::epoll_event>{};
 
         // preserve capacity to avoid reallocation
         auto tasksBuffer = std::vector<std::unique_ptr<ITask>>{};
@@ -176,14 +172,7 @@ private:
 
             events.resize(numberOfEvents);
 
-            const auto timeout = -1;
-            const auto numberOfPendingEvents =
-                ::epoll_wait(eventPollFileDescriptor, events.data(), static_cast<int>(events.size()), timeout);
-
-            if (numberOfPendingEvents == -1)
-            {
-                WTHROW(InternalSocketError, "Error waiting for events: ", getLastErrorMessage());
-            }
+            const auto numberOfPendingEvents = eventPoll_.wait(events);
 
             const auto abort = consumeTasks(tasksBuffer);
 

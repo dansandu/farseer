@@ -24,9 +24,9 @@ public:
     LinuxSocket(const LinuxSocket&) = delete;
     LinuxSocket& operator=(const LinuxSocket&) = delete;
 
-    static LinuxSocket listen(const std::string& ipAddress, const int port, const int eventPollFileDescriptor);
+    static LinuxSocket listen(const std::string& ipAddress, const int port);
 
-    static LinuxSocket connect(const std::string& ipAddress, const int port, const int eventPollFileDescriptor);
+    static LinuxSocket connect(const std::string& ipAddress, const int port);
 
     LinuxSocket(LinuxSocket&& other) noexcept;
 
@@ -61,13 +61,11 @@ public:
     }
 
 private:
-    LinuxSocket(const std::string& ipAddress, const int port, const int socket, const int eventPollFileDescriptor,
-                const SocketType socketType);
+    LinuxSocket(const std::string& ipAddress, const int port, const int socket, const SocketType socketType);
 
     std::string ipAddress_;
     int port_;
     int socket_;
-    int eventPollFileDescriptor_;
     SocketType socketType_;
 };
 

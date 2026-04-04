@@ -87,7 +87,8 @@ public:
 
             operationScheduler.scheduleReceiveOperation(socketIdentifier_);
 
-            LOG_INFO("Connected to socket with address ", socket.socket.getIpAddress(), ':', socket.socket.getPort());
+            LOG_INFO("Connected to socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
+                     ":", socket.socket.getPort());
         }
     }
 

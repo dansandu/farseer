@@ -220,7 +220,7 @@ std::string generateProtocolCppSource(const ProtocolDefinition& protocol)
     for (const auto& message : protocol.messages)
     {
         stream
-            << "const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = \n"
+            << "const auto DANSANDU_JOURNEY_UNIQUE_NAME =\n"
             << "    "
                "::dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerMessageProtocol<"
             << cppNamespace << "::" << message.name << ">();\n\n";
@@ -229,7 +229,7 @@ std::string generateProtocolCppSource(const ProtocolDefinition& protocol)
     for (const auto& request : protocol.requests)
     {
         stream
-            << "const auto DANSANDU_JOURNEY_UNIQUE_NAME(dansandu_farseer_internal_cpp_protocol_registrar) = \n"
+            << "const auto DANSANDU_JOURNEY_UNIQUE_NAME =\n"
             << "    "
                "::dansandu::farseer::protocol_registry::ProtocolRegistry::getGlobalInstance().registerRequestProtocol<"
             << cppNamespace << "::" << request.name << ">();\n\n";

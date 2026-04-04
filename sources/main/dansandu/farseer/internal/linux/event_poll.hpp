@@ -1,5 +1,10 @@
 #pragma once
 
+#include <sys/epoll.h>
+
+#include <cstdint>
+#include <vector>
+
 namespace dansandu::farseer::internal::linux::event_poll
 {
 
@@ -15,10 +20,13 @@ public:
 
     ~EventPoll() noexcept;
 
-    int getEventPollFileDescriptor() const
-    {
-        return eventPollFileDescriptor_;
-    }
+    void subscribe(const int fileDescriptor, const uint32_t events);
+
+    void modify(const int fileDescriptor, const uint32_t events);
+
+    void unsubscribe(const int fileDescriptor);
+
+    int wait(std::vector<::epoll_event>& events);
 
 private:
     const int eventPollFileDescriptor_;
