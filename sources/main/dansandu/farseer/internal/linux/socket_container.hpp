@@ -32,7 +32,9 @@ public:
     SocketContainer& operator=(const SocketContainer&) = delete;
     SocketContainer& operator=(SocketContainer&& other) noexcept = delete;
 
-    explicit SocketContainer(dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll);
+    explicit SocketContainer(
+        dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll,
+        dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier>& socketIdentifierSequencer);
 
     ~SocketContainer() noexcept;
 
@@ -42,13 +44,11 @@ public:
     void connect(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
                  ConnectionCallback&& connectionCallback);
 
-    void sendBytes(const SocketIdentifier socketIdentifier, const std::span<uint8_t> bytes);
+    void sendBytes(const SocketIdentifier socketIdentifier, const std::span<const uint8_t> bytes);
 
     void eraseSocket(const SocketIdentifier socketIdentifier);
 
-    void
-    handleSocketEvent(const int socketFileDescriptor, const uint32_t socketEvents,
-                      dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier>& socketIdentifierSequencer);
+    void handleSocketEvents(const int socketFileDescriptor, const uint32_t socketEvents);
 
     size_t getNumberOfSockets() const
     {
@@ -60,11 +60,16 @@ private:
 
     Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier);
 
-    void handleSocketEventWork(
-        Socket& socket, const uint32_t socketEvents,
-        dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier>& socketIdentifierSequencer);
+    void handleListeningSocketEvents(Socket& socket);
+
+    void handleConnectingSocketEvents(Socket& socket);
+
+    void handleConnectedSocketEvents(Socket& socket, const uint32_t socketEvents);
+
+    void handleSocketEventsWork(Socket& socket, const uint32_t socketEvents);
 
     dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll_;
+    dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier>& socketIdentifierSequencer_;
     std::map<SocketIdentifier, Socket> sockets_;
     std::map<int, Socket*> fileDescriptorsToSockets_;
 };

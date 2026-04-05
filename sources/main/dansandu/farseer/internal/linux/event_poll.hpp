@@ -22,7 +22,7 @@ public:
 
     void subscribe(const int fileDescriptor, const uint32_t events);
 
-    void modify(const int fileDescriptor, const uint32_t events);
+    void setEvents(const int fileDescriptor, const uint32_t events);
 
     void unsubscribe(const int fileDescriptor);
 

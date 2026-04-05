@@ -63,7 +63,7 @@ void EventPoll::subscribe(const int fileDescriptor, const uint32_t events)
     }
 }
 
-void EventPoll::modify(const int fileDescriptor, const uint32_t events)
+void EventPoll::setEvents(const int fileDescriptor, const uint32_t events)
 {
     ::epoll_event event;
 
@@ -76,7 +76,7 @@ void EventPoll::modify(const int fileDescriptor, const uint32_t events)
 
     if (modifyResult != 0)
     {
-        WTHROW(InternalSocketError, "Error modifying file descriptor event poll: ", getLastErrorMessage());
+        WTHROW(InternalSocketError, "Error setting file descriptor events for event poll: ", getLastErrorMessage());
     }
 }
 
