@@ -14,7 +14,8 @@ enum class SocketType
     unbound,
     listening,
     accepted,
-    connection,
+    connecting,
+    connected,
 };
 
 class LinuxSocket
@@ -36,7 +37,9 @@ public:
 
     std::optional<LinuxSocket> accept();
 
-    void sendBytes(const std::span<uint8_t> bytes);
+    void connected();
+
+    bool sendBytes(const std::span<const uint8_t> bytes);
 
     std::vector<uint8_t> receiveBytes();
 
@@ -63,6 +66,7 @@ public:
 private:
     LinuxSocket(const std::string& ipAddress, const int port, const int socket, const SocketType socketType);
 
+    std::vector<uint8_t> outgoingBuffer_;
     std::string ipAddress_;
     int port_;
     int socket_;

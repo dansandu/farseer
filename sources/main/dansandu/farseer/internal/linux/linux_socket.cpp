@@ -128,20 +128,22 @@ LinuxSocket LinuxSocket::connect(const std::string& ipAddress, const int port)
         }
     }
 
-    return LinuxSocket{ipAddress, port, socket, SocketType::connection};
+    return LinuxSocket{ipAddress, port, socket, SocketType::connecting};
 }
 
 LinuxSocket::LinuxSocket(const std::string& ipAddress, const int port, const int socket, const SocketType socketType)
-    : ipAddress_{ipAddress}, port_{port}, socket_{socket}, socketType_{socketType}
+    : outgoingBuffer_{}, ipAddress_{ipAddress}, port_{port}, socket_{socket}, socketType_{socketType}
 {
 }
 
 LinuxSocket::LinuxSocket(LinuxSocket&& other) noexcept
-    : ipAddress_{std::move(other.ipAddress_)},
+    : outgoingBuffer_{std::move(other.outgoingBuffer_)},
+      ipAddress_{std::move(other.ipAddress_)},
       port_{other.port_},
       socket_{other.socket_},
       socketType_{other.socketType_}
 {
+    other.outgoingBuffer_.clear();
     other.ipAddress_.clear();
     other.port_ = 0;
     other.socket_ = invalidFileDescriptor;
@@ -159,11 +161,13 @@ LinuxSocket& LinuxSocket::operator=(LinuxSocket&& other) noexcept
     {
         closeSocketOrLog(socket_);
 
+        outgoingBuffer_ = std::move(other.outgoingBuffer_);
         ipAddress_ = std::move(other.ipAddress_);
         port_ = other.port_;
         socket_ = other.socket_;
         socketType_ = other.socketType_;
 
+        other.outgoingBuffer_.clear();
         other.ipAddress_.clear();
         other.port_ = 0;
         other.socket_ = invalidFileDescriptor;
@@ -223,38 +227,51 @@ std::optional<LinuxSocket> LinuxSocket::accept()
     }
 }
 
-void LinuxSocket::sendBytes(const std::span<uint8_t> bytes)
+void LinuxSocket::connected()
 {
-    if (socketType_ == SocketType::unbound)
+    socketType_ = SocketType::connected;
+}
+
+bool LinuxSocket::sendBytes(const std::span<const uint8_t> bytes)
+{
+    if (socketType_ != SocketType::accepted && socketType_ != SocketType::connected)
     {
-        WTHROW(InternalSocketError, "Cannot send bytes to unbound socket");
+        WTHROW(InternalSocketError, "Can only send bytes to an accepted or connected socket");
     }
 
-    if (socketType_ == SocketType::listening)
+    outgoingBuffer_.insert(outgoingBuffer_.end(), bytes.begin(), bytes.end());
+
+    if (outgoingBuffer_.empty())
     {
-        WTHROW(InternalSocketError, "Cannot send bytes to listening socket");
+        return true;
     }
 
     const auto flags = 0;
 
-    const auto sendResult = ::send(socket_, bytes.data(), bytes.size(), flags);
+    const auto numberOfBytesSent = ::send(socket_, outgoingBuffer_.data(), outgoingBuffer_.size(), flags);
 
-    if (sendResult == -1)
+    if (numberOfBytesSent == -1)
     {
-        WTHROW(InternalSocketError, "Error sending bytes to socket: ", getLastErrorMessage());
+        const auto errorCode = errno;
+
+        if (errorCode == EAGAIN || errorCode == EWOULDBLOCK)
+        {
+            return false;
+        }
+
+        WTHROW(InternalSocketError, "Error sending bytes to socket: ", getErrorMessage(errorCode));
     }
+
+    outgoingBuffer_.erase(outgoingBuffer_.begin(), outgoingBuffer_.begin() + numberOfBytesSent);
+
+    return numberOfBytesSent == static_cast<ssize_t>(outgoingBuffer_.size());
 }
 
 std::vector<uint8_t> LinuxSocket::receiveBytes()
 {
-    if (socketType_ == SocketType::unbound)
+    if (socketType_ != SocketType::accepted && socketType_ != SocketType::connected)
     {
-        WTHROW(InternalSocketError, "Cannot receive bytes from unbound socket");
-    }
-
-    if (socketType_ == SocketType::listening)
-    {
-        WTHROW(InternalSocketError, "Cannot receive bytes from listening socket");
+        WTHROW(InternalSocketError, "Can only receive bytes from an accepted or connected socket");
     }
 
     auto result = std::vector<uint8_t>{};
@@ -267,9 +284,13 @@ std::vector<uint8_t> LinuxSocket::receiveBytes()
 
     while (true)
     {
-        const auto receiveResult = ::recv(socket_, buffer, maximumBufferSize, flags);
+        const auto numberOfBytesReceived = ::recv(socket_, buffer, maximumBufferSize, flags);
 
-        if (receiveResult == -1)
+        if (numberOfBytesReceived == 0)
+        {
+            WTHROW(InternalSocketError, "Socket receive buffer was closed");
+        }
+        else if (numberOfBytesReceived == -1)
         {
             const auto errorCode = errno;
 
@@ -282,7 +303,7 @@ std::vector<uint8_t> LinuxSocket::receiveBytes()
         }
         else
         {
-            result.insert(result.end(), buffer, buffer + receiveResult);
+            result.insert(result.end(), buffer, buffer + numberOfBytesReceived);
         }
     }
 

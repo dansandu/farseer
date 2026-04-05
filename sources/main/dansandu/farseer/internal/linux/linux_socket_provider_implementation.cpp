@@ -52,7 +52,7 @@ public:
           protocolSequencer_{},
           eventPoll_{},
           taskQueue_{eventPoll_},
-          socketContainer_{eventPoll_},
+          socketContainer_{eventPoll_, socketIdentifierSequencer_},
           thread_{&LinuxSocketProviderImplementation::consumeEvents, this}
     {
     }
@@ -197,8 +197,7 @@ private:
                 }
                 else
                 {
-                    socketContainer_.handleSocketEvent(events[index].data.fd, events[index].events,
-                                                       socketIdentifierSequencer_);
+                    socketContainer_.handleSocketEvents(events[index].data.fd, events[index].events);
                 }
             }
 
