@@ -3,11 +3,15 @@
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/exception.hpp"
+#include "dansandu/farseer/internal/linux/close_task.hpp"
 #include "dansandu/farseer/internal/linux/connect_task.hpp"
 #include "dansandu/farseer/internal/linux/error.hpp"
 #include "dansandu/farseer/internal/linux/event_poll.hpp"
 #include "dansandu/farseer/internal/linux/listen_task.hpp"
+#include "dansandu/farseer/internal/linux/register_message_consumer_task.hpp"
+#include "dansandu/farseer/internal/linux/register_request_callback_task.hpp"
 #include "dansandu/farseer/internal/linux/send_bytes_task.hpp"
+#include "dansandu/farseer/internal/linux/send_request_task.hpp"
 #include "dansandu/farseer/internal/linux/socket_container.hpp"
 #include "dansandu/farseer/internal/linux/task.hpp"
 #include "dansandu/farseer/internal/linux/task_queue.hpp"
@@ -25,11 +29,15 @@
 #include <vector>
 
 using dansandu::farseer::exception::InternalSocketError;
+using dansandu::farseer::internal::linux::close_task::createCloseTask;
 using dansandu::farseer::internal::linux::connect_task::createConnectTask;
 using dansandu::farseer::internal::linux::error::getLastErrorMessage;
 using dansandu::farseer::internal::linux::event_poll::EventPoll;
 using dansandu::farseer::internal::linux::listen_task::createListenTask;
+using dansandu::farseer::internal::linux::register_message_consumer_task::createRegisterMessageConsumerTask;
+using dansandu::farseer::internal::linux::register_request_callback_task::createRegisterRequestCallbackTask;
 using dansandu::farseer::internal::linux::send_bytes_task::createSendBytesTask;
+using dansandu::farseer::internal::linux::send_request_task::createSendRequestTask;
 using dansandu::farseer::internal::linux::socket_container::SocketContainer;
 using dansandu::farseer::internal::linux::task::ITask;
 using dansandu::farseer::internal::linux::task_queue::TaskQueue;
@@ -85,30 +93,30 @@ public:
         taskQueue_.insert(createSendBytesTask(socketIdentifier, std::move(bytes)));
     }
 
-    void sendRequest(const SocketIdentifier, const ProtocolSequenceNumber, std::vector<uint8_t>&&,
-                     UniqueFunction<void(std::any&&)>&&) override
+    void sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+                     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer) override
     {
-        // operations_.createSendRequestOperation(socketIdentifier, sequenceNumber, std::move(bytes),
-        //                                        std::move(expectedResponseConsumer));
+        taskQueue_.insert(createSendRequestTask(socketIdentifier, protocolSequenceNumber, std::move(bytes),
+                                                std::move(responseConsumer)));
     }
 
-    void registerMessageConsumer(const SocketIdentifier, const ProtocolIdentifier,
-                                 UniqueFunction<void(std::any&&)>&&) override
+    void registerMessageConsumer(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+                                 UniqueFunction<void(std::any&&)>&& messageConsumer) override
     {
-        // operations_.createRegisterMessageConsumerOperation(socketIdentifier, protocolIdentifier,
-        //                                                    std::move(messageConsumer));
+        taskQueue_.insert(
+            createRegisterMessageConsumerTask(socketIdentifier, protocolIdentifier, std::move(messageConsumer)));
     }
 
-    void registerRequestCallback(const SocketIdentifier, const ProtocolIdentifier,
-                                 UniqueFunction<std::any(std::any&&)>&&) override
+    void registerRequestCallback(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+                                 UniqueFunction<std::any(std::any&&)>&& requestCallback) override
     {
-        // operations_.createRegisterRequestCallbackOperation(socketIdentifier, protocolIdentifier,
-        //                                                    std::move(requestCallback));
+        taskQueue_.insert(
+            createRegisterRequestCallbackTask(socketIdentifier, protocolIdentifier, std::move(requestCallback)));
     }
 
-    void close(const SocketIdentifier) override
+    void close(const SocketIdentifier socketIdentifier) override
     {
-        // operations_.createCloseOperation(socketIdentifier);
+        taskQueue_.insert(createCloseTask(socketIdentifier));
     }
 
     ProtocolSequenceNumber generateSequenceNumber() override

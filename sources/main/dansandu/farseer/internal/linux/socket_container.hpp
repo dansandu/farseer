@@ -6,6 +6,7 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
 
+#include <any>
 #include <cstdint>
 #include <map>
 #include <span>
@@ -38,27 +39,35 @@ public:
 
     ~SocketContainer() noexcept;
 
+    size_t getNumberOfSockets() const;
+
     void listen(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
                 ConnectionCallback&& connectionCallback);
 
     void connect(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
                  ConnectionCallback&& connectionCallback);
 
+    void registerMessageConsumer(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+                                 UniqueFunction<void(std::any&&)>&& messageConsumer);
+
+    void registerRequestCallback(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+                                 UniqueFunction<std::any(std::any&&)>&& requestConsumer);
+
     void sendBytes(const SocketIdentifier socketIdentifier, const std::span<const uint8_t> bytes);
+
+    void sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+                     const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer);
 
     void eraseSocket(const SocketIdentifier socketIdentifier);
 
     void handleSocketEvents(const int socketFileDescriptor, const uint32_t socketEvents);
 
-    size_t getNumberOfSockets() const
-    {
-        return sockets_.size();
-    }
-
 private:
     Socket& insertSocket(const uint32_t events, Socket&& socket);
 
     Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier);
+
+    void sendBytes(Socket& socket, const std::span<const uint8_t> bytes);
 
     void handleListeningSocketEvents(Socket& socket);
 

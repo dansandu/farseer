@@ -33,6 +33,11 @@ SocketContainer::~SocketContainer() noexcept
     }
 }
 
+size_t SocketContainer::getNumberOfSockets() const
+{
+    return sockets_.size();
+}
+
 Socket& SocketContainer::insertSocket(const uint32_t events, Socket&& socket)
 {
     const auto socketIdentifier = socket.socketIdentifier;
@@ -113,20 +118,66 @@ void SocketContainer::connect(const SocketIdentifier socketIdentifier, const std
                  });
 }
 
+void SocketContainer::registerMessageConsumer(const SocketIdentifier socketIdentifier,
+                                              const ProtocolIdentifier protocolIdentifier,
+                                              UniqueFunction<void(std::any&&)>&& messageConsumer)
+
+{
+    auto& socket = getSocketOrThrow(socketIdentifier);
+
+    socket.protocolReader.registerMessageConsumer(protocolIdentifier, std::move(messageConsumer));
+
+    LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier.getUnderlying(),
+             " and socket socket ID ", socketIdentifier.getUnderlying());
+}
+
+void SocketContainer::registerRequestCallback(const SocketIdentifier socketIdentifier,
+                                              const ProtocolIdentifier protocolIdentifier,
+                                              UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+{
+    auto& socket = getSocketOrThrow(socketIdentifier);
+
+    socket.protocolReader.registerRequestConsumer(protocolIdentifier, std::move(requestConsumer));
+
+    LOG_INFO("Registered request consumer with protocol ID ", protocolIdentifier.getUnderlying(), " and socket ID ",
+             socketIdentifier.getUnderlying());
+}
+
+void SocketContainer::sendBytes(Socket& socket, const std::span<const uint8_t> bytes)
+{
+    LOG_DEBUG("Sending ", bytes.size(), " bytes to socket with ID ", socket.socketIdentifier.getUnderlying());
+
+    const auto exhausted = socket.socket.sendBytes(bytes);
+
+    if (exhausted)
+    {
+        eventPoll_.setEvents(socket.socket.getSocketFileDescriptor(), EPOLLIN | EPOLLET);
+    }
+    else
+    {
+        LOG_DEBUG("Bytes sent to socket with ID ", socket.socketIdentifier.getUnderlying(), " were not exhausted");
+
+        eventPoll_.setEvents(socket.socket.getSocketFileDescriptor(), EPOLLIN | EPOLLOUT | EPOLLET);
+    }
+}
+
 void SocketContainer::sendBytes(const SocketIdentifier socketIdentifier, const std::span<const uint8_t> bytes)
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
-    LOG_DEBUG("Sending ", bytes.size(), " bytes to socket with ID ", socketIdentifier.getUnderlying());
+    sendBytes(socket, bytes);
+}
 
-    const auto exhausted = socket.socket.sendBytes(bytes);
+void SocketContainer::sendRequest(const SocketIdentifier socketIdentifier,
+                                  const ProtocolSequenceNumber protocolSequenceNumber,
+                                  const std::span<const uint8_t> bytes,
+                                  UniqueFunction<void(std::any&&)>&& responseConsumer)
+{
+    auto& socket = getSocketOrThrow(socketIdentifier);
 
-    if (!exhausted)
-    {
-        LOG_DEBUG("Bytes sent to socket with ID ", socketIdentifier.getUnderlying(), " were not exhausted");
+    socket.protocolReader.registerOneShotResponseConsumer(protocolSequenceNumber, std::move(responseConsumer));
 
-        eventPoll_.setEvents(socket.socket.getSocketFileDescriptor(), EPOLLIN | EPOLLOUT | EPOLLET);
-    }
+    sendBytes(socket, bytes);
 }
 
 void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
@@ -229,27 +280,35 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
 {
     if (socketEvents & EPOLLIN)
     {
-        const auto receivedBytes = socket.socket.receiveBytes();
+        LOG_DEBUG("Receiving bytes from socket with ID ", socket.socketIdentifier.getUnderlying(), " and address ",
+                  socket.socket.getIpAddress(), ":", socket.socket.getPort());
+
+        const auto [receivedBytes, closed] = socket.socket.receiveBytes();
 
         LOG_INFO("Received bytes ", receivedBytes.size(), " from socket with ID ",
                  socket.socketIdentifier.getUnderlying(), " and address ", socket.socket.getIpAddress(), ":",
                  socket.socket.getPort());
 
-        socket.protocolReader.read(socket.socketIdentifier, receivedBytes);
+        if (socket.listeningSocketIdentifier != invalidSocketIdentifier)
+        {
+            auto& listeningSocket = getSocketOrThrow(socket.listeningSocketIdentifier);
+
+            listeningSocket.protocolReader.read(socket.socketIdentifier, receivedBytes);
+        }
+        else
+        {
+            socket.protocolReader.read(socket.socketIdentifier, receivedBytes);
+        }
+
+        if (closed)
+        {
+            eraseSocket(socket.socketIdentifier);
+        }
     }
 
     if (socketEvents & EPOLLOUT)
     {
-        const auto exhausted = socket.socket.sendBytes({});
-
-        if (exhausted)
-        {
-            eventPoll_.setEvents(socket.socket.getSocketFileDescriptor(), EPOLLIN | EPOLLET);
-        }
-        else
-        {
-            LOG_DEBUG("Bytes sent to socket with ID ", socket.socketIdentifier.getUnderlying(), " were not exhausted");
-        }
+        sendBytes(socket, {});
     }
 }
 

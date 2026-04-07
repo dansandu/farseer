@@ -41,7 +41,7 @@ public:
 
     bool sendBytes(const std::span<const uint8_t> bytes);
 
-    std::vector<uint8_t> receiveBytes();
+    std::pair<std::vector<uint8_t>, bool> receiveBytes();
 
     const std::string& getIpAddress() const
     {

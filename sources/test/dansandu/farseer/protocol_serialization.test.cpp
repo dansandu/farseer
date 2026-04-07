@@ -4,9 +4,9 @@
 
 using dansandu::farseer::Expected;
 using dansandu::farseer::ProtocolSequenceNumber;
-using dansandu::farseer::protocol_serialization::serializeExpectedResponseProtocol;
 using dansandu::farseer::protocol_serialization::serializeMessageProtocol;
 using dansandu::farseer::protocol_serialization::serializeRequestProtocol;
+using dansandu::farseer::protocol_serialization::serializeResponseProtocol;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::MyRequest;
@@ -105,7 +105,7 @@ TEST_CASE("protocol_serialization")
 
             const auto sequenceNumber = ProtocolSequenceNumber{0xF15D};
 
-            const auto bytes = serializeExpectedResponseProtocol<Response>(response, sequenceNumber);
+            const auto bytes = serializeResponseProtocol<Response>(response, sequenceNumber);
 
             REQUIRE(bytes.size() == 56uz);
 
@@ -128,7 +128,7 @@ TEST_CASE("protocol_serialization")
 
             const auto sequenceNumber = ProtocolSequenceNumber{0x29B};
 
-            const auto bytes = serializeExpectedResponseProtocol<Response>(response, sequenceNumber);
+            const auto bytes = serializeResponseProtocol<Response>(response, sequenceNumber);
 
             REQUIRE(bytes.size() == 37uz);
 

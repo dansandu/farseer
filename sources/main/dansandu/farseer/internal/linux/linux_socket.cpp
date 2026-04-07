@@ -7,6 +7,7 @@
 
 #include <arpa/inet.h>
 #include <cstring>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -212,6 +213,20 @@ std::optional<LinuxSocket> LinuxSocket::accept()
             WTHROW(InternalSocketError, "Accept failed because the address wouldn't fit the buffer");
         }
 
+        const auto getFlagsResult = ::fcntl(acceptedSocket, F_GETFL);
+
+        if (getFlagsResult == -1)
+        {
+            WTHROW(InternalSocketError, "Error getting socket flags: ", getLastErrorMessage());
+        }
+
+        const auto setFlagsResult = ::fcntl(acceptedSocket, F_SETFL, getFlagsResult | O_NONBLOCK);
+
+        if (setFlagsResult == -1)
+        {
+            WTHROW(InternalSocketError, "Error setting socket flags: ", getLastErrorMessage());
+        }
+
         char ipAddressBuffer[INET_ADDRSTRLEN];
 
         const auto netResult = ::inet_ntop(AF_INET, &remoteAddress.sin_addr, ipAddressBuffer, INET_ADDRSTRLEN);
@@ -262,19 +277,23 @@ bool LinuxSocket::sendBytes(const std::span<const uint8_t> bytes)
         WTHROW(InternalSocketError, "Error sending bytes to socket: ", getErrorMessage(errorCode));
     }
 
+    const auto exhausted = numberOfBytesSent == static_cast<ssize_t>(outgoingBuffer_.size());
+
     outgoingBuffer_.erase(outgoingBuffer_.begin(), outgoingBuffer_.begin() + numberOfBytesSent);
 
-    return numberOfBytesSent == static_cast<ssize_t>(outgoingBuffer_.size());
+    return exhausted;
 }
 
-std::vector<uint8_t> LinuxSocket::receiveBytes()
+std::pair<std::vector<uint8_t>, bool> LinuxSocket::receiveBytes()
 {
     if (socketType_ != SocketType::accepted && socketType_ != SocketType::connected)
     {
         WTHROW(InternalSocketError, "Can only receive bytes from an accepted or connected socket");
     }
 
-    auto result = std::vector<uint8_t>{};
+    auto result = std::pair<std::vector<uint8_t>, bool>{};
+
+    result.second = false;
 
     constexpr auto maximumBufferSize = 4096uz;
 
@@ -288,7 +307,8 @@ std::vector<uint8_t> LinuxSocket::receiveBytes()
 
         if (numberOfBytesReceived == 0)
         {
-            WTHROW(InternalSocketError, "Socket receive buffer was closed");
+            result.second = true;
+            return result;
         }
         else if (numberOfBytesReceived == -1)
         {
@@ -303,7 +323,7 @@ std::vector<uint8_t> LinuxSocket::receiveBytes()
         }
         else
         {
-            result.insert(result.end(), buffer, buffer + numberOfBytesReceived);
+            result.first.insert(result.first.end(), buffer, buffer + numberOfBytesReceived);
         }
     }
 
