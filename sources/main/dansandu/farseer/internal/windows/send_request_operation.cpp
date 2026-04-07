@@ -14,11 +14,11 @@ class SendRequestOperation : public Operation
 {
 public:
     SendRequestOperation(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-                         std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
+                         std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer)
         : Operation{socketIdentifier},
           protocolSequenceNumber_{protocolSequenceNumber},
           bytes_{std::move(bytes)},
-          expectedResponseConsumer_{std::move(expectedResponseConsumer)},
+          responseConsumer_{std::move(responseConsumer)},
           sendBytesPending_{false}
     {
     }
@@ -55,8 +55,8 @@ public:
 
             auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
 
-            socket.protocolReader.registerOneShotExpectedResponseConsumer(protocolSequenceNumber_,
-                                                                          std::move(expectedResponseConsumer_));
+            socket.protocolReader.registerOneShotResponseConsumer(protocolSequenceNumber_,
+                                                                  std::move(responseConsumer_));
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
@@ -72,17 +72,17 @@ public:
 private:
     ProtocolSequenceNumber protocolSequenceNumber_;
     std::vector<uint8_t> bytes_;
-    UniqueFunction<void(std::any&&)> expectedResponseConsumer_;
+    UniqueFunction<void(std::any&&)> responseConsumer_;
     bool sendBytesPending_;
 };
 
 std::unique_ptr<Operation> createSendRequestOperation(const SocketIdentifier socketIdentifier,
                                                       const ProtocolSequenceNumber protocolSequenceNumber,
                                                       std::vector<uint8_t>&& bytes,
-                                                      UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
+                                                      UniqueFunction<void(std::any&&)>&& responseConsumer)
 {
     return std::make_unique<SendRequestOperation>(socketIdentifier, protocolSequenceNumber, std::move(bytes),
-                                                  std::move(expectedResponseConsumer));
+                                                  std::move(responseConsumer));
 }
 
 }

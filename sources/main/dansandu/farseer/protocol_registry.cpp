@@ -39,7 +39,7 @@ void ProtocolRegistry::registerMessageProtocol(const ProtocolIdentifier identifi
         protocolDescriptors_.insert({identifier, ProtocolDescriptor{
                                                      .protocolType = ProtocolType::message,
                                                      .protocolDeserializer = deserializer,
-                                                     .expectedResponseSerializer = nullptr,
+                                                     .responseSerializer = nullptr,
                                                  }});
     if (!inserted)
     {
@@ -51,15 +51,15 @@ void ProtocolRegistry::registerMessageProtocol(const ProtocolIdentifier identifi
 void ProtocolRegistry::registerRequestProtocol(const ProtocolIdentifier requestIdentifier,
                                                const ProtocolDeserializer requestDeserializer,
                                                const ProtocolIdentifier responseIdentifier,
-                                               const ProtocolDeserializer expectedResponseDeserializer,
-                                               const ExpectedResponseProtocolSerializer expectedResponseSerializer)
+                                               const ProtocolDeserializer responseDeserializer,
+                                               const ResponseProtocolSerializer responseSerializer)
 {
     const auto lock = std::lock_guard<std::mutex>{mutex_};
     const auto [requestPosition, requestInserted] =
         protocolDescriptors_.insert({requestIdentifier, ProtocolDescriptor{
                                                             .protocolType = ProtocolType::request,
                                                             .protocolDeserializer = requestDeserializer,
-                                                            .expectedResponseSerializer = expectedResponseSerializer,
+                                                            .responseSerializer = responseSerializer,
                                                         }});
     if (!requestInserted)
     {
@@ -72,8 +72,8 @@ void ProtocolRegistry::registerRequestProtocol(const ProtocolIdentifier requestI
     const auto [responsePosition, responseInserted] =
         protocolDescriptors_.insert({responseIdentifier, ProtocolDescriptor{
                                                              .protocolType = ProtocolType::response,
-                                                             .protocolDeserializer = expectedResponseDeserializer,
-                                                             .expectedResponseSerializer = nullptr,
+                                                             .protocolDeserializer = responseDeserializer,
+                                                             .responseSerializer = nullptr,
                                                          }});
     if (!responseInserted)
     {

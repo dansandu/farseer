@@ -14,7 +14,7 @@ class ProtocolReader
 {
 public:
     explicit ProtocolReader(
-        UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& serializedExpectedResponseConsumer);
+        UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& serializedResponseConsumer);
 
     void registerMessageConsumer(const ProtocolIdentifier messageIdentifier,
                                  UniqueFunction<void(std::any&&)>&& messageConsumer);
@@ -22,8 +22,8 @@ public:
     void registerRequestConsumer(const ProtocolIdentifier requestIdentifier,
                                  UniqueFunction<std::any(std::any&&)>&& requestConsumer);
 
-    void registerOneShotExpectedResponseConsumer(const ProtocolSequenceNumber sequenceNumber,
-                                                 UniqueFunction<void(std::any&&)>&& expectedResponseConsumer);
+    void registerOneShotResponseConsumer(const ProtocolSequenceNumber sequenceNumber,
+                                         UniqueFunction<void(std::any&&)>&& responseConsumer);
 
     void read(const SocketIdentifier receivingSocketIdentifier, const std::span<const uint8_t> bytes);
 
@@ -38,14 +38,14 @@ private:
                      const dansandu::farseer::protocol_registry::ProtocolDescriptor& requestDescriptor,
                      size_t& bitsOffset);
 
-    void readExpectedResponse(const ProtocolIdentifier responseIdentifier,
-                              const dansandu::farseer::protocol_registry::ProtocolDescriptor& responseDescriptor,
-                              size_t& bitsOffset);
+    void readResponse(const ProtocolIdentifier responseIdentifier,
+                      const dansandu::farseer::protocol_registry::ProtocolDescriptor& responseDescriptor,
+                      size_t& bitsOffset);
 
-    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)> serializedExpectedResponseConsumer_;
+    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)> serializedResponseConsumer_;
     std::map<ProtocolIdentifier, UniqueFunction<void(std::any&&)>> messageConsumers_;
     std::map<ProtocolIdentifier, UniqueFunction<std::any(std::any&&)>> requestConsumers_;
-    std::map<ProtocolSequenceNumber, UniqueFunction<void(std::any&&)>> oneShotExpectedResponseConsumers_;
+    std::map<ProtocolSequenceNumber, UniqueFunction<void(std::any&&)>> oneShotResponseConsumers_;
     std::vector<uint8_t> buffer_;
 };
 

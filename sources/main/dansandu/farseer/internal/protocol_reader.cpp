@@ -17,8 +17,8 @@ namespace dansandu::farseer::internal::protocol_reader
 {
 
 ProtocolReader::ProtocolReader(
-    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& serializedExpectedResponseConsumer)
-    : serializedExpectedResponseConsumer_{std::move(serializedExpectedResponseConsumer)}
+    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& serializedResponseConsumer)
+    : serializedResponseConsumer_{std::move(serializedResponseConsumer)}
 {
 }
 
@@ -60,12 +60,12 @@ void ProtocolReader::registerRequestConsumer(const ProtocolIdentifier requestIde
     }
 }
 
-void ProtocolReader::registerOneShotExpectedResponseConsumer(
-    const ProtocolSequenceNumber sequenceNumber, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
+void ProtocolReader::registerOneShotResponseConsumer(const ProtocolSequenceNumber sequenceNumber,
+                                                     UniqueFunction<void(std::any&&)>&& responseConsumer)
 {
-    if (!oneShotExpectedResponseConsumers_.contains(sequenceNumber))
+    if (!oneShotResponseConsumers_.contains(sequenceNumber))
     {
-        oneShotExpectedResponseConsumers_.insert({sequenceNumber, std::move(expectedResponseConsumer)});
+        oneShotResponseConsumers_.insert({sequenceNumber, std::move(responseConsumer)});
     }
     else
     {
@@ -129,12 +129,11 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
         const auto consumerPosition = requestConsumers_.find(requestIdentifier);
         if (consumerPosition != requestConsumers_.cend())
         {
-            const auto expectedResponse = consumerPosition->second(std::move(request));
+            const auto response = consumerPosition->second(std::move(request));
 
-            auto serializedExpectedResponse =
-                requestDescriptor.expectedResponseSerializer(expectedResponse, sequenceNumber);
+            auto serializedResponse = requestDescriptor.responseSerializer(response, sequenceNumber);
 
-            serializedExpectedResponseConsumer_(receivingSocketIdentifier, std::move(serializedExpectedResponse));
+            serializedResponseConsumer_(receivingSocketIdentifier, std::move(serializedResponse));
         }
         else
         {
@@ -149,25 +148,25 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
     }
 }
 
-void ProtocolReader::readExpectedResponse(const ProtocolIdentifier responseIdentifier,
-                                          const ProtocolDescriptor& responseDescriptor, size_t& bitsOffset)
+void ProtocolReader::readResponse(const ProtocolIdentifier responseIdentifier,
+                                  const ProtocolDescriptor& responseDescriptor, size_t& bitsOffset)
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
 
-    auto expectedResponse = std::any{};
+    auto response = std::any{};
 
-    if (responseDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, expectedResponse))
+    if (responseDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, response))
     {
-        LOG_DEBUG("Successfully read expected response protocol ", responseIdentifier.getUnderlying());
+        LOG_DEBUG("Successfully read response protocol ", responseIdentifier.getUnderlying());
 
         eraseBits(bitsOffset);
 
-        const auto consumerPosition = oneShotExpectedResponseConsumers_.find(sequenceNumber);
-        if (consumerPosition != oneShotExpectedResponseConsumers_.cend())
+        const auto consumerPosition = oneShotResponseConsumers_.find(sequenceNumber);
+        if (consumerPosition != oneShotResponseConsumers_.cend())
         {
-            SCOPE_EXIT([&]() { oneShotExpectedResponseConsumers_.erase(consumerPosition); });
+            SCOPE_EXIT([&]() { oneShotResponseConsumers_.erase(consumerPosition); });
 
-            consumerPosition->second(std::move(expectedResponse));
+            consumerPosition->second(std::move(response));
         }
         else
         {
@@ -177,8 +176,8 @@ void ProtocolReader::readExpectedResponse(const ProtocolIdentifier responseIdent
     }
     else
     {
-        LOG_DEBUG("Buffer does not have enough bytes to read expected response protocol ",
-                  responseIdentifier.getUnderlying(), " just yet");
+        LOG_DEBUG("Buffer does not have enough bytes to read response protocol ", responseIdentifier.getUnderlying(),
+                  " just yet");
     }
 }
 
@@ -208,7 +207,7 @@ void ProtocolReader::read(const SocketIdentifier receivingSocketIdentifier, cons
     }
     else if (descriptor.protocolType == ProtocolType::response)
     {
-        readExpectedResponse(identifier, descriptor, bitsOffset);
+        readResponse(identifier, descriptor, bitsOffset);
     }
     else
     {

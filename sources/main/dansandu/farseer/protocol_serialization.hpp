@@ -77,8 +77,8 @@ std::vector<uint8_t> serializeRequestProtocol(const Request& request, const Prot
 }
 
 template<typename Response>
-std::vector<uint8_t> serializeExpectedResponseProtocol(const std::any& expectedResponse,
-                                                       const ProtocolSequenceNumber sequenceNumber)
+std::vector<uint8_t> serializeResponseProtocol(const std::any& expectedResponse,
+                                               const ProtocolSequenceNumber sequenceNumber)
 {
     using dansandu::farseer::binary_serialization::BinarySerializer;
 
@@ -164,8 +164,8 @@ bool tryDeserializeRequestProtocol(const std::vector<uint8_t>& bytes, size_t& bi
 }
 
 template<typename Response>
-bool tryDeserializeExpectedResponseProtocol(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
-                                            ProtocolSequenceNumber& sequenceNumber, std::any& expectedResponse)
+bool tryDeserializeResponseProtocol(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
+                                    ProtocolSequenceNumber& sequenceNumber, std::any& expectedResponse)
 {
     using dansandu::ballotin::binary::bitsPerByte;
     using dansandu::farseer::binary_serialization::BinarySerializer;

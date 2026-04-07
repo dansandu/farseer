@@ -21,7 +21,7 @@ struct ProtocolDescriptor
 {
     ProtocolType protocolType;
     ProtocolDeserializer protocolDeserializer;
-    ExpectedResponseProtocolSerializer expectedResponseSerializer;
+    ResponseProtocolSerializer responseSerializer;
 };
 
 class PRALINE_EXPORT ProtocolRegistry
@@ -49,9 +49,8 @@ public:
             Request::Metadata::getProtocolIdentifier(),
             dansandu::farseer::protocol_serialization::tryDeserializeRequestProtocol<Request>,
             Request::Response::Metadata::getProtocolIdentifier(),
-            dansandu::farseer::protocol_serialization::tryDeserializeExpectedResponseProtocol<
-                typename Request::Response>,
-            dansandu::farseer::protocol_serialization::serializeExpectedResponseProtocol<typename Request::Response>);
+            dansandu::farseer::protocol_serialization::tryDeserializeResponseProtocol<typename Request::Response>,
+            dansandu::farseer::protocol_serialization::serializeResponseProtocol<typename Request::Response>);
         return 0;
     }
 
@@ -67,8 +66,8 @@ private:
     void registerRequestProtocol(const ProtocolIdentifier requestIdentifier,
                                  const ProtocolDeserializer requestDeserializer,
                                  const ProtocolIdentifier responseIdentifier,
-                                 const ProtocolDeserializer expectedResponseDeserializer,
-                                 const ExpectedResponseProtocolSerializer expectedResponseSerializer);
+                                 const ProtocolDeserializer responseDeserializer,
+                                 const ResponseProtocolSerializer responseSerializer);
 
     std::map<ProtocolIdentifier, ProtocolDescriptor> protocolDescriptors_;
     mutable std::mutex mutex_;

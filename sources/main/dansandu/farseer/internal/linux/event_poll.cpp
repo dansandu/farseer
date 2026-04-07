@@ -57,7 +57,7 @@ void EventPoll::subscribe(const int fileDescriptor, const uint32_t events)
 
     const auto subscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_ADD, fileDescriptor, &event);
 
-    if (subscribeResult != 0)
+    if (subscribeResult == -1)
     {
         WTHROW(InternalSocketError, "Error subscribing file descriptor to event poll: ", getLastErrorMessage());
     }
@@ -74,7 +74,7 @@ void EventPoll::setEvents(const int fileDescriptor, const uint32_t events)
 
     const auto modifyResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_MOD, fileDescriptor, &event);
 
-    if (modifyResult != 0)
+    if (modifyResult == -1)
     {
         WTHROW(InternalSocketError, "Error setting file descriptor events for event poll: ", getLastErrorMessage());
     }
@@ -86,7 +86,7 @@ void EventPoll::unsubscribe(const int fileDescriptor)
 
     const auto unsubscribeResult = ::epoll_ctl(eventPollFileDescriptor_, EPOLL_CTL_DEL, fileDescriptor, event);
 
-    if (unsubscribeResult != 0)
+    if (unsubscribeResult == -1)
     {
         LOG_ERROR("Error unsubscribing file descriptor from event poll: ", getLastErrorMessage());
     }

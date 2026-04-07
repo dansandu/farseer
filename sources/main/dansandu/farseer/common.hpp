@@ -95,7 +95,7 @@ using ConnectionCallback = UniqueFunction<void(const SocketEvent event, const So
 using ProtocolDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
                                       ProtocolSequenceNumber& sequenceNumber, std::any& protocol);
 
-using ExpectedResponseProtocolSerializer = std::vector<uint8_t> (*)(const std::any& expectedResponse,
-                                                                    const ProtocolSequenceNumber sequenceNumber);
+using ResponseProtocolSerializer = std::vector<uint8_t> (*)(const std::any& response,
+                                                            const ProtocolSequenceNumber sequenceNumber);
 
 }
