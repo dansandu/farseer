@@ -18,8 +18,8 @@ using dansandu::farseer::internal::protocol_definition::FieldDefinition;
 using dansandu::farseer::internal::protocol_definition::MessageProtocolDefinition;
 using dansandu::farseer::internal::protocol_definition::ProtocolDefinition;
 using dansandu::farseer::internal::protocol_definition::RequestProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::Type;
 using dansandu::farseer::internal::protocol_definition::TypeDefinition;
-using dansandu::farseer::internal::protocol_definition::TypeDefinitionEnum;
 using dansandu::farseer::internal::protocol_validation::validateProtocolDefinition;
 using dansandu::glyph::node::Node;
 using dansandu::glyph::parser::Parser;
@@ -45,10 +45,10 @@ constexpr auto protocolGrammar = R"(
     /* 8*/ RequestFields -> Fields
     /* 9*/ Fields -> Fields Type name semicolon
     /*10*/ Fields ->
-    /*11*/ Type -> int32
-    /*12*/ Type -> int64
-    /*13*/ Type -> uint32
-    /*14*/ Type -> uint64
+    /*11*/ Type -> i32
+    /*12*/ Type -> i64
+    /*13*/ Type -> u32
+    /*14*/ Type -> u64
     /*15*/ Type -> string
     /*16*/ Type -> bool
     /*17*/ Type -> list angleBracketBegin Type angleBracketEnd
@@ -76,10 +76,10 @@ struct ProtocolDefinitionParser
             {parser.getTerminalSymbol("message"),           "\\bmessage\\b"},
             {parser.getTerminalSymbol("request"),           "\\brequest\\b"},
             {parser.getTerminalSymbol("response"),          "\\bresponse\\b"},
-            {parser.getTerminalSymbol("int32"),             "\\bint32\\b"},
-            {parser.getTerminalSymbol("int64"),             "\\bint64\\b"},
-            {parser.getTerminalSymbol("uint32"),            "\\buint32\\b"},
-            {parser.getTerminalSymbol("uint64"),            "\\buint64\\b"},
+            {parser.getTerminalSymbol("i32"),               "\\bi32\\b"},
+            {parser.getTerminalSymbol("i64"),               "\\bi64\\b"},
+            {parser.getTerminalSymbol("u32"),               "\\bu32\\b"},
+            {parser.getTerminalSymbol("u64"),               "\\bu64\\b"},
             {parser.getTerminalSymbol("string"),            "\\bstring\\b"},
             {parser.getTerminalSymbol("bool"),              "\\bbool\\b"},
             {parser.getTerminalSymbol("list"),              "\\blist\\b"},
@@ -130,7 +130,7 @@ ProtocolDefinition parseProtocolDefinition(const std::string_view text)
 
     auto tokens = std::vector<Token>{};
 
-    auto types = std::vector<TypeDefinition>{};
+    auto typeDefinitions = std::vector<TypeDefinition>{};
 
     auto fields = std::vector<FieldDefinition>{};
 
@@ -194,57 +194,57 @@ ProtocolDefinition parseProtocolDefinition(const std::string_view text)
             case 9:
             {
                 fields.push_back(FieldDefinition{
-                    .type = pop(types),
+                    .typeDefinition = pop(typeDefinitions),
                     .name = getTokenText(pop(tokens)),
                 });
                 break;
             }
             case 11:
             {
-                types.push_back(TypeDefinition::fromSimple(TypeDefinitionEnum::int32));
+                typeDefinitions.push_back(TypeDefinition::fromSimple(Type::i32));
                 break;
             }
             case 12:
             {
-                types.push_back(TypeDefinition::fromSimple(TypeDefinitionEnum::int64));
+                typeDefinitions.push_back(TypeDefinition::fromSimple(Type::i64));
                 break;
             }
             case 13:
             {
-                types.push_back(TypeDefinition::fromSimple(TypeDefinitionEnum::uint32));
+                typeDefinitions.push_back(TypeDefinition::fromSimple(Type::u32));
                 break;
             }
             case 14:
             {
-                types.push_back(TypeDefinition::fromSimple(TypeDefinitionEnum::uint64));
+                typeDefinitions.push_back(TypeDefinition::fromSimple(Type::u64));
                 break;
             }
             case 15:
             {
-                types.push_back(TypeDefinition::fromSimple(TypeDefinitionEnum::string));
+                typeDefinitions.push_back(TypeDefinition::fromSimple(Type::string));
                 break;
             }
             case 16:
             {
-                types.push_back(TypeDefinition::fromSimple(TypeDefinitionEnum::boolean));
+                typeDefinitions.push_back(TypeDefinition::fromSimple(Type::boolean));
                 break;
             }
             case 17:
             {
-                types.push_back(TypeDefinition::fromList(pop(types)));
+                typeDefinitions.push_back(TypeDefinition::fromList(pop(typeDefinitions)));
                 break;
             }
             case 18:
             {
-                auto value = pop(types);
-                auto key = pop(types);
+                auto value = pop(typeDefinitions);
+                auto key = pop(typeDefinitions);
 
                 if (!key.canBeMapKey())
                 {
                     THROW(InvalidMapKeyError, "Type '", key.toString(), "' cannot be used as a map key");
                 }
 
-                types.push_back(TypeDefinition::fromMap(std::move(key), std::move(value)));
+                typeDefinitions.push_back(TypeDefinition::fromMap(std::move(key), std::move(value)));
                 break;
             }
             case 19:
@@ -259,8 +259,9 @@ ProtocolDefinition parseProtocolDefinition(const std::string_view text)
                     THROW(MessageNameNotDefinedError, "message '", referencedMessageName, "' was not defined");
                 }
 
-                types.push_back(TypeDefinition::fromMessage(referencedMessageName, referencedMessage->hasStaticSize(),
-                                                            referencedMessage->getStaticNumberOfBits()));
+                typeDefinitions.push_back(TypeDefinition::fromMessage(referencedMessageName,
+                                                                      referencedMessage->hasStaticSize(),
+                                                                      referencedMessage->getStaticNumberOfBits()));
                 break;
             }
             case 0:

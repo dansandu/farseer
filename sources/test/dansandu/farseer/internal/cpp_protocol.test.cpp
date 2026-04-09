@@ -14,7 +14,7 @@ TEST_CASE("cpp_protocol")
 
 message MyMessage
 {
-    int32 integer;
+    i32 integer;
     bool boolean;
 }
 )";
@@ -109,7 +109,7 @@ request MyRequest
     response
     {
         list<string> contacts;
-        uint64 authenticationToken;
+        u64 authenticationToken;
     }
 }
 )";

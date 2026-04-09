@@ -12,8 +12,8 @@ using dansandu::farseer::internal::protocol_definition::FieldDefinition;
 using dansandu::farseer::internal::protocol_definition::MessageProtocolDefinition;
 using dansandu::farseer::internal::protocol_definition::ProtocolDefinition;
 using dansandu::farseer::internal::protocol_definition::RequestProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::Type;
 using dansandu::farseer::internal::protocol_definition::TypeDefinition;
-using dansandu::farseer::internal::protocol_definition::TypeDefinitionEnum;
 using dansandu::farseer::internal::protocol_validation::validateProtocolDefinition;
 
 TEST_CASE("protocol_validation")
@@ -30,7 +30,7 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromMessage("House", true, ProtocolSize{32}),
+                                    .typeDefinition = TypeDefinition::fromMessage("House", true, ProtocolSize{32}),
                                     .name = "residence",
                                 },
                             },
@@ -54,7 +54,7 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromMessage("House", true, ProtocolSize{32}),
+                                    .typeDefinition = TypeDefinition::fromMessage("House", true, ProtocolSize{32}),
                                     .name = "residence",
                                 },
                             },
@@ -83,7 +83,7 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "name",
                                 },
                             },
@@ -94,7 +94,7 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "fullName",
                                 },
                             },
@@ -118,11 +118,11 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "name",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
+                                    .typeDefinition = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
                                     .name = "parent",
                                 },
                             },
@@ -146,15 +146,15 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "id",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint32),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::u32),
                                     .name = "age",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::int64),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::i64),
                                     .name = "id",
                                 },
                             },
@@ -179,7 +179,7 @@ TEST_CASE("protocol_validation")
                         .requestFields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromMessage("House", false, ProtocolSize{64}),
+                                    .typeDefinition = TypeDefinition::fromMessage("House", false, ProtocolSize{64}),
                                     .name = "residence",
                                 },
                             },
@@ -203,7 +203,7 @@ TEST_CASE("protocol_validation")
                         .fields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "name",
                                 },
                             },
@@ -217,7 +217,7 @@ TEST_CASE("protocol_validation")
                         .requestFields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "fullName",
                                 },
                             },
@@ -242,11 +242,11 @@ TEST_CASE("protocol_validation")
                         .requestFields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "name",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
+                                    .typeDefinition = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
                                     .name = "parent",
                                 },
                             },
@@ -271,15 +271,15 @@ TEST_CASE("protocol_validation")
                         .requestFields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "id",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint32),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::u32),
                                     .name = "age",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::int64),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::i64),
                                     .name = "id",
                                 },
                             },
@@ -305,15 +305,15 @@ TEST_CASE("protocol_validation")
                         .responseFields =
                             {
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::string),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
                                     .name = "id",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::uint32),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::u32),
                                     .name = "age",
                                 },
                                 FieldDefinition{
-                                    .type = TypeDefinition::fromSimple(TypeDefinitionEnum::int64),
+                                    .typeDefinition = TypeDefinition::fromSimple(Type::i64),
                                     .name = "id",
                                 },
                             },
