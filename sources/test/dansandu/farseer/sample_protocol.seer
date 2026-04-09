@@ -2,7 +2,7 @@ namespace dansandu.farseer.sample_protocol;
 
 message StaticMessage
 {
-    int32 integer;
+    i32 integer;
     bool boolean;
 }
 
@@ -24,16 +24,16 @@ request MyRequest
     response
     {
         list<string> contacts;
-        uint64 authenticationToken;
+        u64 authenticationToken;
     }
 }
 
 request StressRequest
 {
-    uint32 sent;
+    u32 sent;
 
     response
     {
-        uint32 received;
+        u32 received;
     }
 }

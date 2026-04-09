@@ -9,12 +9,12 @@
 namespace dansandu::farseer::internal::protocol_definition
 {
 
-enum class TypeDefinitionEnum
+enum class Type
 {
-    int32,
-    int64,
-    uint32,
-    uint64,
+    i32,
+    i64,
+    u32,
+    u64,
     string,
     boolean,
     list,
@@ -22,14 +22,14 @@ enum class TypeDefinitionEnum
     message,
 };
 
-const char* toString(const TypeDefinitionEnum typeEnum);
+const char* toString(const Type type);
 
-ProtocolSize getStaticNumberOfBits(const TypeDefinitionEnum typeEnum);
+ProtocolSize getStaticNumberOfBits(const Type type);
 
 class TypeDefinition
 {
 public:
-    static TypeDefinition fromSimple(const TypeDefinitionEnum typeEnum);
+    static TypeDefinition fromSimple(const Type type);
 
     static TypeDefinition fromMessage(const std::string& name, const bool hasStaticSize,
                                       const ProtocolSize staticNumberOfBits);
@@ -37,8 +37,6 @@ public:
     static TypeDefinition fromList(TypeDefinition subtype);
 
     static TypeDefinition fromMap(TypeDefinition key, TypeDefinition value);
-
-    TypeDefinition();
 
     TypeDefinition(const TypeDefinition& other);
 
@@ -48,7 +46,7 @@ public:
 
     TypeDefinition& operator=(TypeDefinition&& other) noexcept;
 
-    TypeDefinitionEnum getTypeEnum() const;
+    Type getType() const;
 
     const std::string& getName() const;
 
@@ -67,7 +65,9 @@ public:
     bool canBeMapKey() const;
 
 private:
-    TypeDefinitionEnum typeEnum_;
+    TypeDefinition();
+
+    Type type_;
     std::string name_;
     std::vector<TypeDefinition> subtypes_;
     bool hasStaticSize_;
@@ -82,7 +82,7 @@ struct FieldDefinition
 
     ProtocolSize getStaticNumberOfBits() const;
 
-    TypeDefinition type;
+    TypeDefinition typeDefinition;
     std::string name;
 };
 

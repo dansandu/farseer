@@ -14,8 +14,8 @@ using dansandu::farseer::internal::protocol_definition::FieldDefinition;
 using dansandu::farseer::internal::protocol_definition::MessageProtocolDefinition;
 using dansandu::farseer::internal::protocol_definition::ProtocolDefinition;
 using dansandu::farseer::internal::protocol_definition::RequestProtocolDefinition;
+using dansandu::farseer::internal::protocol_definition::Type;
 using dansandu::farseer::internal::protocol_definition::TypeDefinition;
-using dansandu::farseer::internal::protocol_definition::TypeDefinitionEnum;
 
 namespace dansandu::farseer::internal::protocol_validation
 {
@@ -30,26 +30,26 @@ void validateFieldDefinitions(const std::vector<FieldDefinition>& fields, const 
 
     for (const auto& field : fields)
     {
-        auto queue = std::vector<const TypeDefinition*>{{&field.type}};
+        auto queue = std::vector<const TypeDefinition*>{{&field.typeDefinition}};
 
         for (auto index = size_t{}; index < queue.size(); ++index)
         {
-            const auto type = queue[index];
+            const auto typeDefinition = queue[index];
 
-            if (type->getTypeEnum() == TypeDefinitionEnum::message)
+            if (typeDefinition->getType() == Type::message)
             {
-                if (protocolName == type->getName())
+                if (protocolName == typeDefinition->getName())
                 {
                     THROW(ProtocolFieldSelfReferenceError, "protocol ", protocolName, " field cannot reference itself");
                 }
 
-                if (!messageNames.contains(type->getName()))
+                if (!messageNames.contains(typeDefinition->getName()))
                 {
-                    THROW(MessageNameNotDefinedError, "the name ", type->getName(), " was not defined");
+                    THROW(MessageNameNotDefinedError, "the name ", typeDefinition->getName(), " was not defined");
                 }
             }
 
-            for (const auto& subType : type->getSubtypes())
+            for (const auto& subType : typeDefinition->getSubtypes())
             {
                 queue.push_back(&subType);
             }

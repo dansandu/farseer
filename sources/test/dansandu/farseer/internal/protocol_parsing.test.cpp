@@ -14,13 +14,13 @@ TEST_CASE("protocol_definition_parsing")
 message Person
 {
     string name;
-    uint32 age;
-    map<string, list<uint64>> contacts;
+    u32 age;
+    map<string, list<u64>> contacts;
 }
 
 message MyMessage
 {
-    int64 myInteger;
+    i64 myInteger;
     Person parent;
     list<Person> children;
 }
@@ -37,13 +37,13 @@ message MyMessage
 
 request MyRequest
 {
-    uint64 myUnsignedInteger;
+    u64 myUnsignedInteger;
     string myString;
 
     response
     {
         bool myBoolean;
-        int64 myInteger;
+        i64 myInteger;
     }
 }
 )";
@@ -52,17 +52,17 @@ request MyRequest
 
         REQUIRE(protocol.messages.empty());
 
-        REQUIRE(protocol.requests.size() == 1ULL);
+        REQUIRE(protocol.requests.size() == 1uz);
 
         const auto& request = protocol.requests.front();
 
         REQUIRE(!request.requestHasStaticSize());
 
-        REQUIRE(request.getRequestStaticNumberOfBits().getUnderlying() == 64UL);
+        REQUIRE(request.getRequestStaticNumberOfBits().getUnderlying() == 64ul);
 
         REQUIRE(request.responseHasStaticSize());
 
-        REQUIRE(request.getResponseStaticNumberOfBits().getUnderlying() == 65UL);
+        REQUIRE(request.getResponseStaticNumberOfBits().getUnderlying() == 65ul);
 
         REQUIRE(protocol.toString() == text);
     }
@@ -74,7 +74,7 @@ request MyRequest
 message Person
 {
     string name;
-    uint32 static;
+    u32 static;
 }
 )";
 

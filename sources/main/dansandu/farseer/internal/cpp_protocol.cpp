@@ -41,7 +41,7 @@ void generateMessages(const std::vector<MessageProtocolDefinition>& messages, st
 
         for (const auto& field : message.fields)
         {
-            stream << "    " << field.type.getCppType() << " " << field.name << ";\n";
+            stream << "    " << field.typeDefinition.getCppType() << " " << field.name << ";\n";
         }
 
         stream << "};\n\n";
@@ -72,7 +72,7 @@ void generateRequests(const std::vector<RequestProtocolDefinition>& requests, st
 
         for (const auto& field : request.requestFields)
         {
-            stream << "    " << field.type.getCppType() << " " << field.name << ";\n";
+            stream << "    " << field.typeDefinition.getCppType() << " " << field.name << ";\n";
         }
 
         stream << "\n";
@@ -97,7 +97,7 @@ void generateRequests(const std::vector<RequestProtocolDefinition>& requests, st
 
         for (const auto& field : request.responseFields)
         {
-            stream << "        " << field.type.getCppType() << " " << field.name << ";\n";
+            stream << "        " << field.typeDefinition.getCppType() << " " << field.name << ";\n";
         }
 
         stream << "    };\n"
@@ -131,7 +131,8 @@ void generateProtocolMetadataDefinition(const std::string& name, const std::vect
     for (const auto& field : fields)
     {
         stream << "    protocol." << field.name
-               << " = ::dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
+               << " = ::dansandu::farseer::binary_serialization::BinarySerializer<" 
+               << field.typeDefinition.getCppType()
                << ">::deserialize(bytes, bitsOffset);\n";
     }
 
@@ -153,7 +154,8 @@ void generateProtocolMetadataDefinition(const std::string& name, const std::vect
 
     for (const auto& field : fields)
     {
-        stream << "    ::dansandu::farseer::binary_serialization::BinarySerializer<" << field.type.getCppType()
+        stream << "    ::dansandu::farseer::binary_serialization::BinarySerializer<" 
+               << field.typeDefinition.getCppType()
                << ">::serialize(protocol." << field.name << ", bytes, bitsOffset);\n";
     }
 
