@@ -18,7 +18,7 @@ namespace
 
 int createEventPollFileDescriptor()
 {
-    const auto flags = 0;
+    const auto flags = EPOLL_CLOEXEC;
 
     const auto eventPollFileDescriptor = ::epoll_create1(flags);
 

@@ -182,25 +182,16 @@ private:
 
             const auto numberOfPendingEvents = eventPoll_.wait(events);
 
-            const auto abort = consumeTasks(tasksBuffer);
-
-            if (abort)
-            {
-                LOG_DEBUG("Received abort task");
-                return;
-            }
-
             for (auto index = 0; index < numberOfPendingEvents; ++index)
             {
                 if (events[index].data.fd == eventFileDescriptor)
                 {
-                    uint64_t counter = 0;
+                    const auto abort = consumeTasks(tasksBuffer);
 
-                    const auto numberOfBytesRead = ::read(eventFileDescriptor, &counter, sizeof(counter));
-
-                    if (numberOfBytesRead == -1)
+                    if (abort)
                     {
-                        WTHROW(InternalSocketError, "Error reading event: ", getLastErrorMessage());
+                        LOG_DEBUG("Received abort task");
+                        return;
                     }
                 }
                 else
