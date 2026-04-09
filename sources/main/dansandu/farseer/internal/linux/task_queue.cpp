@@ -37,7 +37,7 @@ void closeEventOrLog(const int eventFileDescriptor)
 int createEventFileDescriptor(EventPoll& eventPoll)
 {
     const auto initialValue = 0U;
-    const auto flags = 0;
+    const auto flags = EFD_NONBLOCK | EFD_CLOEXEC;
     const auto eventFileDescriptor = ::eventfd(initialValue, flags);
 
     if (eventFileDescriptor == -1)
@@ -105,6 +105,15 @@ void TaskQueue::transfer(std::vector<std::unique_ptr<ITask>>& output)
     const auto lock = std::lock_guard<std::mutex>{mutex_};
 
     SCOPE_SUCCESS([&]() { tasks_.clear(); });
+
+    uint64_t counter = 0;
+
+    const auto numberOfBytesRead = ::read(eventFileDescriptor_, &counter, sizeof(counter));
+
+    if (numberOfBytesRead == -1)
+    {
+        WTHROW(InternalSocketError, "Error reading event: ", getLastErrorMessage());
+    }
 
     output.insert(output.end(), std::make_move_iterator(tasks_.begin()), std::make_move_iterator(tasks_.end()));
 }

@@ -27,7 +27,7 @@ constexpr auto invalidFileDescriptor = -1;
 
 int createSocket()
 {
-    const auto result = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+    const auto result = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
 
     if (result == invalidFileDescriptor)
     {
@@ -191,7 +191,10 @@ std::optional<LinuxSocket> LinuxSocket::accept()
 
     std::memset(&remoteAddress, 0, sizeof(remoteAddress));
 
-    const auto acceptedSocket = ::accept(socket_, reinterpret_cast<::sockaddr*>(&remoteAddress), &remoteAddressSize);
+    const auto flags = SOCK_NONBLOCK | SOCK_CLOEXEC;
+
+    const auto acceptedSocket =
+        ::accept4(socket_, reinterpret_cast<::sockaddr*>(&remoteAddress), &remoteAddressSize, flags);
 
     if (acceptedSocket == invalidFileDescriptor)
     {
@@ -211,20 +214,6 @@ std::optional<LinuxSocket> LinuxSocket::accept()
         if (remoteAddressSize != sizeof(remoteAddress))
         {
             WTHROW(InternalSocketError, "Accept failed because the address wouldn't fit the buffer");
-        }
-
-        const auto getFlagsResult = ::fcntl(acceptedSocket, F_GETFL);
-
-        if (getFlagsResult == -1)
-        {
-            WTHROW(InternalSocketError, "Error getting socket flags: ", getLastErrorMessage());
-        }
-
-        const auto setFlagsResult = ::fcntl(acceptedSocket, F_SETFL, getFlagsResult | O_NONBLOCK);
-
-        if (setFlagsResult == -1)
-        {
-            WTHROW(InternalSocketError, "Error setting socket flags: ", getLastErrorMessage());
         }
 
         char ipAddressBuffer[INET_ADDRSTRLEN];
