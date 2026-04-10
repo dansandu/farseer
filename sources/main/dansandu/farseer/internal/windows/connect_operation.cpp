@@ -5,26 +5,28 @@
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::i_operation_scheduler::defaultCompletionKey;
-using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Socket;
+using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
+using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::IOperationScheduler;
+using dansandu::farseer::internal::windows::operation::Socket;
 using dansandu::farseer::internal::windows::windows_socket::WindowsSocket;
+using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::connect_operation
 {
 
-class ConnectOperation : public Operation
+class ConnectOperation : public IOperation
 {
 public:
     ConnectOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
                      ConnectionCallback&& connectionCallback)
-        : Operation{socketIdentifier},
+        : socketIdentifier_{socketIdentifier},
           ipAddress_{ipAddress},
           port_{port},
           connectionCallback_{std::move(connectionCallback)},
           connectionPending_{false}
     {
+        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -32,9 +34,24 @@ public:
         return "ConnectOperation";
     }
 
+    SocketIdentifier getSocketIdentifier() const override
+    {
+        return socketIdentifier_;
+    }
+
+    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    {
+        return Level::error;
+    }
+
     bool discard(const DWORD numberOfBytesTransferred) const override
     {
         return connectionPending_;
+    }
+
+    LPWSAOVERLAPPED getOverlapped() override
+    {
+        return &overlapped_;
     }
 
     void postToCompletionPort(IOperationScheduler& operationScheduler) override
@@ -95,14 +112,17 @@ public:
     }
 
 private:
+    const SocketIdentifier socketIdentifier_;
     const std::string ipAddress_;
     const int port_;
     ConnectionCallback connectionCallback_;
     bool connectionPending_;
+    WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<Operation> createConnectOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress,
-                                                  const int port, ConnectionCallback&& connectionCallback)
+std::unique_ptr<IOperation> createConnectOperation(const SocketIdentifier socketIdentifier,
+                                                   const std::string& ipAddress, const int port,
+                                                   ConnectionCallback&& connectionCallback)
 {
     return std::make_unique<ConnectOperation>(socketIdentifier, ipAddress, port, std::move(connectionCallback));
 }

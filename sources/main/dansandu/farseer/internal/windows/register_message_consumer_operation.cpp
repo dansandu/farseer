@@ -3,23 +3,25 @@
 #include "dansandu/farseer/internal/windows/error.hpp"
 
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::i_operation_scheduler::defaultCompletionKey;
-using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
+using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
+using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::IOperationScheduler;
+using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::register_message_consumer_operation
 {
 
-class RegisterMessageConsumerOperation : public Operation
+class RegisterMessageConsumerOperation : public IOperation
 {
 public:
     RegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
                                      const ProtocolIdentifier protocolIdentifier,
                                      UniqueFunction<void(std::any&&)>&& messageConsumer)
-        : Operation{socketIdentifier},
+        : socketIdentifier_{socketIdentifier},
           protocolIdentifier_{protocolIdentifier},
           messageConsumer_{std::move(messageConsumer)}
     {
+        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -27,9 +29,24 @@ public:
         return "RegisterMessageConsumerOperation";
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const
+    SocketIdentifier getSocketIdentifier() const override
+    {
+        return socketIdentifier_;
+    }
+
+    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    {
+        return Level::error;
+    }
+
+    bool discard(const DWORD numberOfBytesTransferred) const override
     {
         return true;
+    }
+
+    LPWSAOVERLAPPED getOverlapped() override
+    {
+        return &overlapped_;
     }
 
     void postToCompletionPort(IOperationScheduler& operationScheduler) override
@@ -57,13 +74,15 @@ public:
     }
 
 private:
+    const SocketIdentifier socketIdentifier_;
     const ProtocolIdentifier protocolIdentifier_;
     UniqueFunction<void(std::any&&)> messageConsumer_;
+    WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<Operation> createRegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
-                                                                  const ProtocolIdentifier protocolIdentifier,
-                                                                  UniqueFunction<void(std::any&&)>&& messageConsumer)
+std::unique_ptr<IOperation> createRegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
+                                                                   const ProtocolIdentifier protocolIdentifier,
+                                                                   UniqueFunction<void(std::any&&)>&& messageConsumer)
 {
     return std::make_unique<RegisterMessageConsumerOperation>(socketIdentifier, protocolIdentifier,
                                                               std::move(messageConsumer));

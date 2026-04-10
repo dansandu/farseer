@@ -2,25 +2,29 @@
 #include "dansandu/farseer/internal/windows/receive_operation.hpp"
 #include "dansandu/journey/common.hpp"
 
-using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
+using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::receive_operation
 {
 
-constexpr auto maximumReceiveBufferSize = 4096;
-
-class ReceiveOperation : public Operation
+class ReceiveOperation : public IOperation
 {
 public:
-    explicit ReceiveOperation(const SocketIdentifier socketIdentifier) : Operation{socketIdentifier}
+    explicit ReceiveOperation(const SocketIdentifier socketIdentifier) : socketIdentifier_{socketIdentifier}
     {
+        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
     {
         return "ReceiveOperation";
+    }
+
+    SocketIdentifier getSocketIdentifier() const override
+    {
+        return socketIdentifier_;
     }
 
     Level getSystemErrorCodeLevel(const DWORD errorCode) const override
@@ -32,9 +36,14 @@ public:
         return Level::error;
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const
+    bool discard(const DWORD numberOfBytesTransferred) const override
     {
         return numberOfBytesTransferred <= 0;
+    }
+
+    LPWSAOVERLAPPED getOverlapped() override
+    {
+        return &overlapped_;
     }
 
     void postToCompletionPort(IOperationScheduler& operationScheduler) override
@@ -79,10 +88,14 @@ public:
     }
 
 private:
+    static constexpr auto maximumReceiveBufferSize = 4096;
+
+    const SocketIdentifier socketIdentifier_;
     char receiveBuffer_[maximumReceiveBufferSize];
+    WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<Operation> createReceiveOperation(const SocketIdentifier socketIdentifier)
+std::unique_ptr<IOperation> createReceiveOperation(const SocketIdentifier socketIdentifier)
 {
     return std::make_unique<ReceiveOperation>(socketIdentifier);
 }

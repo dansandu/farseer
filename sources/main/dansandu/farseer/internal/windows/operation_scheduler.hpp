@@ -1,7 +1,7 @@
 #pragma once
 
 #include "dansandu/farseer/internal/sequencer.hpp"
-#include "dansandu/farseer/internal/windows/i_operation_scheduler.hpp"
+#include "dansandu/farseer/internal/windows/operation.hpp"
 #include "dansandu/farseer/internal/windows/operation_container.hpp"
 
 #include <map>
@@ -12,7 +12,7 @@
 namespace dansandu::farseer::internal::windows::operation_scheduler
 {
 
-class OperationScheduler : public dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler
+class OperationScheduler : public dansandu::farseer::internal::windows::operation::IOperationScheduler
 {
 public:
     OperationScheduler();
@@ -21,11 +21,11 @@ public:
 
     HANDLE getCompletionPort() override;
 
-    dansandu::farseer::internal::windows::i_operation_scheduler::Socket&
+    dansandu::farseer::internal::windows::operation::Socket&
     insertSocket(const SocketIdentifier socketIdentifier,
-                 dansandu::farseer::internal::windows::i_operation_scheduler::Socket&& socket) override;
+                 dansandu::farseer::internal::windows::operation::Socket&& socket) override;
 
-    dansandu::farseer::internal::windows::i_operation_scheduler::Socket&
+    dansandu::farseer::internal::windows::operation::Socket&
     getSocketOrThrow(const SocketIdentifier socketIdentifier) override;
 
     void eraseSocket(const SocketIdentifier socketIdentifier) override;
@@ -65,7 +65,7 @@ private:
 
     const HANDLE completionPort_;
     dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier> socketIdentifierSequencer_;
-    std::map<SocketIdentifier, dansandu::farseer::internal::windows::i_operation_scheduler::Socket> sockets_;
+    std::map<SocketIdentifier, dansandu::farseer::internal::windows::operation::Socket> sockets_;
     dansandu::farseer::internal::windows::operation_container::OperationContainer operationContainer_;
     std::thread thread_;
 };

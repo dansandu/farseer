@@ -8,14 +8,19 @@
 using dansandu::ballotin::string::toWideString;
 using dansandu::farseer::exception::InternalSocketError;
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
-using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
+using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::journey::exception::WideException;
 
 namespace dansandu::farseer::internal::windows::operation_container
 {
 
-void OperationContainer::insert(std::unique_ptr<Operation>&& operation, IOperationScheduler& operationScheduler)
+OperationContainer::OperationContainer(IOperationScheduler& operationScheduler)
+    : operationScheduler_{operationScheduler}
+{
+}
+
+void OperationContainer::insert(std::unique_ptr<IOperation>&& operation)
 {
     const auto overlapped = operation->getOverlapped();
     const auto name = operation->getName();
@@ -32,19 +37,18 @@ void OperationContainer::insert(std::unique_ptr<Operation>&& operation, IOperati
 
     SCOPE_FAILURE([&]() { operations_.erase(position); });
 
-    position->second->postToCompletionPort(operationScheduler);
+    position->second->postToCompletionPort(operationScheduler_);
 
     LOG_DEBUG("Inserted ", name, " with socket ID ", socketIdentifier);
 }
 
 void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlapped,
-                                                   const DWORD numberOfBytesTransferred,
-                                                   IOperationScheduler& operationScheduler)
+                                                   const DWORD numberOfBytesTransferred)
 {
-    auto operationGuard = std::unique_ptr<Operation>{};
+    auto operationGuard = std::unique_ptr<IOperation>{};
     auto discard = false;
 
-    Operation* operation = nullptr;
+    IOperation* operation = nullptr;
 
     {
         const auto lock = std::lock_guard<std::mutex>{mutex_};
@@ -53,7 +57,8 @@ void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlap
 
         if (position == operations_.cend())
         {
-            WTHROW(InternalSocketError, "Couldn't find operation");
+            LOG_ERROR("Couldn't find operation");
+            return;
         }
 
         operation = position->second.get();
@@ -74,7 +79,7 @@ void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlap
 
     try
     {
-        operation->execute(operationScheduler, numberOfBytesTransferred);
+        operation->execute(operationScheduler_, numberOfBytesTransferred);
     }
     catch (const WideException& exception)
     {
@@ -93,14 +98,20 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
 
     if (position != operations_.cend())
     {
-        SCOPE_EXIT([&]() { operations_.erase(position); });
+        const auto socketIdentifier = position->second->getSocketIdentifier();
+
+        SCOPE_EXIT(
+            [&]()
+            {
+                operations_.erase(position);
+                operationScheduler_.eraseSocket(socketIdentifier);
+            });
 
         const auto name = position->second->getName();
-        const auto socketIdentifier = position->second->getSocketIdentifier().getUnderlying();
         const auto level = position->second->getSystemErrorCodeLevel(errorCode);
         const auto message = getErrorMessageFromCode(errorCode);
 
-        LOG(level, name, " with socket ID ", socketIdentifier, " failed: ", message);
+        LOG(level, name, " with socket ID ", socketIdentifier.getUnderlying(), " failed: ", message);
     }
     else
     {
@@ -110,9 +121,11 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
     }
 }
 
-void OperationContainer::handleOperationExecutionFailure(Operation& operation, const bool discarded,
+void OperationContainer::handleOperationExecutionFailure(IOperation& operation, const bool discarded,
                                                          const std::wstring_view message)
 {
+    const auto socketIdentifier = operation.getSocketIdentifier();
+
     SCOPE_EXIT(
         [&]()
         {
@@ -122,12 +135,11 @@ void OperationContainer::handleOperationExecutionFailure(Operation& operation, c
                 const auto position = operations_.find(operation.getOverlapped());
                 operations_.erase(position);
             }
+
+            operationScheduler_.eraseSocket(socketIdentifier);
         });
 
-    const auto name = operation.getName();
-    const auto socketIdentifier = operation.getSocketIdentifier().getUnderlying();
-
-    LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed: ", message);
+    LOG_ERROR(operation.getName(), " with socket ID ", socketIdentifier.getUnderlying(), " failed: ", message);
 }
 
 }

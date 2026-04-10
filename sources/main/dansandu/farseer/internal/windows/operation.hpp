@@ -4,7 +4,7 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
-namespace dansandu::farseer::internal::windows::i_operation_scheduler
+namespace dansandu::farseer::internal::windows::operation
 {
 
 constexpr auto defaultCompletionKey = invalidSocketIdentifier.getUnderlying();
@@ -27,9 +27,7 @@ public:
 
     IOperationScheduler() = default;
 
-    virtual ~IOperationScheduler() noexcept
-    {
-    }
+    virtual ~IOperationScheduler() noexcept = default;
 
     virtual HANDLE getCompletionPort() = 0;
 
@@ -46,50 +44,31 @@ public:
     virtual void scheduleSendBytesOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
 };
 
-class Operation
+class IOperation
 {
 public:
-    Operation() = delete;
-    Operation(const Operation& other) = delete;
-    Operation(Operation&& other) noexcept = delete;
-    Operation& operator=(const Operation& other) = delete;
-    Operation& operator=(Operation&& other) noexcept = delete;
+    IOperation(const IOperation& other) = delete;
+    IOperation(IOperation&& other) noexcept = delete;
+    IOperation& operator=(const IOperation& other) = delete;
+    IOperation& operator=(IOperation&& other) noexcept = delete;
 
-    explicit Operation(const SocketIdentifier socketIdentifier) : socketIdentifier_{socketIdentifier}, overlapped_{}
-    {
-        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
-    }
+    IOperation() = default;
 
-    virtual ~Operation() noexcept
-    {
-    }
-
-    SocketIdentifier getSocketIdentifier() const
-    {
-        return socketIdentifier_;
-    }
-
-    LPWSAOVERLAPPED getOverlapped()
-    {
-        return &overlapped_;
-    }
+    virtual ~IOperation() noexcept = default;
 
     virtual const char* getName() const = 0;
 
-    virtual dansandu::journey::Level getSystemErrorCodeLevel(const DWORD errorCode) const
-    {
-        return dansandu::journey::Level::error;
-    }
+    virtual SocketIdentifier getSocketIdentifier() const = 0;
+
+    virtual dansandu::journey::Level getSystemErrorCodeLevel(const DWORD errorCode) const = 0;
 
     virtual bool discard(const DWORD numberOfBytesTransferred) const = 0;
+
+    virtual LPWSAOVERLAPPED getOverlapped() = 0;
 
     virtual void postToCompletionPort(IOperationScheduler& operationScheduler) = 0;
 
     virtual void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) = 0;
-
-protected:
-    SocketIdentifier socketIdentifier_;
-    WSAOVERLAPPED overlapped_;
 };
 
 }
