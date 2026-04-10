@@ -3,19 +3,21 @@
 #include "dansandu/farseer/internal/windows/error.hpp"
 
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::i_operation_scheduler::defaultCompletionKey;
-using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
+using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
+using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::IOperationScheduler;
+using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::send_bytes_operation
 {
 
-class SendBytesOperation : public Operation
+class SendBytesOperation : public IOperation
 {
 public:
     SendBytesOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes)
-        : Operation{socketIdentifier}, bytes_{std::move(bytes)}, sendBytesPending_{false}
+        : socketIdentifier_{socketIdentifier}, bytes_{std::move(bytes)}, sendBytesPending_{false}
     {
+        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -23,9 +25,24 @@ public:
         return "SendBytesOperation";
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const
+    SocketIdentifier getSocketIdentifier() const override
+    {
+        return socketIdentifier_;
+    }
+
+    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    {
+        return Level::error;
+    }
+
+    bool discard(const DWORD numberOfBytesTransferred) const override
     {
         return sendBytesPending_;
+    }
+
+    LPWSAOVERLAPPED getOverlapped() override
+    {
+        return &overlapped_;
     }
 
     void postToCompletionPort(IOperationScheduler& operationScheduler) override
@@ -64,12 +81,14 @@ public:
     }
 
 private:
+    const SocketIdentifier socketIdentifier_;
     std::vector<uint8_t> bytes_;
     bool sendBytesPending_;
+    WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<Operation> createSendBytesOperation(const SocketIdentifier socketIdentifier,
-                                                    std::vector<uint8_t>&& bytes)
+std::unique_ptr<IOperation> createSendBytesOperation(const SocketIdentifier socketIdentifier,
+                                                     std::vector<uint8_t>&& bytes)
 {
     return std::make_unique<SendBytesOperation>(socketIdentifier, std::move(bytes));
 }

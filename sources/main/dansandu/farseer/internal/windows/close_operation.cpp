@@ -3,18 +3,20 @@
 #include "dansandu/farseer/internal/windows/error.hpp"
 
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::i_operation_scheduler::defaultCompletionKey;
-using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
+using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
+using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::IOperationScheduler;
+using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::close_operation
 {
 
-class CloseOperation : public Operation
+class CloseOperation : public IOperation
 {
 public:
-    explicit CloseOperation(const SocketIdentifier socketIdentifier) : Operation{socketIdentifier}
+    explicit CloseOperation(const SocketIdentifier socketIdentifier) : socketIdentifier_{socketIdentifier}
     {
+        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -22,9 +24,24 @@ public:
         return "CloseOperation";
     }
 
+    SocketIdentifier getSocketIdentifier() const override
+    {
+        return socketIdentifier_;
+    }
+
+    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    {
+        return Level::error;
+    }
+
     bool discard(const DWORD numberOfBytesTransferred) const override
     {
         return true;
+    }
+
+    LPWSAOVERLAPPED getOverlapped() override
+    {
+        return &overlapped_;
     }
 
     void postToCompletionPort(IOperationScheduler& operationScheduler) override
@@ -45,9 +62,13 @@ public:
     {
         operationScheduler.eraseSocket(socketIdentifier_);
     }
+
+private:
+    SocketIdentifier socketIdentifier_;
+    WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<Operation> createCloseOperation(const SocketIdentifier socketIdentifier)
+std::unique_ptr<IOperation> createCloseOperation(const SocketIdentifier socketIdentifier)
 {
     return std::make_unique<CloseOperation>(socketIdentifier);
 }

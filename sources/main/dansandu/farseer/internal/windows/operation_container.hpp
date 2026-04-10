@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dansandu/farseer/internal/windows/i_operation_scheduler.hpp"
+#include "dansandu/farseer/internal/windows/operation.hpp"
 
 #include <map>
 #include <memory>
@@ -12,22 +12,26 @@ namespace dansandu::farseer::internal::windows::operation_container
 class OperationContainer
 {
 public:
-    void insert(std::unique_ptr<dansandu::farseer::internal::windows::i_operation_scheduler::Operation>&& operation,
-                dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler& operationScheduler);
+    OperationContainer(const OperationContainer& other) = delete;
+    OperationContainer(OperationContainer&& other) noexcept = delete;
+    OperationContainer& operator=(const OperationContainer& other) = delete;
+    OperationContainer& operator=(OperationContainer&& other) noexcept = delete;
 
-    void handleSuccessfulOperation(
-        const LPWSAOVERLAPPED overlapped, const DWORD numberOfBytesTransferred,
-        dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler& operationScheduler);
+    explicit OperationContainer(
+        dansandu::farseer::internal::windows::operation::IOperationScheduler& operationScheduler);
+
+    void insert(std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>&& operation);
+
+    void handleSuccessfulOperation(const LPWSAOVERLAPPED overlapped, const DWORD numberOfBytesTransferred);
 
     void handleFailedOperation(const LPWSAOVERLAPPED overlapped, const DWORD errorCode);
 
 private:
-    void
-    handleOperationExecutionFailure(dansandu::farseer::internal::windows::i_operation_scheduler::Operation& operation,
-                                    const bool discarded, const std::wstring_view message);
+    void handleOperationExecutionFailure(dansandu::farseer::internal::windows::operation::IOperation& operation,
+                                         const bool discarded, const std::wstring_view message);
 
-    std::map<LPWSAOVERLAPPED, std::unique_ptr<dansandu::farseer::internal::windows::i_operation_scheduler::Operation>>
-        operations_;
+    dansandu::farseer::internal::windows::operation::IOperationScheduler& operationScheduler_;
+    std::map<LPWSAOVERLAPPED, std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>> operations_;
     std::mutex mutex_;
 };
 

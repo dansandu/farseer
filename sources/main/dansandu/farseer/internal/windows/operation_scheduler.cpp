@@ -22,11 +22,11 @@ using dansandu::farseer::internal::windows::connect_operation::createConnectOper
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::error::getLastErrorCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::i_operation_scheduler::defaultCompletionKey;
-using dansandu::farseer::internal::windows::i_operation_scheduler::IOperationScheduler;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Operation;
-using dansandu::farseer::internal::windows::i_operation_scheduler::Socket;
 using dansandu::farseer::internal::windows::listen_operation::createListenOperation;
+using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
+using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::IOperationScheduler;
+using dansandu::farseer::internal::windows::operation::Socket;
 using dansandu::farseer::internal::windows::receive_operation::createReceiveOperation;
 using dansandu::farseer::internal::windows::register_message_consumer_operation::createRegisterMessageConsumerOperation;
 using dansandu::farseer::internal::windows::register_request_callback_operation::createRegisterRequestCallbackOperation;
@@ -62,6 +62,7 @@ HANDLE initializeIoCompletionPort()
 OperationScheduler::OperationScheduler()
     : completionPort_{initializeIoCompletionPort()},
       socketIdentifierSequencer_{invalidSocketIdentifier.getUnderlying() + 1u},
+      operationContainer_{*this},
       thread_{&OperationScheduler::consumeOperations, this}
 {
 }
@@ -152,8 +153,8 @@ SocketIdentifier OperationScheduler::scheduleConnectOperation(const std::string&
                                                               ConnectionCallback&& connectionCallback)
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
-    operationContainer_.insert(createConnectOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)),
-                               *this);
+    operationContainer_.insert(
+        createConnectOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
     return socketIdentifier;
 }
 
@@ -161,20 +162,19 @@ SocketIdentifier OperationScheduler::scheduleListenOperation(const std::string& 
                                                              ConnectionCallback&& connectionCallback)
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
-    operationContainer_.insert(createListenOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)),
-                               *this);
+    operationContainer_.insert(createListenOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
     return socketIdentifier;
 }
 
 void OperationScheduler::scheduleAcceptOperation(const SocketIdentifier listeningSocketIdentifier)
 {
     const auto pendingAcceptSocketIdentifier = socketIdentifierSequencer_.generate();
-    operationContainer_.insert(createAcceptOperation(pendingAcceptSocketIdentifier, listeningSocketIdentifier), *this);
+    operationContainer_.insert(createAcceptOperation(listeningSocketIdentifier, pendingAcceptSocketIdentifier));
 }
 
 void OperationScheduler::scheduleReceiveOperation(const SocketIdentifier socketIdentifier)
 {
-    operationContainer_.insert(createReceiveOperation(socketIdentifier), *this);
+    operationContainer_.insert(createReceiveOperation(socketIdentifier));
 }
 
 void OperationScheduler::scheduleRegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
@@ -182,8 +182,7 @@ void OperationScheduler::scheduleRegisterMessageConsumerOperation(const SocketId
                                                                   UniqueFunction<void(std::any&&)>&& messageConsumer)
 {
     operationContainer_.insert(
-        createRegisterMessageConsumerOperation(socketIdentifier, protocolIdentifier, std::move(messageConsumer)),
-        *this);
+        createRegisterMessageConsumerOperation(socketIdentifier, protocolIdentifier, std::move(messageConsumer)));
 }
 
 void OperationScheduler::scheduleRegisterRequestCallbackOperation(
@@ -191,14 +190,13 @@ void OperationScheduler::scheduleRegisterRequestCallbackOperation(
     UniqueFunction<std::any(std::any&&)>&& requestConsumer)
 {
     operationContainer_.insert(
-        createRegisterRequestCallbackOperation(socketIdentifier, protocolIdentifier, std::move(requestConsumer)),
-        *this);
+        createRegisterRequestCallbackOperation(socketIdentifier, protocolIdentifier, std::move(requestConsumer)));
 }
 
 void OperationScheduler::scheduleSendBytesOperation(const SocketIdentifier socketIdentifier,
                                                     std::vector<uint8_t>&& bytes)
 {
-    operationContainer_.insert(createSendBytesOperation(socketIdentifier, std::move(bytes)), *this);
+    operationContainer_.insert(createSendBytesOperation(socketIdentifier, std::move(bytes)));
 }
 
 void OperationScheduler::scheduleSendRequestOperation(const SocketIdentifier socketIdentifier,
@@ -207,13 +205,12 @@ void OperationScheduler::scheduleSendRequestOperation(const SocketIdentifier soc
                                                       UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
 {
     operationContainer_.insert(createSendRequestOperation(socketIdentifier, protocolSequenceNumber, std::move(bytes),
-                                                          std::move(expectedResponseConsumer)),
-                               *this);
+                                                          std::move(expectedResponseConsumer)));
 }
 
 void OperationScheduler::scheduleCloseOperation(const SocketIdentifier socketIdentifier)
 {
-    operationContainer_.insert(createCloseOperation(socketIdentifier), *this);
+    operationContainer_.insert(createCloseOperation(socketIdentifier));
 }
 
 void OperationScheduler::scheduleAbortOperation()
@@ -253,7 +250,7 @@ void OperationScheduler::consumeOperationsWork()
                 return;
             }
 
-            operationContainer_.handleSuccessfulOperation(overlapped, numberOfBytesTransferred, *this);
+            operationContainer_.handleSuccessfulOperation(overlapped, numberOfBytesTransferred);
         }
         else
         {
