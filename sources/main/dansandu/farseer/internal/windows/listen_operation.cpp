@@ -64,9 +64,11 @@ public:
             Socket{
                 .socket = std::move(tempSocket),
                 .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                     std::vector<uint8_t>&& response) {
-                    operationScheduler.scheduleSendBytesOperation(receivingSocketIdentifier, std::move(response));
-                }},
+                                                     std::vector<uint8_t>&& response)
+                                                 {
+                                                     operationScheduler.scheduleSendBytesOperation(
+                                                         receivingSocketIdentifier, std::move(response));
+                                                 }},
                 .listeningSocketIdentifier = invalidSocketIdentifier,
                 .connectionCallback = std::move(connectionCallback_),
             });

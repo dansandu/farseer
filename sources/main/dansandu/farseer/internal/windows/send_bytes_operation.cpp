@@ -52,7 +52,7 @@ public:
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
-            LOG_DEBUG("Sending ", bytes_.size(), " bytes to socket with ID ", socketIdentifier.getUnderlying());
+            LOG_DEBUG("Sending ", bytes_.size(), " bytes to socket with ID ", socketIdentifier_.getUnderlying());
 
             socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()),
                                    &overlapped_);
