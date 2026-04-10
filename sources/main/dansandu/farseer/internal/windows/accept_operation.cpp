@@ -42,9 +42,11 @@ public:
                 .socket = listeningSocket.socket.postAccept(receiveBuffer_, std::size(receiveBuffer_),
                                                             socketIdentifier_, completionPort, &overlapped_),
                 .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                     std::vector<uint8_t>&& response) {
-                    operationScheduler.scheduleSendBytesOperation(receivingSocketIdentifier, std::move(response));
-                }},
+                                                     std::vector<uint8_t>&& response)
+                                                 {
+                                                     operationScheduler.scheduleSendBytesOperation(
+                                                         receivingSocketIdentifier, std::move(response));
+                                                 }},
                 .listeningSocketIdentifier = listeningSocketIdentifier_,
             });
     }
@@ -63,8 +65,8 @@ public:
 
         listeningSocket.connectionCallback(SocketEvent::clientOpen, socketIdentifier_);
 
-        LOG_INFO("Accepted client socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
-                 ":", socket.socket.getPort());
+        LOG_INFO("Accepted client socket with ID ", socketIdentifier_.getUnderlying(), " and address ",
+                 socket.socket.getIpAddress(), ":", socket.socket.getPort());
     }
 
 private:

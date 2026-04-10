@@ -68,9 +68,11 @@ public:
                 Socket{
                     .socket = std::move(tempSocket),
                     .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                         std::vector<uint8_t>&& response) {
-                        operationScheduler.scheduleSendBytesOperation(receivingSocketIdentifier, std::move(response));
-                    }},
+                                                         std::vector<uint8_t>&& response)
+                                                     {
+                                                         operationScheduler.scheduleSendBytesOperation(
+                                                             receivingSocketIdentifier, std::move(response));
+                                                     }},
                     .listeningSocketIdentifier = invalidSocketIdentifier,
                     .connectionCallback = std::move(connectionCallback_),
                 });
@@ -87,8 +89,8 @@ public:
 
             operationScheduler.scheduleReceiveOperation(socketIdentifier_);
 
-            LOG_INFO("Connected to socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
-                     ":", socket.socket.getPort());
+            LOG_INFO("Connected to socket with ID ", socketIdentifier_.getUnderlying(), " and address ",
+                     socket.socket.getIpAddress(), ":", socket.socket.getPort());
         }
     }
 
