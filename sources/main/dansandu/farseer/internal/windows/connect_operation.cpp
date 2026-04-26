@@ -106,8 +106,8 @@ public:
 
             operationScheduler.scheduleReceiveOperation(socketIdentifier_);
 
-            LOG_INFO("Connected to socket with ID ", socketIdentifier_.getUnderlying(), " and address ",
-                     socket.socket.getIpAddress(), ":", socket.socket.getPort());
+            LOG_INFO("Connected to socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
+                     ":", socket.socket.getPort());
         }
     }
 

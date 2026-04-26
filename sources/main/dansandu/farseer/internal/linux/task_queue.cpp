@@ -91,8 +91,7 @@ void TaskQueue::insert(std::unique_ptr<ITask>&& task)
 
     if (insertedTask)
     {
-        LOG_DEBUG("Inserted ", insertedTask->getName(), " with socket ID ",
-                  insertedTask->getSocketIdentifier().getUnderlying());
+        LOG_DEBUG("Inserted ", insertedTask->getName(), " with socket ID ", insertedTask->getSocketIdentifier());
     }
     else
     {

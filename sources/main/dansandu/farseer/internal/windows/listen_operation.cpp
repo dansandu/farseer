@@ -96,8 +96,8 @@ public:
 
         socket.connectionCallback(SocketEvent::serverOpen, socketIdentifier_);
 
-        LOG_INFO("Opened listening socket with ID ", socketIdentifier_.getUnderlying(), " and address ",
-                 socket.socket.getIpAddress(), ':', socket.socket.getPort());
+        LOG_INFO("Opened listening socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
+                 ':', socket.socket.getPort());
     }
 
 private:

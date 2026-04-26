@@ -82,7 +82,7 @@ public:
 
         listeningSocket.connectionCallback(SocketEvent::clientOpen, pendingAcceptSocketIdentifier_);
 
-        LOG_INFO("Accepted client socket with ID ", pendingAcceptSocketIdentifier_.getUnderlying(), " and address ",
+        LOG_INFO("Accepted client socket with ID ", pendingAcceptSocketIdentifier_, " and address ",
                  acceptedSocket.socket.getIpAddress(), ":", acceptedSocket.socket.getPort());
     }
 

@@ -63,8 +63,8 @@ public:
 
             const auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(receiveBuffer_), numberOfBytesTransferred);
 
-            LOG_INFO("Socket with ID ", socketIdentifier_.getUnderlying(), " and address ",
-                     socket.socket.getIpAddress(), ':', socket.socket.getPort(), " received ", bytes.size(), " bytes");
+            LOG_INFO("Socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(), ':',
+                     socket.socket.getPort(), " received ", bytes.size(), " bytes");
 
             if (listeningSocketIdentifier != invalidSocketIdentifier)
             {

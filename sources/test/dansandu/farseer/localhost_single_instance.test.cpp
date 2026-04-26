@@ -1,7 +1,7 @@
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/farseer/socket_provider.hpp"
+#include "dansandu/journey/exception.hpp"
 #include "dansandu/journey/logging.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
