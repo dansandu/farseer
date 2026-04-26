@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/ballotin/string.hpp"
 #include "dansandu/journey/exception.hpp"
 

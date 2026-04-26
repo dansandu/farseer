@@ -1,6 +1,6 @@
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/ballotin/binary.hpp"
-#include "dansandu/ballotin/exception.hpp"
+#include "dansandu/journey/exception.hpp"
 
 #include <type_traits>
 

@@ -90,7 +90,7 @@ void ProtocolReader::readMessage(const ProtocolIdentifier messageIdentifier,
 
     if (messageDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, message))
     {
-        LOG_DEBUG("Successfully read message protocol ", messageIdentifier.getUnderlying());
+        LOG_DEBUG("Successfully read message protocol ", messageIdentifier);
 
         eraseBits(bitsOffset);
 
@@ -101,14 +101,13 @@ void ProtocolReader::readMessage(const ProtocolIdentifier messageIdentifier,
         }
         else
         {
-            LOG_WARNING("Message protocol with identifier ", messageIdentifier.getUnderlying(),
+            LOG_WARNING("Message protocol with identifier ", messageIdentifier,
                         " has no consumer registered and will be skipped");
         }
     }
     else
     {
-        LOG_DEBUG("Buffer does not have enough bytes to read message protocol ", messageIdentifier.getUnderlying(),
-                  " just yet");
+        LOG_DEBUG("Buffer does not have enough bytes to read message protocol ", messageIdentifier, " just yet");
     }
 }
 
@@ -122,7 +121,7 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
 
     if (requestDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, request))
     {
-        LOG_DEBUG("Successfully read request protocol ", requestIdentifier.getUnderlying());
+        LOG_DEBUG("Successfully read request protocol ", requestIdentifier);
 
         eraseBits(bitsOffset);
 
@@ -137,14 +136,13 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
         }
         else
         {
-            LOG_WARNING("Request protocol with identifier ", requestIdentifier.getUnderlying(),
+            LOG_WARNING("Request protocol with identifier ", requestIdentifier,
                         " has no consumer registered and will be skipped");
         }
     }
     else
     {
-        LOG_DEBUG("Buffer does not have enough bytes to read request protocol ", requestIdentifier.getUnderlying(),
-                  " just yet");
+        LOG_DEBUG("Buffer does not have enough bytes to read request protocol ", requestIdentifier, " just yet");
     }
 }
 
@@ -157,7 +155,7 @@ void ProtocolReader::readResponse(const ProtocolIdentifier responseIdentifier,
 
     if (responseDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, response))
     {
-        LOG_DEBUG("Successfully read response protocol ", responseIdentifier.getUnderlying());
+        LOG_DEBUG("Successfully read response protocol ", responseIdentifier);
 
         eraseBits(bitsOffset);
 
@@ -170,14 +168,13 @@ void ProtocolReader::readResponse(const ProtocolIdentifier responseIdentifier,
         }
         else
         {
-            LOG_ERROR("Response protocol with identifier ", responseIdentifier.getUnderlying(), " and sequence number ",
-                      sequenceNumber.getUnderlying(), " has no consumer registered and will be skipped");
+            LOG_ERROR("Response protocol with identifier ", responseIdentifier, " and sequence number ", sequenceNumber,
+                      " has no consumer registered and will be skipped");
         }
     }
     else
     {
-        LOG_DEBUG("Buffer does not have enough bytes to read response protocol ", responseIdentifier.getUnderlying(),
-                  " just yet");
+        LOG_DEBUG("Buffer does not have enough bytes to read response protocol ", responseIdentifier, " just yet");
     }
 }
 

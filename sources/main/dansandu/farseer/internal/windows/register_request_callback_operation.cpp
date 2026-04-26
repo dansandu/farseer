@@ -69,8 +69,8 @@ public:
 
         socket.protocolReader.registerRequestConsumer(protocolIdentifier_, std::move(requestConsumer_));
 
-        LOG_INFO("Registered request consumer with protocol ID ", protocolIdentifier_.getUnderlying(),
-                 " and socket ID ", socketIdentifier_.getUnderlying());
+        LOG_INFO("Registered request consumer with protocol ID ", protocolIdentifier_, " and socket ID ",
+                 socketIdentifier_);
     }
 
 private:

@@ -89,7 +89,7 @@ Socket& OperationScheduler::insertSocket(const SocketIdentifier socketIdentifier
 
     if (!inserted)
     {
-        THROW(std::logic_error, "Couldn't insert socket with ID ", socketIdentifier.getUnderlying(),
+        THROW(std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
               " because the ID is used by another socket");
     }
 
@@ -105,7 +105,7 @@ Socket& OperationScheduler::getSocketOrThrow(const SocketIdentifier socketIdenti
         return position->second;
     }
 
-    WTHROW(InternalSocketError, "Couldn't find socket with ID ", socketIdentifier.getUnderlying());
+    WTHROW(InternalSocketError, "Couldn't find socket with ID ", socketIdentifier);
 }
 
 void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
@@ -134,8 +134,8 @@ void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
                 socket.connectionCallback(SocketEvent::serverClosed, socketIdentifier);
             }
 
-            LOG_INFO("Socket with ID ", socketIdentifier.getUnderlying(), " and address ", socket.socket.getIpAddress(),
-                     ':', socket.socket.getPort(), " was closed");
+            LOG_INFO("Socket with ID ", socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
+                     socket.socket.getPort(), " was closed");
         }
         catch (const WideException& wideException)
         {

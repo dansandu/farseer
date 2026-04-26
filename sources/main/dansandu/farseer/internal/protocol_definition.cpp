@@ -1,6 +1,6 @@
 #include "dansandu/farseer/internal/protocol_definition.hpp"
-#include "dansandu/ballotin/exception.hpp"
 #include "dansandu/ballotin/hashing.hpp"
+#include "dansandu/journey/exception.hpp"
 
 #include <algorithm>
 #include <numeric>

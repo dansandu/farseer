@@ -24,7 +24,7 @@ void OperationContainer::insert(std::unique_ptr<IOperation>&& operation)
 {
     const auto overlapped = operation->getOverlapped();
     const auto name = operation->getName();
-    const auto socketIdentifier = operation->getSocketIdentifier().getUnderlying();
+    const auto socketIdentifier = operation->getSocketIdentifier();
 
     const auto lock = std::lock_guard<std::mutex>{mutex_};
     const auto [position, inserted] = operations_.insert({overlapped, std::move(operation)});
@@ -70,12 +70,11 @@ void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlap
 
             operations_.erase(position);
 
-            LOG_DEBUG("Erased ", operation->getName(), " with socket ID ",
-                      operation->getSocketIdentifier().getUnderlying());
+            LOG_DEBUG("Erased ", operation->getName(), " with socket ID ", operation->getSocketIdentifier());
         }
     }
 
-    LOG_DEBUG("Executing ", operation->getName(), " with socket ID ", operation->getSocketIdentifier().getUnderlying());
+    LOG_DEBUG("Executing ", operation->getName(), " with socket ID ", operation->getSocketIdentifier());
 
     try
     {
@@ -111,7 +110,7 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
         const auto level = position->second->getSystemErrorCodeLevel(errorCode);
         const auto message = getErrorMessageFromCode(errorCode);
 
-        LOG(level, name, " with socket ID ", socketIdentifier.getUnderlying(), " failed: ", message);
+        LOG(level, name, " with socket ID ", socketIdentifier, " failed: ", message);
     }
     else
     {
@@ -139,7 +138,7 @@ void OperationContainer::handleOperationExecutionFailure(IOperation& operation, 
             operationScheduler_.eraseSocket(socketIdentifier);
         });
 
-    LOG_ERROR(operation.getName(), " with socket ID ", socketIdentifier.getUnderlying(), " failed: ", message);
+    LOG_ERROR(operation.getName(), " with socket ID ", socketIdentifier, " failed: ", message);
 }
 
 }
