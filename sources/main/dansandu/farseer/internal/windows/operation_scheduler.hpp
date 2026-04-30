@@ -30,11 +30,13 @@ public:
 
     void eraseSocket(const SocketIdentifier socketIdentifier) override;
 
-    SocketIdentifier scheduleConnectOperation(const std::string& ipAddress, const int port,
-                                              ConnectionCallback&& connectionCallback);
+    SocketIdentifier
+    scheduleConnectOperation(const std::string& ipAddress, const int port,
+                             UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
 
-    SocketIdentifier scheduleListenOperation(const std::string& ipAddress, const int port,
-                                             ConnectionCallback&& connectionCallback);
+    SocketIdentifier
+    scheduleListenOperation(const std::string& ipAddress, const int port,
+                            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
 
     void scheduleAcceptOperation(const SocketIdentifier listeningSocketIdentifier) override;
 
@@ -44,7 +46,7 @@ public:
 
     void scheduleSendRequestOperation(const SocketIdentifier socketIdentifier,
                                       const ProtocolSequenceNumber protocolSequenceNumber, std::vector<uint8_t>&& bytes,
-                                      UniqueFunction<void(std::any&&)>&& expectedResponseConsumer);
+                                      UniqueFunction<void(std::any&&)>&& responseConsumer);
 
     void scheduleRegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
                                                   const ProtocolIdentifier protocolIdentifier,

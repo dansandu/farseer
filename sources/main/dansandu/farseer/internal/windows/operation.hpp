@@ -14,7 +14,7 @@ struct Socket
     dansandu::farseer::internal::windows::windows_socket::WindowsSocket socket;
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
     SocketIdentifier listeningSocketIdentifier;
-    ConnectionCallback connectionCallback;
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
 };
 
 class IOperationScheduler

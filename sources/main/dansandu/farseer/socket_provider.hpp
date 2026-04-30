@@ -17,9 +17,12 @@ class PRALINE_EXPORT SocketProvider
 public:
     explicit SocketProvider(const bool initializeWsa);
 
-    SocketIdentifier listen(const std::string& ipAddress, const int port, ConnectionCallback connectionCallback) const;
+    SocketIdentifier listen(const std::string& ipAddress, const int port,
+                            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) const;
 
-    SocketIdentifier connect(const std::string& ipAddress, const int port, ConnectionCallback connectionCallback) const;
+    SocketIdentifier
+    connect(const std::string& ipAddress, const int port,
+            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) const;
 
     template<typename Message>
     void sendMessage(const SocketIdentifier socketIdentifier, const Message& message) const
@@ -35,7 +38,7 @@ public:
 
     template<typename Request>
     void sendRequest(const SocketIdentifier socketIdentifier, const Request& request,
-                     UniqueFunction<void(Expected<typename Request::Response>&&)> expectedResponseConsumer) const
+                     UniqueFunction<void(Expected<typename Request::Response>&&)>&& responseConsumer) const
     {
         if (socketIdentifier == invalidSocketIdentifier)
         {
@@ -45,16 +48,13 @@ public:
         using dansandu::farseer::protocol_serialization::serializeRequestProtocol;
         const auto sequenceNumber = generateSequenceNumber();
         sendRequest(socketIdentifier, sequenceNumber, serializeRequestProtocol(request, sequenceNumber),
-                    [expectedResponseConsumer = std::move(expectedResponseConsumer)](std::any&& expectedResponse)
-                    {
-                        expectedResponseConsumer(
-                            std::any_cast<Expected<typename Request::Response>&&>(std::move(expectedResponse)));
-                    });
+                    [responseConsumer = std::move(responseConsumer)](std::any&& response)
+                    { responseConsumer(std::any_cast<Expected<typename Request::Response>&&>(std::move(response))); });
     }
 
     template<typename Message>
     void registerMessageConsumer(const SocketIdentifier socketIdentifier,
-                                 UniqueFunction<void(Message&&)> messageConsumer) const
+                                 UniqueFunction<void(Message&&)>&& messageConsumer) const
     {
         if (socketIdentifier == invalidSocketIdentifier)
         {
@@ -68,36 +68,37 @@ public:
 
     template<typename Request>
     void registerRequestCallback(const SocketIdentifier socketIdentifier,
-                                 UniqueFunction<typename Request::Response(Request&&)> requestCallback) const
+                                 UniqueFunction<typename Request::Response(Request&&)>&& requestCallback) const
     {
         if (socketIdentifier == invalidSocketIdentifier)
         {
             THROW(std::logic_error, "Cannot register request callback using an invalidSocketIdentifier");
         }
 
-        registerRequestCallback(
-            socketIdentifier, Request::Metadata::getProtocolIdentifier(),
-            [requestCallback = std::move(requestCallback)](std::any&& request) -> std::any
-            {
-                try
-                {
-                    return Expected<typename Request::Response>::fromSuccess(
-                        requestCallback(std::any_cast<Request&&>(std::move(request))));
-                }
-                catch (const RequestProtocolError& exception)
-                {
-                    return Expected<typename Request::Response>::fromFailure(exception.getErrorCode(),
-                                                                             exception.getErrorMessage());
-                }
-                catch (const std::exception& exception)
-                {
-                    return Expected<typename Request::Response>::fromInternalServerError(exception.what());
-                }
-                catch (...)
-                {
-                    return Expected<typename Request::Response>::fromInternalServerError();
-                }
-            });
+        using Response = typename Request::Response;
+
+        registerRequestCallback(socketIdentifier, Request::Metadata::getProtocolIdentifier(),
+                                [requestCallback = std::move(requestCallback)](std::any&& request) -> std::any
+                                {
+                                    try
+                                    {
+                                        return Expected<Response>::fromSuccess(
+                                            requestCallback(std::any_cast<Request&&>(std::move(request))));
+                                    }
+                                    catch (const RequestProtocolError& exception)
+                                    {
+                                        return Expected<Response>::fromFailure(exception.getErrorCode(),
+                                                                               exception.getErrorMessage());
+                                    }
+                                    catch (const std::exception& exception)
+                                    {
+                                        return Expected<Response>::fromInternalServerError(exception.what());
+                                    }
+                                    catch (...)
+                                    {
+                                        return Expected<Response>::fromInternalServerError();
+                                    }
+                                });
     }
 
     void close(const SocketIdentifier socketIdentifier) const;
@@ -108,7 +109,7 @@ private:
     void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) const;
 
     void sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-                     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) const;
+                     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer) const;
 
     void registerMessageConsumer(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
                                  UniqueFunction<void(std::any&&)>&& messageConsumer) const;

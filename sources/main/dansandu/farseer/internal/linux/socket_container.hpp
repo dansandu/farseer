@@ -22,7 +22,7 @@ struct Socket
     SocketIdentifier listeningSocketIdentifier;
     dansandu::farseer::internal::linux::linux_socket::LinuxSocket socket;
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
-    ConnectionCallback connectionCallback;
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
 };
 
 class SocketContainer
@@ -42,10 +42,10 @@ public:
     size_t getNumberOfSockets() const;
 
     void listen(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                ConnectionCallback&& connectionCallback);
+                UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
 
     void connect(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                 ConnectionCallback&& connectionCallback);
+                 UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
 
     void registerMessageConsumer(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
                                  UniqueFunction<void(std::any&&)>&& messageConsumer);

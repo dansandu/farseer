@@ -11,6 +11,6 @@ namespace dansandu::farseer::internal::linux::listen_task
 
 std::unique_ptr<dansandu::farseer::internal::linux::task::ITask>
 createListenTask(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                 ConnectionCallback&& connectionCallback);
+                 UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
 
 }

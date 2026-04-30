@@ -21,17 +21,18 @@ public:
 
     virtual ~ISocketProviderImplementation() noexcept = default;
 
-    virtual SocketIdentifier listen(const std::string& ipAddress, const int port,
-                                    ConnectionCallback&& connectionCallback) = 0;
+    virtual SocketIdentifier
+    listen(const std::string& ipAddress, const int port,
+           UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) = 0;
 
-    virtual SocketIdentifier connect(const std::string& ipAddress, const int port,
-                                     ConnectionCallback&& connectionCallback) = 0;
+    virtual SocketIdentifier
+    connect(const std::string& ipAddress, const int port,
+            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) = 0;
 
     virtual void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
 
     virtual void sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-                             std::vector<uint8_t>&& bytes,
-                             UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) = 0;
+                             std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer) = 0;
 
     virtual void registerMessageConsumer(const SocketIdentifier socketIdentifier,
                                          const ProtocolIdentifier protocolIdentifier,

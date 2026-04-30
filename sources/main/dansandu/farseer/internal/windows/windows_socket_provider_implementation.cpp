@@ -29,14 +29,16 @@ public:
     {
     }
 
-    SocketIdentifier listen(const std::string& ipAddress, const int port,
-                            ConnectionCallback&& connectionCallback) override
+    SocketIdentifier
+    listen(const std::string& ipAddress, const int port,
+           UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) override
     {
         return operationScheduler_.scheduleListenOperation(ipAddress, port, std::move(connectionCallback));
     }
 
-    SocketIdentifier connect(const std::string& ipAddress, const int port,
-                             ConnectionCallback&& connectionCallback) override
+    SocketIdentifier
+    connect(const std::string& ipAddress, const int port,
+            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) override
     {
         return operationScheduler_.scheduleConnectOperation(ipAddress, port, std::move(connectionCallback));
     }
@@ -47,10 +49,10 @@ public:
     }
 
     void sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-                     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) override
+                     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer) override
     {
         operationScheduler_.scheduleSendRequestOperation(socketIdentifier, sequenceNumber, std::move(bytes),
-                                                         std::move(expectedResponseConsumer));
+                                                         std::move(responseConsumer));
     }
 
     void registerMessageConsumer(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,

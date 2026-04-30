@@ -83,7 +83,7 @@ Socket& SocketContainer::getSocketOrThrow(const SocketIdentifier socketIdentifie
 }
 
 void SocketContainer::listen(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                             ConnectionCallback&& connectionCallback)
+                             UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
 {
     auto& socket = insertSocket(
         EPOLLIN | EPOLLET,
@@ -104,7 +104,7 @@ void SocketContainer::listen(const SocketIdentifier socketIdentifier, const std:
 }
 
 void SocketContainer::connect(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                              ConnectionCallback&& connectionCallback)
+                              UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
 {
     insertSocket(EPOLLOUT | EPOLLET,
                  Socket{
