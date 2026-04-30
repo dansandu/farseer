@@ -149,8 +149,9 @@ void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
     }
 }
 
-SocketIdentifier OperationScheduler::scheduleConnectOperation(const std::string& ipAddress, const int port,
-                                                              ConnectionCallback&& connectionCallback)
+SocketIdentifier OperationScheduler::scheduleConnectOperation(
+    const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
     operationContainer_.insert(
@@ -158,8 +159,9 @@ SocketIdentifier OperationScheduler::scheduleConnectOperation(const std::string&
     return socketIdentifier;
 }
 
-SocketIdentifier OperationScheduler::scheduleListenOperation(const std::string& ipAddress, const int port,
-                                                             ConnectionCallback&& connectionCallback)
+SocketIdentifier OperationScheduler::scheduleListenOperation(
+    const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
     operationContainer_.insert(createListenOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
@@ -202,10 +204,10 @@ void OperationScheduler::scheduleSendBytesOperation(const SocketIdentifier socke
 void OperationScheduler::scheduleSendRequestOperation(const SocketIdentifier socketIdentifier,
                                                       const ProtocolSequenceNumber protocolSequenceNumber,
                                                       std::vector<uint8_t>&& bytes,
-                                                      UniqueFunction<void(std::any&&)>&& expectedResponseConsumer)
+                                                      UniqueFunction<void(std::any&&)>&& responseConsumer)
 {
     operationContainer_.insert(createSendRequestOperation(socketIdentifier, protocolSequenceNumber, std::move(bytes),
-                                                          std::move(expectedResponseConsumer)));
+                                                          std::move(responseConsumer)));
 }
 
 void OperationScheduler::scheduleCloseOperation(const SocketIdentifier socketIdentifier)

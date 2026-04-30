@@ -77,12 +77,11 @@ std::vector<uint8_t> serializeRequestProtocol(const Request& request, const Prot
 }
 
 template<typename Response>
-std::vector<uint8_t> serializeResponseProtocol(const std::any& expectedResponse,
-                                               const ProtocolSequenceNumber sequenceNumber)
+std::vector<uint8_t> serializeResponseProtocol(const std::any& response, const ProtocolSequenceNumber sequenceNumber)
 {
     using dansandu::farseer::binary_serialization::BinarySerializer;
 
-    const auto& casted = std::any_cast<const Expected<Response>&>(expectedResponse);
+    const auto& casted = std::any_cast<const Expected<Response>&>(response);
 
     auto bytes = std::vector<uint8_t>{};
     auto bitsOffset = size_t{0};
@@ -165,7 +164,7 @@ bool tryDeserializeRequestProtocol(const std::vector<uint8_t>& bytes, size_t& bi
 
 template<typename Response>
 bool tryDeserializeResponseProtocol(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
-                                    ProtocolSequenceNumber& sequenceNumber, std::any& expectedResponse)
+                                    ProtocolSequenceNumber& sequenceNumber, std::any& response)
 {
     using dansandu::ballotin::binary::bitsPerByte;
     using dansandu::farseer::binary_serialization::BinarySerializer;
@@ -179,7 +178,7 @@ bool tryDeserializeResponseProtocol(const std::vector<uint8_t>& bytes, size_t& b
 
         if (bitsPerByte * bytes.size() >= bitsOffset + dynamicNumberOfBits.getUnderlying())
         {
-            expectedResponse = BinarySerializer<Expected<Response>>::deserialize(bytes, bitsOffset);
+            response = BinarySerializer<Expected<Response>>::deserialize(bytes, bitsOffset);
             return true;
         }
     }

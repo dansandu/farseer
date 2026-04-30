@@ -90,8 +90,6 @@ PRALINE_EXPORT ProtocolSize getProtocolSizeFromStdSize(const size_t size);
 
 PRALINE_EXPORT const char* toString(const SocketEvent event);
 
-using ConnectionCallback = UniqueFunction<void(const SocketEvent event, const SocketIdentifier identifier)>;
-
 using ProtocolDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
                                       ProtocolSequenceNumber& sequenceNumber, std::any& protocol);
 

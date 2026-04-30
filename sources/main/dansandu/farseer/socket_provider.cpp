@@ -12,16 +12,18 @@ SocketProvider::SocketProvider(const bool initializeWsa)
 {
 }
 
-SocketIdentifier SocketProvider::listen(const std::string& ipAddress, const int port,
-                                        ConnectionCallback connectionCallback) const
+SocketIdentifier
+SocketProvider::listen(const std::string& ipAddress, const int port,
+                       UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());
 
     return impl->listen(ipAddress, port, std::move(connectionCallback));
 }
 
-SocketIdentifier SocketProvider::connect(const std::string& ipAddress, const int port,
-                                         ConnectionCallback connectionCallback) const
+SocketIdentifier
+SocketProvider::connect(const std::string& ipAddress, const int port,
+                        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());
 
@@ -44,11 +46,11 @@ void SocketProvider::sendBytes(const SocketIdentifier socketIdentifier, std::vec
 
 void SocketProvider::sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
                                  std::vector<uint8_t>&& bytes,
-                                 UniqueFunction<void(std::any&&)>&& expectedResponseConsumer) const
+                                 UniqueFunction<void(std::any&&)>&& responseConsumer) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());
 
-    impl->sendRequest(socketIdentifier, sequenceNumber, std::move(bytes), std::move(expectedResponseConsumer));
+    impl->sendRequest(socketIdentifier, sequenceNumber, std::move(bytes), std::move(responseConsumer));
 }
 
 void SocketProvider::registerMessageConsumer(const SocketIdentifier socketIdentifier,

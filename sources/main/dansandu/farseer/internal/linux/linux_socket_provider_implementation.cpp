@@ -72,16 +72,18 @@ public:
         thread_.join();
     }
 
-    SocketIdentifier listen(const std::string& ipAddress, const int port,
-                            ConnectionCallback&& connectionCallback) override
+    SocketIdentifier
+    listen(const std::string& ipAddress, const int port,
+           UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) override
     {
         const auto socketIdentifier = socketIdentifierSequencer_.generate();
         taskQueue_.insert(createListenTask(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
         return socketIdentifier;
     }
 
-    SocketIdentifier connect(const std::string& ipAddress, const int port,
-                             ConnectionCallback&& connectionCallback) override
+    SocketIdentifier
+    connect(const std::string& ipAddress, const int port,
+            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) override
     {
         const auto socketIdentifier = socketIdentifierSequencer_.generate();
         taskQueue_.insert(createConnectTask(socketIdentifier, ipAddress, port, std::move(connectionCallback)));

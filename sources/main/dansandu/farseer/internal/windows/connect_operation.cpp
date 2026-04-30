@@ -19,7 +19,7 @@ class ConnectOperation : public IOperation
 {
 public:
     ConnectOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                     ConnectionCallback&& connectionCallback)
+                     UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
         : socketIdentifier_{socketIdentifier},
           ipAddress_{ipAddress},
           port_{port},
@@ -115,14 +115,14 @@ private:
     const SocketIdentifier socketIdentifier_;
     const std::string ipAddress_;
     const int port_;
-    ConnectionCallback connectionCallback_;
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback_;
     bool connectionPending_;
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation> createConnectOperation(const SocketIdentifier socketIdentifier,
-                                                   const std::string& ipAddress, const int port,
-                                                   ConnectionCallback&& connectionCallback)
+std::unique_ptr<IOperation>
+createConnectOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+                       UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
 {
     return std::make_unique<ConnectOperation>(socketIdentifier, ipAddress, port, std::move(connectionCallback));
 }
