@@ -1,6 +1,7 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/ballotin/binary.hpp"
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"
 #include "dansandu/journey/logging.hpp"
@@ -88,7 +89,7 @@ void ProtocolReader::readMessage(const ProtocolIdentifier messageIdentifier,
 
     auto message = std::any{};
 
-    if (messageDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, message))
+    if (messageDescriptor.messageWithHeaderDeserializer(buffer_, bitsOffset, message))
     {
         LOG_DEBUG("Successfully read message protocol ", messageIdentifier);
 
@@ -119,7 +120,7 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
 
     auto request = std::any{};
 
-    if (requestDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, request))
+    if (requestDescriptor.sequencedProtocolWithHeaderDeserializer(buffer_, bitsOffset, sequenceNumber, request))
     {
         LOG_DEBUG("Successfully read request protocol ", requestIdentifier);
 
@@ -130,7 +131,7 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
         {
             const auto response = consumerPosition->second(std::move(request));
 
-            auto serializedResponse = requestDescriptor.responseSerializer(response, sequenceNumber);
+            auto serializedResponse = requestDescriptor.responseWithHeaderSerializer(response, sequenceNumber);
 
             serializedResponseConsumer_(receivingSocketIdentifier, std::move(serializedResponse));
         }
@@ -153,7 +154,7 @@ void ProtocolReader::readResponse(const ProtocolIdentifier responseIdentifier,
 
     auto response = std::any{};
 
-    if (responseDescriptor.protocolDeserializer(buffer_, bitsOffset, sequenceNumber, response))
+    if (responseDescriptor.sequencedProtocolWithHeaderDeserializer(buffer_, bitsOffset, sequenceNumber, response))
     {
         LOG_DEBUG("Successfully read response protocol ", responseIdentifier);
 

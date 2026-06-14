@@ -32,9 +32,13 @@ struct PRALINE_EXPORT MyMessage
     {
         static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
 
-        static MyMessage deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+        static void serializeHeaderless(const MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
-        static void serialize(const MyMessage& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);
+        static MyMessage deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+
+        static std::vector<uint8_t> serializeWithHeader(const MyMessage& message);
+
+        static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, std::any& message);
 
         static constexpr auto hasStaticSize = true;
 
@@ -49,6 +53,7 @@ struct PRALINE_EXPORT MyMessage
 )";
 
         const auto expectedSource = R"(#include "organization/artifact/protocol.g.hpp"
+#include "dansandu/ballotin/binary.hpp"
 #include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"
 #include "dansandu/journey/macro.hpp"
@@ -61,18 +66,84 @@ namespace organization::artifact::protocol
     return ::dansandu::farseer::ProtocolIdentifier{1986501203U};
 }
 
-MyMessage MyMessage::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+void MyMessage::Metadata::serializeHeaderless(const MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsOffset)
 {
-    auto protocol = MyMessage{};
-    protocol.integer = ::dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::deserialize(bytes, bitsOffset);
-    protocol.boolean = ::dansandu::farseer::binary_serialization::BinarySerializer<bool>::deserialize(bytes, bitsOffset);
-    return protocol;
+    ::dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::serialize(message.integer, bytes, bitsOffset);
+    ::dansandu::farseer::binary_serialization::BinarySerializer<bool>::serialize(message.boolean, bytes, bitsOffset);
 }
 
-void MyMessage::Metadata::serialize(const MyMessage& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+MyMessage MyMessage::Metadata::deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
 {
-    ::dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::serialize(protocol.integer, bytes, bitsOffset);
-    ::dansandu::farseer::binary_serialization::BinarySerializer<bool>::serialize(protocol.boolean, bytes, bitsOffset);
+    auto message = MyMessage{};
+    message.integer = ::dansandu::farseer::binary_serialization::BinarySerializer<int32_t>::deserialize(bytes, bitsOffset);
+    message.boolean = ::dansandu::farseer::binary_serialization::BinarySerializer<bool>::deserialize(bytes, bitsOffset);
+    return message;
+}
+
+std::vector<uint8_t> MyMessage::Metadata::serializeWithHeader(const MyMessage& message)
+{
+    using ::dansandu::farseer::binary_serialization::BinarySerializer;
+    using ::dansandu::farseer::ProtocolIdentifier;
+
+    auto bytes = std::vector<uint8_t>{};
+    auto bitsOffset = size_t{0};
+
+    BinarySerializer<ProtocolIdentifier>::serialize(MyMessage::Metadata::getProtocolIdentifier(), bytes, bitsOffset);
+
+    if constexpr (MyMessage::Metadata::hasStaticSize)
+    {
+        BinarySerializer<MyMessage>::serialize(message, bytes, bitsOffset);
+    }
+    else
+    {
+        using ::dansandu::ballotin::binary::bitsPerByte;
+        using ::dansandu::ballotin::binary::pushBitsMostSignificant;
+        using ::dansandu::farseer::getProtocolSizeFromStdSize;
+        using ::dansandu::farseer::ProtocolSize;
+
+        auto dynamicBytes = std::vector<uint8_t>{};
+        auto dynamicBitsOffset = size_t{0};
+
+        BinarySerializer<MyMessage>::serialize(message, dynamicBytes, dynamicBitsOffset);
+
+        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(dynamicBitsOffset), bytes, bitsOffset);
+
+        for (const auto byte : dynamicBytes)
+        {
+            pushBitsMostSignificant(bytes, bitsOffset, byte, bitsPerByte);
+        }
+    }
+
+    return bytes;
+}
+
+bool MyMessage::Metadata::tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, std::any& message)
+{
+    using ::dansandu::ballotin::binary::bitsPerByte;
+    using ::dansandu::farseer::binary_serialization::BinarySerializer;
+
+    if constexpr (MyMessage::Metadata::hasStaticSize)
+    {
+        if (bitsPerByte * bytes.size() >= bitsOffset + MyMessage::Metadata::staticNumberOfBits.getUnderlying())
+        {
+            message = BinarySerializer<MyMessage>::deserialize(bytes, bitsOffset);
+            return true;
+        }
+    }
+    else
+    {
+        if (bitsPerByte * bytes.size() >= bitsOffset + bitsPerByte * sizeof(ProtocolSize))
+        {
+            const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
+
+            if (bitsPerByte * bytes.size() >= bitsOffset + dynamicNumberOfBits.getUnderlying())
+            {
+                message = BinarySerializer<MyMessage>::deserialize(bytes, bitsOffset);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 }
@@ -127,9 +198,13 @@ struct PRALINE_EXPORT MyRequest
     {
         static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
 
-        static MyRequest deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+        static void serializeHeaderless(const MyRequest& request, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
-        static void serialize(const MyRequest& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);
+        static MyRequest deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+
+        static std::vector<uint8_t> serializeWithHeader(const MyRequest& request, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber);
+
+        static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& request);
 
         static constexpr auto hasStaticSize = false;
 
@@ -145,9 +220,13 @@ struct PRALINE_EXPORT MyRequest
         {
             static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
 
-            static Response deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+            static void serializeHeaderless(const Response& response, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
-            static void serialize(const Response& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset);
+            static Response deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+
+            static std::vector<uint8_t> serializeWithHeader(const std::any& response, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber);
+
+            static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& response);
 
             static constexpr auto hasStaticSize = false;
 
@@ -163,6 +242,7 @@ struct PRALINE_EXPORT MyRequest
 )";
 
         const auto expectedSource = R"(#include "organization/artifact/protocol.g.hpp"
+#include "dansandu/ballotin/binary.hpp"
 #include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"
 #include "dansandu/journey/macro.hpp"
@@ -175,18 +255,91 @@ namespace organization::artifact::protocol
     return ::dansandu::farseer::ProtocolIdentifier{1356265941U};
 }
 
-MyRequest MyRequest::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+void MyRequest::Metadata::serializeHeaderless(const MyRequest& request, std::vector<uint8_t>& bytes, size_t& bitsOffset)
 {
-    auto protocol = MyRequest{};
-    protocol.user = ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::deserialize(bytes, bitsOffset);
-    protocol.password = ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::deserialize(bytes, bitsOffset);
-    return protocol;
+    ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::serialize(request.user, bytes, bitsOffset);
+    ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::serialize(request.password, bytes, bitsOffset);
 }
 
-void MyRequest::Metadata::serialize(const MyRequest& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+MyRequest MyRequest::Metadata::deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
 {
-    ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::serialize(protocol.user, bytes, bitsOffset);
-    ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::serialize(protocol.password, bytes, bitsOffset);
+    auto request = MyRequest{};
+    request.user = ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::deserialize(bytes, bitsOffset);
+    request.password = ::dansandu::farseer::binary_serialization::BinarySerializer<std::string>::deserialize(bytes, bitsOffset);
+    return request;
+}
+
+std::vector<uint8_t> MyRequest::Metadata::serializeWithHeader(const MyRequest& request, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber)
+{
+    using ::dansandu::farseer::binary_serialization::BinarySerializer;
+    using ::dansandu::farseer::ProtocolSequenceNumber;
+
+    auto bytes = std::vector<uint8_t>{};
+    auto bitsOffset = size_t{0};
+
+    BinarySerializer<ProtocolIdentifier>::serialize(MyRequest::Metadata::getProtocolIdentifier(), bytes, bitsOffset);
+
+    BinarySerializer<ProtocolSequenceNumber>::serialize(sequenceNumber, bytes, bitsOffset);
+
+    if constexpr (MyRequest::Metadata::hasStaticSize)
+    {
+        BinarySerializer<MyRequest>::serialize(request, bytes, bitsOffset);
+    }
+    else
+    {
+        using ::dansandu::ballotin::binary::bitsPerByte;
+        using ::dansandu::ballotin::binary::pushBitsMostSignificant;
+        using ::dansandu::farseer::getProtocolSizeFromStdSize;
+        using ::dansandu::farseer::ProtocolSize;
+
+        auto dynamicBytes = std::vector<uint8_t>{};
+        auto dynamicBitsOffset = size_t{0};
+
+        BinarySerializer<MyRequest>::serialize(request, dynamicBytes, dynamicBitsOffset);
+
+        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(dynamicBitsOffset), bytes, bitsOffset);
+
+        for (const auto byte : dynamicBytes)
+        {
+            pushBitsMostSignificant(bytes, bitsOffset, byte, bitsPerByte);
+        }
+    }
+
+    return bytes;
+}
+
+bool MyRequest::Metadata::tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& request)
+{
+    using ::dansandu::ballotin::binary::bitsPerByte;
+    using ::dansandu::farseer::binary_serialization::BinarySerializer;
+
+    if constexpr (MyRequest::Metadata::hasStaticSize)
+    {
+        if (bitsPerByte * bytes.size() >= bitsOffset + bitsPerByte * sizeof(ProtocolSequenceNumber) +
+                                              MyRequest::Metadata::staticNumberOfBits.getUnderlying())
+        {
+            sequenceNumber = BinarySerializer<ProtocolSequenceNumber>::deserialize(bytes, bitsOffset);
+            request = BinarySerializer<MyRequest>::deserialize(bytes, bitsOffset);
+            return true;
+        }
+    }
+    else
+    {
+        if (bitsPerByte * bytes.size() >=
+            bitsOffset + bitsPerByte * sizeof(ProtocolSequenceNumber) + bitsPerByte * sizeof(ProtocolSize))
+        {
+            sequenceNumber = BinarySerializer<ProtocolSequenceNumber>::deserialize(bytes, bitsOffset);
+
+            const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
+
+            if (bitsPerByte * bytes.size() >= bitsOffset + dynamicNumberOfBits.getUnderlying())
+            {
+                request = BinarySerializer<MyRequest>::deserialize(bytes, bitsOffset);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 ::dansandu::farseer::ProtocolIdentifier MyRequest::Response::Metadata::getProtocolIdentifier()
@@ -194,18 +347,78 @@ void MyRequest::Metadata::serialize(const MyRequest& protocol, std::vector<uint8
     return ::dansandu::farseer::ProtocolIdentifier{1631866348U};
 }
 
-MyRequest::Response MyRequest::Response::Metadata::deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
+void MyRequest::Response::Metadata::serializeHeaderless(const MyRequest::Response& response, std::vector<uint8_t>& bytes, size_t& bitsOffset)
 {
-    auto protocol = MyRequest::Response{};
-    protocol.contacts = ::dansandu::farseer::binary_serialization::BinarySerializer<std::vector<std::string>>::deserialize(bytes, bitsOffset);
-    protocol.authenticationToken = ::dansandu::farseer::binary_serialization::BinarySerializer<uint64_t>::deserialize(bytes, bitsOffset);
-    return protocol;
+    ::dansandu::farseer::binary_serialization::BinarySerializer<std::vector<std::string>>::serialize(response.contacts, bytes, bitsOffset);
+    ::dansandu::farseer::binary_serialization::BinarySerializer<uint64_t>::serialize(response.authenticationToken, bytes, bitsOffset);
 }
 
-void MyRequest::Response::Metadata::serialize(const MyRequest::Response& protocol, std::vector<uint8_t>& bytes, size_t& bitsOffset)
+MyRequest::Response MyRequest::Response::Metadata::deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
 {
-    ::dansandu::farseer::binary_serialization::BinarySerializer<std::vector<std::string>>::serialize(protocol.contacts, bytes, bitsOffset);
-    ::dansandu::farseer::binary_serialization::BinarySerializer<uint64_t>::serialize(protocol.authenticationToken, bytes, bitsOffset);
+    auto response = MyRequest::Response{};
+    response.contacts = ::dansandu::farseer::binary_serialization::BinarySerializer<std::vector<std::string>>::deserialize(bytes, bitsOffset);
+    response.authenticationToken = ::dansandu::farseer::binary_serialization::BinarySerializer<uint64_t>::deserialize(bytes, bitsOffset);
+    return response;
+}
+
+std::vector<uint8_t> MyRequest::Response::Metadata::serializeWithHeader(const std::any& response, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber)
+{
+    using ::dansandu::farseer::binary_serialization::BinarySerializer;
+    using ::dansandu::ballotin::binary::bitsPerByte;
+    using ::dansandu::ballotin::binary::pushBitsMostSignificant;
+    using ::dansandu::farseer::getProtocolSizeFromStdSize;
+    using ::dansandu::farseer::ProtocolSize;
+    using ::dansandu::farseer::ProtocolIdentifier;
+    using ::dansandu::farseer::ProtocolSequenceNumber;
+    using ::dansandu::farseer::Expected;
+
+    const auto& casted = std::any_cast<const Expected<MyRequest::Response>&>(response);
+
+    auto bytes = std::vector<uint8_t>{};
+    auto bitsOffset = size_t{0};
+
+    BinarySerializer<ProtocolIdentifier>::serialize(MyRequest::Response::Metadata::getProtocolIdentifier(), bytes, bitsOffset);
+
+    BinarySerializer<ProtocolSequenceNumber>::serialize(sequenceNumber, bytes, bitsOffset);
+
+    auto dynamicBytes = std::vector<uint8_t>{};
+    auto dynamicBitsOffset = size_t{0};
+
+    BinarySerializer<Expected<MyRequest::Response>>::serialize(casted, dynamicBytes, dynamicBitsOffset);
+
+    BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(dynamicBitsOffset), bytes, bitsOffset);
+
+    for (const auto byte : dynamicBytes)
+    {
+        pushBitsMostSignificant(bytes, bitsOffset, byte, bitsPerByte);
+    }
+
+    return bytes;
+}
+
+bool MyRequest::Response::Metadata::tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& response)
+{
+    using ::dansandu::ballotin::binary::bitsPerByte;
+    using ::dansandu::farseer::binary_serialization::BinarySerializer;
+    using ::dansandu::farseer::ProtocolSize;
+    using ::dansandu::farseer::ProtocolSequenceNumber;
+    using ::dansandu::farseer::Expected;
+
+    if (bitsPerByte * bytes.size() >=
+        bitsOffset + bitsPerByte * sizeof(ProtocolSequenceNumber) + bitsPerByte * sizeof(ProtocolSize))
+    {
+        sequenceNumber = BinarySerializer<ProtocolSequenceNumber>::deserialize(bytes, bitsOffset);
+
+        const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
+
+        if (bitsPerByte * bytes.size() >= bitsOffset + dynamicNumberOfBits.getUnderlying())
+        {
+            response = BinarySerializer<Expected<MyRequest::Response>>::deserialize(bytes, bitsOffset);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 }

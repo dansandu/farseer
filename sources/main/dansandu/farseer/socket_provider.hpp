@@ -2,7 +2,6 @@
 
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/exception.hpp"
-#include "dansandu/farseer/protocol_serialization.hpp"
 
 #include <any>
 #include <memory>
@@ -32,8 +31,7 @@ public:
             THROW(std::logic_error, "Cannot send message using an invalidSocketIdentifier");
         }
 
-        using dansandu::farseer::protocol_serialization::serializeMessageProtocol;
-        sendBytes(socketIdentifier, serializeMessageProtocol(message));
+        sendBytes(socketIdentifier, Message::Metadata::serializeWithHeader(message));
     }
 
     template<typename Request>
@@ -45,9 +43,8 @@ public:
             THROW(std::logic_error, "Cannot send request using an invalidSocketIdentifier");
         }
 
-        using dansandu::farseer::protocol_serialization::serializeRequestProtocol;
         const auto sequenceNumber = generateSequenceNumber();
-        sendRequest(socketIdentifier, sequenceNumber, serializeRequestProtocol(request, sequenceNumber),
+        sendRequest(socketIdentifier, sequenceNumber, Request::Metadata::serializeWithHeader(request, sequenceNumber),
                     [responseConsumer = std::move(responseConsumer)](std::any&& response)
                     { responseConsumer(std::any_cast<Expected<typename Request::Response>&&>(std::move(response))); });
     }

@@ -28,9 +28,10 @@ template<typename PrimitiveType>
 concept SerializablePrimitiveType = AssociatedUnsignedTypes::containsKey<PrimitiveType>;
 
 template<typename Protocol>
-concept SerializableProtocol =
-    std::is_same_v<decltype(Protocol::Metadata::deserialize), Protocol(const std::vector<uint8_t>&, size_t&)> &&
-    std::is_same_v<decltype(Protocol::Metadata::serialize), void(const Protocol&, std::vector<uint8_t>&, size_t&)>;
+concept SerializableProtocol = std::is_same_v<decltype(Protocol::Metadata::deserializeHeaderless),
+                                              Protocol(const std::vector<uint8_t>&, size_t&)> &&
+                               std::is_same_v<decltype(Protocol::Metadata::serializeHeaderless),
+                                              void(const Protocol&, std::vector<uint8_t>&, size_t&)>;
 
 template<typename T>
 struct BinarySerializer;
@@ -65,12 +66,12 @@ struct BinarySerializer<Protocol>
 {
     static Protocol deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        return Protocol::Metadata::deserialize(bytes, bitsOffset);
+        return Protocol::Metadata::deserializeHeaderless(bytes, bitsOffset);
     }
 
     static void serialize(const Protocol& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        Protocol::Metadata::serialize(value, bytes, bitsOffset);
+        Protocol::Metadata::serializeHeaderless(value, bytes, bitsOffset);
     }
 };
 

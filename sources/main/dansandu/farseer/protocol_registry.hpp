@@ -1,7 +1,6 @@
 #pragma once
 
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/protocol_serialization.hpp"
 
 #include <any>
 #include <map>
@@ -20,8 +19,9 @@ enum class ProtocolType
 struct ProtocolDescriptor
 {
     ProtocolType protocolType;
-    ProtocolDeserializer protocolDeserializer;
-    ResponseProtocolSerializer responseSerializer;
+    MessageWithHeaderDeserializer messageWithHeaderDeserializer;
+    SequencedProtocolWithHeaderDeserializer sequencedProtocolWithHeaderDeserializer;
+    ResponseWithHeaderSerializer responseWithHeaderSerializer;
 };
 
 class PRALINE_EXPORT ProtocolRegistry
@@ -38,19 +38,17 @@ public:
     int registerMessageProtocol()
     {
         registerMessageProtocol(Message::Metadata::getProtocolIdentifier(),
-                                dansandu::farseer::protocol_serialization::tryDeserializeMessageProtocol<Message>);
+                                Message::Metadata::tryDeserializeWithHeader);
         return 0;
     }
 
     template<typename Request>
     int registerRequestProtocol()
     {
-        registerRequestProtocol(
-            Request::Metadata::getProtocolIdentifier(),
-            dansandu::farseer::protocol_serialization::tryDeserializeRequestProtocol<Request>,
-            Request::Response::Metadata::getProtocolIdentifier(),
-            dansandu::farseer::protocol_serialization::tryDeserializeResponseProtocol<typename Request::Response>,
-            dansandu::farseer::protocol_serialization::serializeResponseProtocol<typename Request::Response>);
+        registerRequestProtocol(Request::Metadata::getProtocolIdentifier(), Request::Metadata::tryDeserializeWithHeader,
+                                Request::Response::Metadata::getProtocolIdentifier(),
+                                Request::Response::Metadata::tryDeserializeWithHeader,
+                                Request::Response::Metadata::serializeWithHeader);
         return 0;
     }
 
@@ -61,13 +59,13 @@ public:
 private:
     ProtocolRegistry() = default;
 
-    void registerMessageProtocol(const ProtocolIdentifier identifier, const ProtocolDeserializer deserializer);
+    void registerMessageProtocol(const ProtocolIdentifier identifier, const MessageWithHeaderDeserializer deserializer);
 
     void registerRequestProtocol(const ProtocolIdentifier requestIdentifier,
-                                 const ProtocolDeserializer requestDeserializer,
+                                 const SequencedProtocolWithHeaderDeserializer requestDeserializer,
                                  const ProtocolIdentifier responseIdentifier,
-                                 const ProtocolDeserializer responseDeserializer,
-                                 const ResponseProtocolSerializer responseSerializer);
+                                 const SequencedProtocolWithHeaderDeserializer responseDeserializer,
+                                 const ResponseWithHeaderSerializer responseSerializer);
 
     std::map<ProtocolIdentifier, ProtocolDescriptor> protocolDescriptors_;
     mutable std::mutex mutex_;

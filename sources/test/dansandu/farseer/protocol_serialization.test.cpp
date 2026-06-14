@@ -1,12 +1,8 @@
-#include "dansandu/farseer/protocol_serialization.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::Expected;
 using dansandu::farseer::ProtocolSequenceNumber;
-using dansandu::farseer::protocol_serialization::serializeMessageProtocol;
-using dansandu::farseer::protocol_serialization::serializeRequestProtocol;
-using dansandu::farseer::protocol_serialization::serializeResponseProtocol;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::MyRequest;
@@ -21,7 +17,7 @@ TEST_CASE("protocol_serialization")
             .boolean = true,
         };
 
-        const auto bytes = serializeMessageProtocol(message);
+        const auto bytes = StaticMessage::Metadata::serializeWithHeader(message);
 
         REQUIRE(bytes.size() == 9uz);
 
@@ -34,7 +30,7 @@ TEST_CASE("protocol_serialization")
     {
         const auto message = EmptyMessage{};
 
-        const auto bytes = serializeMessageProtocol(message);
+        const auto bytes = EmptyMessage::Metadata::serializeWithHeader(message);
 
         REQUIRE(bytes.size() == 4uz);
 
@@ -60,7 +56,7 @@ TEST_CASE("protocol_serialization")
             .name = "some name",
         };
 
-        const auto bytes = serializeMessageProtocol(message);
+        const auto bytes = DynamicMessage::Metadata::serializeWithHeader(message);
 
         REQUIRE(bytes.size() == 34uz);
 
@@ -81,7 +77,7 @@ TEST_CASE("protocol_serialization")
 
         const auto sequenceNumber = ProtocolSequenceNumber{0x2CE};
 
-        const auto bytes = serializeRequestProtocol(request, sequenceNumber);
+        const auto bytes = MyRequest::Metadata::serializeWithHeader(request, sequenceNumber);
 
         REQUIRE(bytes.size() == 35uz);
 
@@ -105,7 +101,7 @@ TEST_CASE("protocol_serialization")
 
             const auto sequenceNumber = ProtocolSequenceNumber{0xF15D};
 
-            const auto bytes = serializeResponseProtocol<Response>(response, sequenceNumber);
+            const auto bytes = Response::Metadata::serializeWithHeader(response, sequenceNumber);
 
             REQUIRE(bytes.size() == 56uz);
 
@@ -128,7 +124,7 @@ TEST_CASE("protocol_serialization")
 
             const auto sequenceNumber = ProtocolSequenceNumber{0x29B};
 
-            const auto bytes = serializeResponseProtocol<Response>(response, sequenceNumber);
+            const auto bytes = Response::Metadata::serializeWithHeader(response, sequenceNumber);
 
             REQUIRE(bytes.size() == 37uz);
 
