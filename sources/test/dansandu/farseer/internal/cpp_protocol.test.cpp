@@ -228,6 +228,8 @@ struct PRALINE_EXPORT MyRequest
 
             static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& response);
 
+            static std::any invokeCallback(const UniqueFunction<Response(MyRequest&&)>& callback, std::any&& request);
+
             static constexpr auto hasStaticSize = false;
 
             static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{64UL};
@@ -419,6 +421,28 @@ bool MyRequest::Response::Metadata::tryDeserializeWithHeader(const std::vector<u
     }
 
     return false;
+}
+
+std::any MyRequest::Response::Metadata::invokeCallback(const UniqueFunction<Response(MyRequest&&)>& callback, std::any&& request)
+{
+    using ::dansandu::farseer::Expected;
+
+    try
+    {
+        return Expected<Response>::fromSuccess(callback(std::any_cast<MyRequest&&>(std::move(request))));
+    }
+    catch (const RequestProtocolError& exception)
+    {
+        return Expected<Response>::fromFailure(exception.getErrorCode(), exception.getErrorMessage());
+    }
+    catch (const std::exception& exception)
+    {
+        return Expected<Response>::fromInternalServerError(exception.what());
+    }
+    catch (...)
+    {
+        return Expected<Response>::fromInternalServerError();
+    }
 }
 
 }

@@ -77,9 +77,11 @@ R"(    struct PRALINE_EXPORT Response
 
             static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& response);
 
-            static constexpr auto hasStaticSize = {0};
+            static std::any invokeCallback(const UniqueFunction<Response({0}&&)>& callback, std::any&& request);
 
-            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{1}UL}};
+            static constexpr auto hasStaticSize = {1};
+
+            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}UL}};
         }};
 
 )";
@@ -308,6 +310,31 @@ R"(bool {0}::Response::Metadata::tryDeserializeWithHeader(const std::vector<uint
 }}
 
 )";
+
+constexpr auto invokeCallbackTemplate =
+R"(std::any {0}::Response::Metadata::invokeCallback(const UniqueFunction<Response({0}&&)>& callback, std::any&& request)
+{{
+    using ::dansandu::farseer::Expected;
+
+    try
+    {{
+        return Expected<Response>::fromSuccess(callback(std::any_cast<{0}&&>(std::move(request))));
+    }}
+    catch (const RequestProtocolError& exception)
+    {{
+        return Expected<Response>::fromFailure(exception.getErrorCode(), exception.getErrorMessage());
+    }}
+    catch (const std::exception& exception)
+    {{
+        return Expected<Response>::fromInternalServerError(exception.what());
+    }}
+    catch (...)
+    {{
+        return Expected<Response>::fromInternalServerError();
+    }}
+}}
+
+)";
 // clang-format on
 
 void generateMessages(const std::vector<MessageProtocolDefinition>& messages, std::ostream& stream)
@@ -340,7 +367,7 @@ void generateRequests(const std::vector<RequestProtocolDefinition>& requests, st
 
         stream << "\n";
 
-        stream << std::format(responseClassTemplate, request.responseHasStaticSize(),
+        stream << std::format(responseClassTemplate, request.name, request.responseHasStaticSize(),
                               request.getResponseStaticNumberOfBits().getUnderlying());
 
         for (const auto& field : request.responseFields)
@@ -402,9 +429,8 @@ void generateMessageMetadataDefinition(const MessageProtocolDefinition& message,
     stream << "    return message;\n"
            << "}\n\n";
 
-    stream << std::format(messageSerializationWithHeaderTemplate, message.name);
-
-    stream << std::format(messageDeserializationWithHeaderTemplate, message.name);
+    stream << std::format(messageSerializationWithHeaderTemplate, message.name)
+           << std::format(messageDeserializationWithHeaderTemplate, message.name);
 }
 
 void generateRequestMetadataDefinition(const RequestProtocolDefinition& request, std::ostream& stream)
@@ -456,9 +482,8 @@ void generateRequestMetadataDefinition(const RequestProtocolDefinition& request,
     stream << "    return request;\n"
            << "}\n\n";
 
-    stream << std::format(requestSerializationWithHeaderTemplate, request.name);
-
-    stream << std::format(requestDeserializationWithHeaderTemplate, request.name);
+    stream << std::format(requestSerializationWithHeaderTemplate, request.name)
+           << std::format(requestDeserializationWithHeaderTemplate, request.name);
 }
 
 void generateResponseMetadataDefinition(const RequestProtocolDefinition& request, std::ostream& stream)
@@ -511,9 +536,9 @@ void generateResponseMetadataDefinition(const RequestProtocolDefinition& request
     stream << "    return response;\n"
            << "}\n\n";
 
-    stream << std::format(responseSerializationWithHeaderTemplate, request.name);
-
-    stream << std::format(responseDeserializationWithHeaderTemplate, request.name);
+    stream << std::format(responseSerializationWithHeaderTemplate, request.name)
+           << std::format(responseDeserializationWithHeaderTemplate, request.name)
+           << std::format(invokeCallbackTemplate, request.name);
 }
 
 }
