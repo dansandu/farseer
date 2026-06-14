@@ -72,30 +72,10 @@ public:
             THROW(std::logic_error, "Cannot register request callback using an invalidSocketIdentifier");
         }
 
-        using Response = typename Request::Response;
-
-        registerRequestCallback(socketIdentifier, Request::Metadata::getProtocolIdentifier(),
-                                [requestCallback = std::move(requestCallback)](std::any&& request) -> std::any
-                                {
-                                    try
-                                    {
-                                        return Expected<Response>::fromSuccess(
-                                            requestCallback(std::any_cast<Request&&>(std::move(request))));
-                                    }
-                                    catch (const RequestProtocolError& exception)
-                                    {
-                                        return Expected<Response>::fromFailure(exception.getErrorCode(),
-                                                                               exception.getErrorMessage());
-                                    }
-                                    catch (const std::exception& exception)
-                                    {
-                                        return Expected<Response>::fromInternalServerError(exception.what());
-                                    }
-                                    catch (...)
-                                    {
-                                        return Expected<Response>::fromInternalServerError();
-                                    }
-                                });
+        registerRequestCallback(
+            socketIdentifier, Request::Metadata::getProtocolIdentifier(),
+            [requestCallback = std::move(requestCallback)](std::any&& request)
+            { return Request::Response::Metadata::invokeCallback(requestCallback, std::move(request)); });
     }
 
     void close(const SocketIdentifier socketIdentifier) const;
