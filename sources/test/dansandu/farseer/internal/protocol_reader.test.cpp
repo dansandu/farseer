@@ -1,5 +1,4 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
-#include "dansandu/farseer/protocol_serialization.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
@@ -7,7 +6,6 @@ using dansandu::farseer::ProtocolIdentifier;
 using dansandu::farseer::ProtocolSequenceNumber;
 using dansandu::farseer::SocketIdentifier;
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
-using dansandu::farseer::protocol_serialization::serializeMessageProtocol;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::StaticMessage;
@@ -23,7 +21,7 @@ TEST_CASE("protocol_reader")
 
     SECTION("empty message")
     {
-        const auto bytes = serializeMessageProtocol(EmptyMessage{});
+        const auto bytes = EmptyMessage::Metadata::serializeWithHeader(EmptyMessage{});
 
         auto protocol = std::any{};
 
@@ -46,7 +44,7 @@ TEST_CASE("protocol_reader")
             .boolean = true,
         };
 
-        const auto bytes = serializeMessageProtocol(expectedMessage);
+        const auto bytes = StaticMessage::Metadata::serializeWithHeader(expectedMessage);
 
         auto protocol = std::any{};
 
@@ -71,7 +69,7 @@ TEST_CASE("protocol_reader")
             .boolean = false,
         };
 
-        const auto bytes = serializeMessageProtocol(expectedMessage);
+        const auto bytes = StaticMessage::Metadata::serializeWithHeader(expectedMessage);
 
         auto protocol = std::any{};
 
@@ -116,7 +114,7 @@ TEST_CASE("protocol_reader")
             .name = "dynamic message",
         };
 
-        const auto bytes = serializeMessageProtocol(expectedMessage);
+        const auto bytes = DynamicMessage::Metadata::serializeWithHeader(expectedMessage);
 
         auto protocol = std::any{};
 

@@ -90,10 +90,13 @@ PRALINE_EXPORT ProtocolSize getProtocolSizeFromStdSize(const size_t size);
 
 PRALINE_EXPORT const char* toString(const SocketEvent event);
 
-using ProtocolDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
-                                      ProtocolSequenceNumber& sequenceNumber, std::any& protocol);
+using MessageWithHeaderDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
+                                               std::any& protocol);
 
-using ResponseProtocolSerializer = std::vector<uint8_t> (*)(const std::any& response,
-                                                            const ProtocolSequenceNumber sequenceNumber);
+using SequencedProtocolWithHeaderDeserializer = bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset,
+                                                         ProtocolSequenceNumber& sequenceNumber, std::any& protocol);
+
+using ResponseWithHeaderSerializer = std::vector<uint8_t> (*)(const std::any& response,
+                                                              const ProtocolSequenceNumber sequenceNumber);
 
 }

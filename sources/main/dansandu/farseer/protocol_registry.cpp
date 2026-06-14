@@ -32,14 +32,15 @@ ProtocolDescriptor ProtocolRegistry::getProtocolDescriptor(const ProtocolIdentif
 }
 
 void ProtocolRegistry::registerMessageProtocol(const ProtocolIdentifier identifier,
-                                               const ProtocolDeserializer deserializer)
+                                               const MessageWithHeaderDeserializer deserializer)
 {
     const auto lock = std::lock_guard<std::mutex>{mutex_};
     const auto [position, inserted] =
         protocolDescriptors_.insert({identifier, ProtocolDescriptor{
                                                      .protocolType = ProtocolType::message,
-                                                     .protocolDeserializer = deserializer,
-                                                     .responseSerializer = nullptr,
+                                                     .messageWithHeaderDeserializer = deserializer,
+                                                     .sequencedProtocolWithHeaderDeserializer = nullptr,
+                                                     .responseWithHeaderSerializer = nullptr,
                                                  }});
     if (!inserted)
     {
@@ -49,18 +50,19 @@ void ProtocolRegistry::registerMessageProtocol(const ProtocolIdentifier identifi
 }
 
 void ProtocolRegistry::registerRequestProtocol(const ProtocolIdentifier requestIdentifier,
-                                               const ProtocolDeserializer requestDeserializer,
+                                               const SequencedProtocolWithHeaderDeserializer requestDeserializer,
                                                const ProtocolIdentifier responseIdentifier,
-                                               const ProtocolDeserializer responseDeserializer,
-                                               const ResponseProtocolSerializer responseSerializer)
+                                               const SequencedProtocolWithHeaderDeserializer responseDeserializer,
+                                               const ResponseWithHeaderSerializer responseSerializer)
 {
     const auto lock = std::lock_guard<std::mutex>{mutex_};
-    const auto [requestPosition, requestInserted] =
-        protocolDescriptors_.insert({requestIdentifier, ProtocolDescriptor{
-                                                            .protocolType = ProtocolType::request,
-                                                            .protocolDeserializer = requestDeserializer,
-                                                            .responseSerializer = responseSerializer,
-                                                        }});
+    const auto [requestPosition, requestInserted] = protocolDescriptors_.insert(
+        {requestIdentifier, ProtocolDescriptor{
+                                .protocolType = ProtocolType::request,
+                                .messageWithHeaderDeserializer = nullptr,
+                                .sequencedProtocolWithHeaderDeserializer = requestDeserializer,
+                                .responseWithHeaderSerializer = responseSerializer,
+                            }});
     if (!requestInserted)
     {
         THROW(ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ",
@@ -69,12 +71,13 @@ void ProtocolRegistry::registerRequestProtocol(const ProtocolIdentifier requestI
 
     SCOPE_FAILURE([&] { protocolDescriptors_.erase(requestPosition); });
 
-    const auto [responsePosition, responseInserted] =
-        protocolDescriptors_.insert({responseIdentifier, ProtocolDescriptor{
-                                                             .protocolType = ProtocolType::response,
-                                                             .protocolDeserializer = responseDeserializer,
-                                                             .responseSerializer = nullptr,
-                                                         }});
+    const auto [responsePosition, responseInserted] = protocolDescriptors_.insert(
+        {responseIdentifier, ProtocolDescriptor{
+                                 .protocolType = ProtocolType::response,
+                                 .messageWithHeaderDeserializer = nullptr,
+                                 .sequencedProtocolWithHeaderDeserializer = responseDeserializer,
+                                 .responseWithHeaderSerializer = nullptr,
+                             }});
     if (!responseInserted)
     {
         THROW(ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ",
