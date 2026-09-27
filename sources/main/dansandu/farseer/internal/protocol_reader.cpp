@@ -75,25 +75,28 @@ void ProtocolReader::registerOneShotResponseConsumer(const ProtocolSequenceNumbe
     }
 }
 
-void ProtocolReader::eraseBits(const size_t bitsOffset)
+namespace
+{
+
+void eraseBits(std::vector<uint8_t>& bytes, const size_t bitsOffset)
 {
     const auto numberOfBytesToErase = numberOfBitsToNumberOfBytes(bitsOffset);
 
-    buffer_.erase(buffer_.cbegin(), buffer_.cbegin() + numberOfBytesToErase);
+    bytes.erase(bytes.cbegin(), bytes.cbegin() + numberOfBytesToErase);
 }
 
-void ProtocolReader::readMessage(const ProtocolIdentifier messageIdentifier,
+}
+
+void ProtocolReader::readMessage(std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier messageIdentifier,
                                  const ProtocolDescriptor& messageDescriptor, size_t& bitsOffset)
 {
-    auto sequenceNumber = ProtocolSequenceNumber{};
-
     auto message = std::any{};
 
-    if (messageDescriptor.messageWithHeaderDeserializer(buffer_, bitsOffset, message))
+    if (messageDescriptor.messageWithHeaderDeserializer(pendingBytes, bitsOffset, message))
     {
         LOG_DEBUG("Successfully read message protocol ", messageIdentifier);
 
-        eraseBits(bitsOffset);
+        eraseBits(pendingBytes, bitsOffset);
 
         const auto consumerPosition = messageConsumers_.find(messageIdentifier);
         if (consumerPosition != messageConsumers_.cend())
@@ -112,7 +115,7 @@ void ProtocolReader::readMessage(const ProtocolIdentifier messageIdentifier,
     }
 }
 
-void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifier,
+void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>& pendingBytes,
                                  const ProtocolIdentifier requestIdentifier,
                                  const ProtocolDescriptor& requestDescriptor, size_t& bitsOffset)
 {
@@ -120,11 +123,11 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
 
     auto request = std::any{};
 
-    if (requestDescriptor.sequencedProtocolWithHeaderDeserializer(buffer_, bitsOffset, sequenceNumber, request))
+    if (requestDescriptor.sequencedProtocolWithHeaderDeserializer(pendingBytes, bitsOffset, sequenceNumber, request))
     {
         LOG_DEBUG("Successfully read request protocol ", requestIdentifier);
 
-        eraseBits(bitsOffset);
+        eraseBits(pendingBytes, bitsOffset);
 
         const auto consumerPosition = requestConsumers_.find(requestIdentifier);
         if (consumerPosition != requestConsumers_.cend())
@@ -147,18 +150,18 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
     }
 }
 
-void ProtocolReader::readResponse(const ProtocolIdentifier responseIdentifier,
+void ProtocolReader::readResponse(std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier responseIdentifier,
                                   const ProtocolDescriptor& responseDescriptor, size_t& bitsOffset)
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
 
     auto response = std::any{};
 
-    if (responseDescriptor.sequencedProtocolWithHeaderDeserializer(buffer_, bitsOffset, sequenceNumber, response))
+    if (responseDescriptor.sequencedProtocolWithHeaderDeserializer(pendingBytes, bitsOffset, sequenceNumber, response))
     {
         LOG_DEBUG("Successfully read response protocol ", responseIdentifier);
 
-        eraseBits(bitsOffset);
+        eraseBits(pendingBytes, bitsOffset);
 
         const auto consumerPosition = oneShotResponseConsumers_.find(sequenceNumber);
         if (consumerPosition != oneShotResponseConsumers_.cend())
@@ -179,11 +182,12 @@ void ProtocolReader::readResponse(const ProtocolIdentifier responseIdentifier,
     }
 }
 
-void ProtocolReader::read(const SocketIdentifier receivingSocketIdentifier, const std::span<const uint8_t> bytes)
+void ProtocolReader::read(const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>& pendingBytes,
+                          const std::span<const uint8_t> bytes)
 {
-    buffer_.insert(buffer_.end(), bytes.cbegin(), bytes.cend());
+    pendingBytes.insert(pendingBytes.end(), bytes.cbegin(), bytes.cend());
 
-    if (buffer_.size() < sizeof(ProtocolIdentifier))
+    if (pendingBytes.size() < sizeof(ProtocolIdentifier))
     {
         LOG_DEBUG("Buffer does not have enough bytes to read protocol identifier just yet");
         return;
@@ -191,21 +195,21 @@ void ProtocolReader::read(const SocketIdentifier receivingSocketIdentifier, cons
 
     auto bitsOffset = size_t{0};
 
-    const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(buffer_, bitsOffset);
+    const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(pendingBytes, bitsOffset);
 
     const auto descriptor = ProtocolRegistry::getGlobalInstance().getProtocolDescriptor(identifier);
 
     if (descriptor.protocolType == ProtocolType::message)
     {
-        readMessage(identifier, descriptor, bitsOffset);
+        readMessage(pendingBytes, identifier, descriptor, bitsOffset);
     }
     else if (descriptor.protocolType == ProtocolType::request)
     {
-        readRequest(receivingSocketIdentifier, identifier, descriptor, bitsOffset);
+        readRequest(receivingSocketIdentifier, pendingBytes, identifier, descriptor, bitsOffset);
     }
     else if (descriptor.protocolType == ProtocolType::response)
     {
-        readResponse(identifier, descriptor, bitsOffset);
+        readResponse(pendingBytes, identifier, descriptor, bitsOffset);
     }
     else
     {

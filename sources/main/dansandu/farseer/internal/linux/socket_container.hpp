@@ -23,6 +23,7 @@ struct Socket
     dansandu::farseer::internal::linux::linux_socket::LinuxSocket socket;
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
+    std::vector<uint8_t> pendingBytes;
 };
 
 class SocketContainer

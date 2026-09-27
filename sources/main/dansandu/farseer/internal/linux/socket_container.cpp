@@ -95,6 +95,7 @@ void SocketContainer::listen(const SocketIdentifier socketIdentifier, const std:
                 ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>&& response)
                                { sendBytes(receivingSocketIdentifier, response); }},
             .connectionCallback = std::move(connectionCallback),
+            .pendingBytes = {},
         });
 
     socket.connectionCallback(SocketEvent::serverOpen, socket.socketIdentifier);
@@ -115,6 +116,7 @@ void SocketContainer::connect(const SocketIdentifier socketIdentifier, const std
                                                           std::vector<uint8_t>&& response)
                                                       { sendBytes(receivingSocketIdentifier, response); }},
                      .connectionCallback = std::move(connectionCallback),
+                     .pendingBytes = {},
                  });
 }
 
@@ -252,6 +254,7 @@ void SocketContainer::handleListeningSocketEvents(Socket& socket)
                                                                   std::vector<uint8_t>&& response)
                                                               { sendBytes(receivingSocketIdentifier, response); }},
                              .connectionCallback = {},
+                             .pendingBytes = {},
                          });
 
         socket.connectionCallback(SocketEvent::clientOpen, acceptedSocketIdentifier);
@@ -289,11 +292,11 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
         {
             auto& listeningSocket = getSocketOrThrow(socket.listeningSocketIdentifier);
 
-            listeningSocket.protocolReader.read(socket.socketIdentifier, receivedBytes);
+            listeningSocket.protocolReader.read(socket.socketIdentifier, socket.pendingBytes, receivedBytes);
         }
         else
         {
-            socket.protocolReader.read(socket.socketIdentifier, receivedBytes);
+            socket.protocolReader.read(socket.socketIdentifier, socket.pendingBytes, receivedBytes);
         }
 
         if (closed)
