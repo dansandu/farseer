@@ -14,6 +14,8 @@ TEST_CASE("protocol_reader")
 {
     const auto receivingSocketIdentifier = SocketIdentifier{};
 
+    auto pendingBytes = std::vector<uint8_t>{};
+
     auto outboundBuffer = std::vector<uint8_t>{};
 
     auto protocolReader = ProtocolReader{[&](const SocketIdentifier, std::vector<uint8_t>&& bytes)
@@ -28,7 +30,7 @@ TEST_CASE("protocol_reader")
         protocolReader.registerMessageConsumer(EmptyMessage::Metadata::getProtocolIdentifier(),
                                                [&protocol](std::any&& message) { protocol = std::move(message); });
 
-        protocolReader.read(receivingSocketIdentifier, bytes);
+        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -51,7 +53,7 @@ TEST_CASE("protocol_reader")
         protocolReader.registerMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
                                                [&protocol](std::any&& message) { protocol = std::move(message); });
 
-        protocolReader.read(receivingSocketIdentifier, bytes);
+        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -82,11 +84,11 @@ TEST_CASE("protocol_reader")
 
         const auto bytesSecondHalf = std::vector<uint8_t>(bytes.cbegin() + halfBytesCount, bytes.cend());
 
-        protocolReader.read(receivingSocketIdentifier, bytesFirstHalf);
+        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytesFirstHalf);
 
         REQUIRE(!protocol.has_value());
 
-        protocolReader.read(receivingSocketIdentifier, bytesSecondHalf);
+        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytesSecondHalf);
 
         REQUIRE(protocol.has_value());
 
@@ -121,7 +123,7 @@ TEST_CASE("protocol_reader")
         protocolReader.registerMessageConsumer(DynamicMessage::Metadata::getProtocolIdentifier(),
                                                [&protocol](std::any&& message) { protocol = std::move(message); });
 
-        protocolReader.read(receivingSocketIdentifier, bytes);
+        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -138,5 +140,66 @@ TEST_CASE("protocol_reader")
         REQUIRE(message.messages.at(1).boolean == expectedMessage.messages.at(1).boolean);
 
         REQUIRE(message.name == expectedMessage.name);
+    }
+
+    SECTION("interleaved partial messages from sockets sharing a reader")
+    {
+        const auto firstSocketIdentifier = SocketIdentifier{1};
+
+        const auto secondSocketIdentifier = SocketIdentifier{2};
+
+        auto firstPendingBytes = std::vector<uint8_t>{};
+
+        auto secondPendingBytes = std::vector<uint8_t>{};
+
+        const auto firstExpectedMessage = StaticMessage{
+            .integer = 1111,
+            .boolean = true,
+        };
+
+        const auto secondExpectedMessage = StaticMessage{
+            .integer = -2222,
+            .boolean = false,
+        };
+
+        const auto firstBytes = StaticMessage::Metadata::serializeWithHeader(firstExpectedMessage);
+
+        const auto secondBytes = StaticMessage::Metadata::serializeWithHeader(secondExpectedMessage);
+
+        auto messages = std::vector<StaticMessage>{};
+
+        protocolReader.registerMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
+                                               [&messages](std::any&& message)
+                                               { messages.push_back(std::any_cast<const StaticMessage&>(message)); });
+
+        const auto halfBytesCount = firstBytes.size() / 2uz;
+
+        protocolReader.read(firstSocketIdentifier, firstPendingBytes,
+                            std::span<const uint8_t>(firstBytes.cbegin(), firstBytes.cbegin() + halfBytesCount));
+
+        protocolReader.read(secondSocketIdentifier, secondPendingBytes,
+                            std::span<const uint8_t>(secondBytes.cbegin(), secondBytes.cbegin() + halfBytesCount));
+
+        REQUIRE(messages.empty());
+
+        protocolReader.read(firstSocketIdentifier, firstPendingBytes,
+                            std::span<const uint8_t>(firstBytes.cbegin() + halfBytesCount, firstBytes.cend()));
+
+        protocolReader.read(secondSocketIdentifier, secondPendingBytes,
+                            std::span<const uint8_t>(secondBytes.cbegin() + halfBytesCount, secondBytes.cend()));
+
+        REQUIRE(messages.size() == 2uz);
+
+        REQUIRE(messages.at(0).integer == firstExpectedMessage.integer);
+
+        REQUIRE(messages.at(0).boolean == firstExpectedMessage.boolean);
+
+        REQUIRE(messages.at(1).integer == secondExpectedMessage.integer);
+
+        REQUIRE(messages.at(1).boolean == secondExpectedMessage.boolean);
+
+        REQUIRE(firstPendingBytes.empty());
+
+        REQUIRE(secondPendingBytes.empty());
     }
 }

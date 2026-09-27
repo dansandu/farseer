@@ -15,6 +15,7 @@ struct Socket
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
     SocketIdentifier listeningSocketIdentifier;
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
+    std::vector<uint8_t> pendingBytes;
 };
 
 class IOperationScheduler
