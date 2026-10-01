@@ -94,7 +94,7 @@ void ProtocolReader::readMessage(std::vector<uint8_t>& pendingBytes, const Proto
 
     if (messageDescriptor.messageWithHeaderDeserializer(pendingBytes, bitsOffset, message))
     {
-        LOG_DEBUG("Successfully read message protocol ", messageIdentifier);
+        LOG_DEBUG("Successfully read the message protocol ", messageIdentifier);
 
         eraseBits(pendingBytes, bitsOffset);
 
@@ -105,13 +105,13 @@ void ProtocolReader::readMessage(std::vector<uint8_t>& pendingBytes, const Proto
         }
         else
         {
-            LOG_WARNING("Message protocol with identifier ", messageIdentifier,
+            LOG_WARNING("The message protocol with identifier ", messageIdentifier,
                         " has no consumer registered and will be skipped");
         }
     }
     else
     {
-        LOG_DEBUG("Buffer does not have enough bytes to read message protocol ", messageIdentifier, " just yet");
+        LOG_DEBUG("Buffer does not yet have enough bytes to read the message protocol ", messageIdentifier);
     }
 }
 
@@ -125,7 +125,7 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
 
     if (requestDescriptor.sequencedProtocolWithHeaderDeserializer(pendingBytes, bitsOffset, sequenceNumber, request))
     {
-        LOG_DEBUG("Successfully read request protocol ", requestIdentifier);
+        LOG_DEBUG("Successfully read the request protocol ", requestIdentifier);
 
         eraseBits(pendingBytes, bitsOffset);
 
@@ -140,13 +140,13 @@ void ProtocolReader::readRequest(const SocketIdentifier receivingSocketIdentifie
         }
         else
         {
-            LOG_WARNING("Request protocol with identifier ", requestIdentifier,
+            LOG_WARNING("The request protocol with identifier ", requestIdentifier,
                         " has no consumer registered and will be skipped");
         }
     }
     else
     {
-        LOG_DEBUG("Buffer does not have enough bytes to read request protocol ", requestIdentifier, " just yet");
+        LOG_DEBUG("Buffer does not yet have enough bytes to read the request protocol ", requestIdentifier);
     }
 }
 
@@ -159,7 +159,7 @@ void ProtocolReader::readResponse(std::vector<uint8_t>& pendingBytes, const Prot
 
     if (responseDescriptor.sequencedProtocolWithHeaderDeserializer(pendingBytes, bitsOffset, sequenceNumber, response))
     {
-        LOG_DEBUG("Successfully read response protocol ", responseIdentifier);
+        LOG_DEBUG("Successfully read the response protocol ", responseIdentifier);
 
         eraseBits(pendingBytes, bitsOffset);
 
@@ -172,13 +172,13 @@ void ProtocolReader::readResponse(std::vector<uint8_t>& pendingBytes, const Prot
         }
         else
         {
-            LOG_ERROR("Response protocol with identifier ", responseIdentifier, " and sequence number ", sequenceNumber,
-                      " has no consumer registered and will be skipped");
+            LOG_ERROR("The response protocol with identifier ", responseIdentifier, " and sequence number ",
+                      sequenceNumber, " has no consumer registered and will be skipped");
         }
     }
     else
     {
-        LOG_DEBUG("Buffer does not have enough bytes to read response protocol ", responseIdentifier, " just yet");
+        LOG_DEBUG("Buffer does not yet have enough bytes to read the response protocol ", responseIdentifier);
     }
 }
 
