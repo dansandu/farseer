@@ -88,6 +88,10 @@ void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlap
     {
         handleOperationExecutionFailure(*operation, discard, toWideString(exception.what()));
     }
+    catch (...)
+    {
+        handleOperationExecutionFailure(*operation, discard);
+    }
 }
 
 void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped, const DWORD errorCode)
@@ -121,24 +125,28 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
 }
 
 void OperationContainer::handleOperationExecutionFailure(IOperation& operation, const bool discarded,
-                                                         const std::wstring_view message)
+                                                         const std::wstring_view message = {})
 {
     const auto socketIdentifier = operation.getSocketIdentifier();
 
-    SCOPE_EXIT(
-        [&]()
-        {
-            if (!discarded)
-            {
-                const auto lock = std::lock_guard<std::mutex>{mutex_};
-                const auto position = operations_.find(operation.getOverlapped());
-                operations_.erase(position);
-            }
+    if (message.empty())
+    {
+        LOG_ERROR(operation.getName(), " with socket ID ", socketIdentifier, " failed and the socket will be erased");
+    }
+    else
+    {
+        LOG_ERROR(operation.getName(), " with socket ID ", socketIdentifier,
+                  " failed and the socket will be erased: ", message);
+    }
 
-            operationScheduler_.eraseSocket(socketIdentifier);
-        });
+    if (!discarded)
+    {
+        const auto lock = std::lock_guard<std::mutex>{mutex_};
+        const auto position = operations_.find(operation.getOverlapped());
+        operations_.erase(position);
+    }
 
-    LOG_ERROR(operation.getName(), " with socket ID ", socketIdentifier, " failed: ", message);
+    operationScheduler_.eraseSocket(socketIdentifier);
 }
 
 }
