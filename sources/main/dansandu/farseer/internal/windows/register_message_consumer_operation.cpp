@@ -67,7 +67,7 @@ public:
     {
         auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
 
-        socket.protocolReader.registerMessageConsumer(protocolIdentifier_, std::move(messageConsumer_));
+        socket.protocolReader.registerInboundMessageConsumer(protocolIdentifier_, std::move(messageConsumer_));
 
         LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier_, " and socket socket ID ",
                  socketIdentifier_);
