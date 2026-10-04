@@ -37,18 +37,20 @@ public:
     template<typename Message>
     int registerMessageProtocol()
     {
-        registerMessageProtocol(Message::Metadata::getProtocolIdentifier(),
-                                Message::Metadata::tryDeserializeWithHeader);
+        registerMessageProtocol(
+            Message::Metadata::getProtocolIdentifier(), Message::Metadata::tryDeserializeWithHeader
+        );
         return 0;
     }
 
     template<typename Request>
     int registerRequestProtocol()
     {
-        registerRequestProtocol(Request::Metadata::getProtocolIdentifier(), Request::Metadata::tryDeserializeWithHeader,
-                                Request::Response::Metadata::getProtocolIdentifier(),
-                                Request::Response::Metadata::tryDeserializeWithHeader,
-                                Request::Response::Metadata::serializeWithHeader);
+        registerRequestProtocol(
+            Request::Metadata::getProtocolIdentifier(), Request::Metadata::tryDeserializeWithHeader,
+            Request::Response::Metadata::getProtocolIdentifier(), Request::Response::Metadata::tryDeserializeWithHeader,
+            Request::Response::Metadata::serializeWithHeader
+        );
         return 0;
     }
 
@@ -61,11 +63,11 @@ private:
 
     void registerMessageProtocol(const ProtocolIdentifier identifier, const MessageWithHeaderDeserializer deserializer);
 
-    void registerRequestProtocol(const ProtocolIdentifier requestIdentifier,
-                                 const SequencedProtocolWithHeaderDeserializer requestDeserializer,
-                                 const ProtocolIdentifier responseIdentifier,
-                                 const SequencedProtocolWithHeaderDeserializer responseDeserializer,
-                                 const ResponseWithHeaderSerializer responseSerializer);
+    void registerRequestProtocol(
+        const ProtocolIdentifier requestIdentifier, const SequencedProtocolWithHeaderDeserializer requestDeserializer,
+        const ProtocolIdentifier responseIdentifier, const SequencedProtocolWithHeaderDeserializer responseDeserializer,
+        const ResponseWithHeaderSerializer responseSerializer
+    );
 
     std::map<ProtocolIdentifier, ProtocolDescriptor> protocolDescriptors_;
     mutable std::mutex mutex_;

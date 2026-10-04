@@ -341,8 +341,9 @@ void generateMessages(const std::vector<MessageProtocolDefinition>& messages, st
 {
     for (const auto& message : messages)
     {
-        stream << std::format(messageClassTemplate, message.name, message.hasStaticSize(),
-                              message.getStaticNumberOfBits().getUnderlying());
+        stream << std::format(
+            messageClassTemplate, message.name, message.hasStaticSize(), message.getStaticNumberOfBits().getUnderlying()
+        );
 
         for (const auto& field : message.fields)
         {
@@ -357,8 +358,10 @@ void generateRequests(const std::vector<RequestProtocolDefinition>& requests, st
 {
     for (const auto& request : requests)
     {
-        stream << std::format(requestClassTemplate, request.name, request.requestHasStaticSize(),
-                              request.getRequestStaticNumberOfBits().getUnderlying());
+        stream << std::format(
+            requestClassTemplate, request.name, request.requestHasStaticSize(),
+            request.getRequestStaticNumberOfBits().getUnderlying()
+        );
 
         for (const auto& field : request.requestFields)
         {
@@ -367,8 +370,10 @@ void generateRequests(const std::vector<RequestProtocolDefinition>& requests, st
 
         stream << "\n";
 
-        stream << std::format(responseClassTemplate, request.name, request.responseHasStaticSize(),
-                              request.getResponseStaticNumberOfBits().getUnderlying());
+        stream << std::format(
+            responseClassTemplate, request.name, request.responseHasStaticSize(),
+            request.getResponseStaticNumberOfBits().getUnderlying()
+        );
 
         for (const auto& field : request.responseFields)
         {

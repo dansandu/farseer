@@ -89,8 +89,10 @@ Socket& OperationScheduler::insertSocket(const SocketIdentifier socketIdentifier
 
     if (!inserted)
     {
-        THROW(std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
-              " because the ID is used by another socket");
+        THROW(
+            std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
+            " because the ID is used by another socket"
+        );
     }
 
     return position->second;
@@ -134,13 +136,16 @@ void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
                 socket.connectionCallback(SocketEvent::serverClosed, socketIdentifier);
             }
 
-            LOG_INFO("Socket with ID ", socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
-                     socket.socket.getPort(), " was closed");
+            LOG_INFO(
+                "Socket with ID ", socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
+                socket.socket.getPort(), " was closed"
+            );
         }
         catch (const WideException& wideException)
         {
-            LOG_ERROR("Wide exception was thrown while trying to close socket with message: ",
-                      wideException.getMessage());
+            LOG_ERROR(
+                "Wide exception was thrown while trying to close socket with message: ", wideException.getMessage()
+            );
         }
         catch (const std::exception& exception)
         {
@@ -151,17 +156,20 @@ void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
 
 SocketIdentifier OperationScheduler::scheduleConnectOperation(
     const std::string& ipAddress, const int port,
-    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
     operationContainer_.insert(
-        createConnectOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
+        createConnectOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback))
+    );
     return socketIdentifier;
 }
 
 SocketIdentifier OperationScheduler::scheduleListenOperation(
     const std::string& ipAddress, const int port,
-    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
     operationContainer_.insert(createListenOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
@@ -179,35 +187,41 @@ void OperationScheduler::scheduleReceiveOperation(const SocketIdentifier socketI
     operationContainer_.insert(createReceiveOperation(socketIdentifier));
 }
 
-void OperationScheduler::scheduleRegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
-                                                                  const ProtocolIdentifier protocolIdentifier,
-                                                                  UniqueFunction<void(std::any&&)>&& messageConsumer)
+void OperationScheduler::scheduleRegisterMessageConsumerOperation(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<void(std::any&&)>&& messageConsumer
+)
 {
     operationContainer_.insert(
-        createRegisterMessageConsumerOperation(socketIdentifier, protocolIdentifier, std::move(messageConsumer)));
+        createRegisterMessageConsumerOperation(socketIdentifier, protocolIdentifier, std::move(messageConsumer))
+    );
 }
 
 void OperationScheduler::scheduleRegisterRequestCallbackOperation(
     const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-    UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+    UniqueFunction<std::any(std::any&&)>&& requestConsumer
+)
 {
     operationContainer_.insert(
-        createRegisterRequestCallbackOperation(socketIdentifier, protocolIdentifier, std::move(requestConsumer)));
+        createRegisterRequestCallbackOperation(socketIdentifier, protocolIdentifier, std::move(requestConsumer))
+    );
 }
 
-void OperationScheduler::scheduleSendBytesOperation(const SocketIdentifier socketIdentifier,
-                                                    std::vector<uint8_t>&& bytes)
+void OperationScheduler::scheduleSendBytesOperation(
+    const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes
+)
 {
     operationContainer_.insert(createSendBytesOperation(socketIdentifier, std::move(bytes)));
 }
 
-void OperationScheduler::scheduleSendRequestOperation(const SocketIdentifier socketIdentifier,
-                                                      const ProtocolSequenceNumber protocolSequenceNumber,
-                                                      std::vector<uint8_t>&& bytes,
-                                                      UniqueFunction<void(std::any&&)>&& responseConsumer)
+void OperationScheduler::scheduleSendRequestOperation(
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+)
 {
-    operationContainer_.insert(createSendRequestOperation(socketIdentifier, protocolSequenceNumber, std::move(bytes),
-                                                          std::move(responseConsumer)));
+    operationContainer_.insert(createSendRequestOperation(
+        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+    ));
 }
 
 void OperationScheduler::scheduleCloseOperation(const SocketIdentifier socketIdentifier)
@@ -241,8 +255,9 @@ void OperationScheduler::consumeOperationsWork()
         auto overlapped = LPOVERLAPPED{nullptr};
         auto timeout = INFINITE;
 
-        const auto dequeueResult = ::GetQueuedCompletionStatus(completionPort_, &numberOfBytesTransferred,
-                                                               &completionKey, &overlapped, timeout);
+        const auto dequeueResult = ::GetQueuedCompletionStatus(
+            completionPort_, &numberOfBytesTransferred, &completionKey, &overlapped, timeout
+        );
 
         if (dequeueResult == TRUE)
         {

@@ -39,7 +39,8 @@ TEST_CASE("binary_serialization")
     SECTION("int64_t")
     {
         const auto expectedBytes = std::vector<uint8_t>(
-            {0b10111111, 0b11111111, 0b11111111, 0b11111111, 0b11011111, 0b11111011, 0b11111101, 0b11111110});
+            {0b10111111, 0b11111111, 0b11111111, 0b11111111, 0b11011111, 0b11111011, 0b11111101, 0b11111110}
+        );
 
         const int64_t expected = -4611686018964521474ll;
 
@@ -82,7 +83,8 @@ TEST_CASE("binary_serialization")
     SECTION("uint64_t")
     {
         const auto expectedBytes = std::vector<uint8_t>(
-            {0b10111111, 0b11111111, 0b11111111, 0b11111111, 0b11011111, 0b11111011, 0b11111101, 0b11111110});
+            {0b10111111, 0b11111111, 0b11111111, 0b11111111, 0b11011111, 0b11111011, 0b11111101, 0b11111110}
+        );
 
         const uint64_t expected = 13835058054745030142ull;
 
@@ -104,7 +106,8 @@ TEST_CASE("binary_serialization")
     SECTION("string")
     {
         const auto expectedBytes = std::vector<uint8_t>(
-            {0b00000000, 0b00000000, 0b00000000, 0b00000100, 0b01100001, 0b01010111, 0b01111010, 0b01110101});
+            {0b00000000, 0b00000000, 0b00000000, 0b00000100, 0b01100001, 0b01010111, 0b01111010, 0b01110101}
+        );
 
         const auto expected = std::string{"aWzu"};
 
@@ -146,9 +149,10 @@ TEST_CASE("binary_serialization")
 
     SECTION("vector of int32_t")
     {
-        const auto expectedBytes =
-            std::vector<uint8_t>({0b00000000, 0b00000000, 0b00000000, 0b00000010, 0b11111111, 0b10100110, 0b01001011,
-                                  0b01011100, 0b00000000, 0b00000000, 0b10011000, 0b00110111});
+        const auto expectedBytes = std::vector<uint8_t>(
+            {0b00000000, 0b00000000, 0b00000000, 0b00000010, 0b11111111, 0b10100110, 0b01001011, 0b01011100, 0b00000000,
+             0b00000000, 0b10011000, 0b00110111}
+        );
 
         const auto expected = std::vector<int32_t>({-5878948, 38967});
 
@@ -197,9 +201,10 @@ TEST_CASE("binary_serialization")
 
     SECTION("map of string and uint32")
     {
-        const auto expectedBytes = std::vector<uint8_t>(
-            {0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x05, 0x66, 0x69, 0x72, 0x73, 0x74, 0x12, 0x34, 0x56,
-             0x78, 0x00, 0x00, 0x00, 0x06, 0x73, 0x65, 0x63, 0x6F, 0x6E, 0x64, 0x00, 0x9A, 0xBC, 0xDF});
+        const auto expectedBytes =
+            std::vector<uint8_t>({0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x05, 0x66, 0x69, 0x72,
+                                  0x73, 0x74, 0x12, 0x34, 0x56, 0x78, 0x00, 0x00, 0x00, 0x06, 0x73,
+                                  0x65, 0x63, 0x6F, 0x6E, 0x64, 0x00, 0x9A, 0xBC, 0xDF});
 
         const auto expectedMap = std::map<std::string, uint32_t>({{"first", 0x12345678}, {"second", 0x009ABCDF}});
 
@@ -326,10 +331,12 @@ TEST_CASE("binary_serialization")
 
         SECTION("success")
         {
-            const auto response = Expected<MyRequest::Response>::fromSuccess(MyRequest::Response{
-                .contacts = {"sam", "jim", "jason"},
-                .authenticationToken = 0x42B101C7U,
-            });
+            const auto response = Expected<MyRequest::Response>::fromSuccess(
+                MyRequest::Response{
+                    .contacts = {"sam", "jim", "jason"},
+                    .authenticationToken = 0x42B101C7U,
+                }
+            );
 
             BinarySerializer<Expected<MyRequest::Response>>::serialize(response, bytes, bitsCount);
 

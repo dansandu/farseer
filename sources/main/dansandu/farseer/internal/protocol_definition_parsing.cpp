@@ -169,21 +169,25 @@ ProtocolDefinition parseProtocolDefinition(const std::string_view text)
             }
             case 6:
             {
-                protocol.messages.push_back(MessageProtocolDefinition{
-                    .fileNamespace = protocol.fileNamespace,
-                    .name = getTokenText(pop(tokens)),
-                    .fields = std::move(fields),
-                });
+                protocol.messages.push_back(
+                    MessageProtocolDefinition{
+                        .fileNamespace = protocol.fileNamespace,
+                        .name = getTokenText(pop(tokens)),
+                        .fields = std::move(fields),
+                    }
+                );
                 break;
             }
             case 7:
             {
-                protocol.requests.push_back(RequestProtocolDefinition{
-                    .fileNamespace = protocol.fileNamespace,
-                    .name = getTokenText(pop(tokens)),
-                    .requestFields = std::move(requestFields),
-                    .responseFields = std::move(fields),
-                });
+                protocol.requests.push_back(
+                    RequestProtocolDefinition{
+                        .fileNamespace = protocol.fileNamespace,
+                        .name = getTokenText(pop(tokens)),
+                        .requestFields = std::move(requestFields),
+                        .responseFields = std::move(fields),
+                    }
+                );
                 break;
             }
             case 8:
@@ -193,10 +197,12 @@ ProtocolDefinition parseProtocolDefinition(const std::string_view text)
             }
             case 9:
             {
-                fields.push_back(FieldDefinition{
-                    .typeDefinition = pop(typeDefinitions),
-                    .name = getTokenText(pop(tokens)),
-                });
+                fields.push_back(
+                    FieldDefinition{
+                        .typeDefinition = pop(typeDefinitions),
+                        .name = getTokenText(pop(tokens)),
+                    }
+                );
                 break;
             }
             case 11:
@@ -250,18 +256,22 @@ ProtocolDefinition parseProtocolDefinition(const std::string_view text)
             case 19:
             {
                 const auto referencedMessageName = getTokenText(pop(tokens));
-                const auto referencedMessage = std::find_if(protocol.messages.cbegin(), protocol.messages.cend(),
-                                                            [&referencedMessageName](const auto& message)
-                                                            { return message.name == referencedMessageName; });
+                const auto referencedMessage = std::find_if(
+                    protocol.messages.cbegin(), protocol.messages.cend(),
+                    [&referencedMessageName](const auto& message) { return message.name == referencedMessageName; }
+                );
 
                 if (referencedMessage == protocol.messages.cend())
                 {
                     THROW(MessageNameNotDefinedError, "message '", referencedMessageName, "' was not defined");
                 }
 
-                typeDefinitions.push_back(TypeDefinition::fromMessage(referencedMessageName,
-                                                                      referencedMessage->hasStaticSize(),
-                                                                      referencedMessage->getStaticNumberOfBits()));
+                typeDefinitions.push_back(
+                    TypeDefinition::fromMessage(
+                        referencedMessageName, referencedMessage->hasStaticSize(),
+                        referencedMessage->getStaticNumberOfBits()
+                    )
+                );
                 break;
             }
             case 0:

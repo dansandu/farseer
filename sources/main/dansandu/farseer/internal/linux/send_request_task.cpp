@@ -11,8 +11,10 @@ namespace dansandu::farseer::internal::linux::send_request_task
 class SendRequestTask : public ITask
 {
 public:
-    SendRequestTask(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-                    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer)
+    SendRequestTask(
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    )
         : socketIdentifier_{socketIdentifier},
           protocolSequenceNumber_{protocolSequenceNumber},
           bytes_{std::move(bytes)},
@@ -42,13 +44,14 @@ private:
     UniqueFunction<void(std::any&&)> responseConsumer_;
 };
 
-std::unique_ptr<ITask> createSendRequestTask(const SocketIdentifier socketIdentifier,
-                                             const ProtocolSequenceNumber protocolSequenceNumber,
-                                             std::vector<uint8_t>&& bytes,
-                                             UniqueFunction<void(std::any&&)>&& responseConsumer)
+std::unique_ptr<ITask> createSendRequestTask(
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+)
 {
-    return std::make_unique<SendRequestTask>(socketIdentifier, protocolSequenceNumber, std::move(bytes),
-                                             std::move(responseConsumer));
+    return std::make_unique<SendRequestTask>(
+        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+    );
 }
 
 }

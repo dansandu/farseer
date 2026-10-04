@@ -6,6 +6,7 @@ namespace dansandu::farseer::internal::protocol_validation
 {
 
 void validateProtocolDefinition(
-    const dansandu::farseer::internal::protocol_definition::ProtocolDefinition& protocolDefinition);
+    const dansandu::farseer::internal::protocol_definition::ProtocolDefinition& protocolDefinition
+);
 
 }

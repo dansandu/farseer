@@ -19,8 +19,10 @@ namespace dansandu::farseer::internal::windows::listen_operation
 class ListenOperation : public IOperation
 {
 public:
-    ListenOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+    ListenOperation(
+        const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    )
         : socketIdentifier_{socketIdentifier},
           ipAddress_{ipAddress},
           port_{port},
@@ -84,11 +86,13 @@ public:
                                                      std::vector<uint8_t>&& response)
                                                  {
                                                      operationScheduler.scheduleSendBytesOperation(
-                                                         receivingSocketIdentifier, std::move(response));
+                                                         receivingSocketIdentifier, std::move(response)
+                                                     );
                                                  }},
                 .listeningSocketIdentifier = invalidSocketIdentifier,
                 .connectionCallback = std::move(connectionCallback_),
-            });
+            }
+        );
 
         SCOPE_FAILURE([&]() { operationScheduler.eraseSocket(socketIdentifier_); });
 
@@ -96,8 +100,10 @@ public:
 
         socket.connectionCallback(SocketEvent::serverOpen, socketIdentifier_);
 
-        LOG_INFO("Opened listening socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
-                 ':', socket.socket.getPort());
+        LOG_INFO(
+            "Opened listening socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(), ':',
+            socket.socket.getPort()
+        );
     }
 
 private:
@@ -108,9 +114,10 @@ private:
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation>
-createListenOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                      UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+std::unique_ptr<IOperation> createListenOperation(
+    const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
     return std::make_unique<ListenOperation>(socketIdentifier, ipAddress, port, std::move(connectionCallback));
 }

@@ -36,9 +36,10 @@ public:
 
     void listen(const std::string& ipAddress, const int port);
 
-    WindowsSocket postAccept(CHAR* const receiveBuffer, const DWORD receiveBufferSize,
-                             const SocketIdentifier pendingAcceptSocketIdentifier, const HANDLE completionPort,
-                             const LPWSAOVERLAPPED overlapped) const;
+    WindowsSocket postAccept(
+        CHAR* const receiveBuffer, const DWORD receiveBufferSize, const SocketIdentifier pendingAcceptSocketIdentifier,
+        const HANDLE completionPort, const LPWSAOVERLAPPED overlapped
+    ) const;
 
     void accept(const WindowsSocket& listeningSocket);
 

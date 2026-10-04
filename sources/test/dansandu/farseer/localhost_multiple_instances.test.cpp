@@ -62,15 +62,16 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequ
     auto openPromise = std::promise<void>{};
     auto openFuture = openPromise.get_future();
 
-    const auto connectionId =
-        client.connect(localhost, serverPort,
-                       [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
-                       {
-                           if (event == SocketEvent::clientOpen)
-                           {
-                               openPromise.set_value();
-                           }
-                       });
+    const auto connectionId = client.connect(
+        localhost, serverPort,
+        [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
+        {
+            if (event == SocketEvent::clientOpen)
+            {
+                openPromise.set_value();
+            }
+        }
+    );
 
     SCOPE_EXIT([&] { client.close(connectionId); });
 
@@ -79,9 +80,11 @@ std::pair<StressRequest, Expected<StressResponse>> createClient(const StressRequ
     auto responsePromise = std::promise<Expected<StressResponse>>{};
     auto responseFuture = responsePromise.get_future();
 
-    client.sendRequest(connectionId, request,
-                       [responsePromise = std::move(responsePromise)](Expected<StressResponse>&& response) mutable
-                       { responsePromise.set_value(std::move(response)); });
+    client.sendRequest(
+        connectionId, request,
+        [responsePromise = std::move(responsePromise)](Expected<StressResponse>&& response) mutable
+        { responsePromise.set_value(std::move(response)); }
+    );
 
     return {request, waitForFutureOrThrow(responseFuture, "Client response", clientTimeout)};
 }
@@ -104,15 +107,16 @@ TEST_CASE("localhost_multiple_instances")
 
     LOG_INFO("Opening listening socket...");
 
-    const auto listenerId =
-        server.listen(localhost, serverPort,
-                      [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
-                      {
-                          if (event == SocketEvent::serverOpen)
-                          {
-                              openPromise.set_value();
-                          }
-                      });
+    const auto listenerId = server.listen(
+        localhost, serverPort,
+        [openPromise = std::move(openPromise)](const SocketEvent event, const SocketIdentifier) mutable
+        {
+            if (event == SocketEvent::serverOpen)
+            {
+                openPromise.set_value();
+            }
+        }
+    );
 
     SCOPE_EXIT([&]() { server.close(listenerId); });
 
@@ -120,21 +124,22 @@ TEST_CASE("localhost_multiple_instances")
 
     LOG_INFO("Registering request callback...");
 
-    server.registerRequestCallback<StressRequest>(listenerId,
-                                                  [](StressRequest&& request)
-                                                  {
-                                                      if (request.sent % 2U == 0U)
-                                                      {
-                                                          return StressResponse{
-                                                              .received = salted(request.sent),
-                                                          };
-                                                      }
-                                                      else
-                                                      {
-                                                          throw RequestProtocolError{salted(request.sent),
-                                                                                     responseErrorMessage};
-                                                      }
-                                                  });
+    server.registerRequestCallback<StressRequest>(
+        listenerId,
+        [](StressRequest&& request)
+        {
+            if (request.sent % 2U == 0U)
+            {
+                return StressResponse{
+                    .received = salted(request.sent),
+                };
+            }
+            else
+            {
+                throw RequestProtocolError{salted(request.sent), responseErrorMessage};
+            }
+        }
+    );
 
     const auto requests = {
         4108274513U, 2679407135U, 3357528569U, 3675811652U, 3525994765U, 3902187997U, 3466800233U,
@@ -148,7 +153,8 @@ TEST_CASE("localhost_multiple_instances")
     for (const auto request : requests)
     {
         futures.push_back(
-            std::async(std::launch::async, [request]() { return createClient(StressRequest{.sent = request}); }));
+            std::async(std::launch::async, [request]() { return createClient(StressRequest{.sent = request}); })
+        );
     }
 
     LOG_INFO("Waiting for clients to finish...");

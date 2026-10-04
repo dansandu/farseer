@@ -92,8 +92,8 @@ TypeDefinition TypeDefinition::fromSimple(const Type type)
     return typeDefinition;
 }
 
-TypeDefinition TypeDefinition::fromMessage(const std::string& name, const bool hasStaticSize,
-                                           const ProtocolSize staticNumberOfBits)
+TypeDefinition
+TypeDefinition::fromMessage(const std::string& name, const bool hasStaticSize, const ProtocolSize staticNumberOfBits)
 {
     auto typeDefinition = TypeDefinition{};
     typeDefinition.type_ = Type::message;
@@ -322,8 +322,10 @@ bool MessageProtocolDefinition::hasStaticSize() const
 
 ProtocolSize MessageProtocolDefinition::getStaticNumberOfBits() const
 {
-    return std::accumulate(fields.cbegin(), fields.cend(), ProtocolSize{},
-                           [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); });
+    return std::accumulate(
+        fields.cbegin(), fields.cend(), ProtocolSize{},
+        [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); }
+    );
 }
 
 uint32_t RequestProtocolDefinition::getRequestHashCode() const
@@ -354,26 +356,32 @@ uint32_t RequestProtocolDefinition::getResponseHashCode() const
 
 bool RequestProtocolDefinition::requestHasStaticSize() const
 {
-    return std::all_of(requestFields.cbegin(), requestFields.cend(),
-                       [](const auto& field) { return field.hasStaticSize(); });
+    return std::all_of(
+        requestFields.cbegin(), requestFields.cend(), [](const auto& field) { return field.hasStaticSize(); }
+    );
 }
 
 ProtocolSize RequestProtocolDefinition::getRequestStaticNumberOfBits() const
 {
-    return std::accumulate(requestFields.cbegin(), requestFields.cend(), ProtocolSize{},
-                           [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); });
+    return std::accumulate(
+        requestFields.cbegin(), requestFields.cend(), ProtocolSize{},
+        [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); }
+    );
 }
 
 bool RequestProtocolDefinition::responseHasStaticSize() const
 {
-    return std::all_of(responseFields.cbegin(), responseFields.cend(),
-                       [](const auto& field) { return field.hasStaticSize(); });
+    return std::all_of(
+        responseFields.cbegin(), responseFields.cend(), [](const auto& field) { return field.hasStaticSize(); }
+    );
 }
 
 ProtocolSize RequestProtocolDefinition::getResponseStaticNumberOfBits() const
 {
-    return std::accumulate(responseFields.cbegin(), responseFields.cend(), ProtocolSize{},
-                           [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); });
+    return std::accumulate(
+        responseFields.cbegin(), responseFields.cend(), ProtocolSize{},
+        [](const auto total, const auto& field) { return total + field.getStaticNumberOfBits(); }
+    );
 }
 
 std::string ProtocolDefinition::toString() const

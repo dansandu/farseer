@@ -5,8 +5,9 @@
 namespace dansandu::farseer::internal::windows::listen_operation
 {
 
-std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>
-createListenOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                      UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
+std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation> createListenOperation(
+    const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+);
 
 }

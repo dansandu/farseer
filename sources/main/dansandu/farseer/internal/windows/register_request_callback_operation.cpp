@@ -14,9 +14,10 @@ namespace dansandu::farseer::internal::windows::register_request_callback_operat
 class RegisterRequestCallbackOperation : public IOperation
 {
 public:
-    RegisterRequestCallbackOperation(const SocketIdentifier socketIdentifier,
-                                     const ProtocolIdentifier protocolIdentifier,
-                                     UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+    RegisterRequestCallbackOperation(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<std::any(std::any&&)>&& requestConsumer
+    )
         : socketIdentifier_{socketIdentifier},
           protocolIdentifier_{protocolIdentifier},
           requestConsumer_{std::move(requestConsumer)}
@@ -69,8 +70,9 @@ public:
 
         socket.protocolReader.registerInboundRequestConsumer(protocolIdentifier_, std::move(requestConsumer_));
 
-        LOG_INFO("Registered request consumer with protocol ID ", protocolIdentifier_, " and socket ID ",
-                 socketIdentifier_);
+        LOG_INFO(
+            "Registered request consumer with protocol ID ", protocolIdentifier_, " and socket ID ", socketIdentifier_
+        );
     }
 
 private:
@@ -80,13 +82,14 @@ private:
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation>
-createRegisterRequestCallbackOperation(const SocketIdentifier socketIdentifier,
-                                       const ProtocolIdentifier protocolIdentifier,
-                                       UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+std::unique_ptr<IOperation> createRegisterRequestCallbackOperation(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<std::any(std::any&&)>&& requestConsumer
+)
 {
-    return std::make_unique<RegisterRequestCallbackOperation>(socketIdentifier, protocolIdentifier,
-                                                              std::move(requestConsumer));
+    return std::make_unique<RegisterRequestCallbackOperation>(
+        socketIdentifier, protocolIdentifier, std::move(requestConsumer)
+    );
 }
 
 }

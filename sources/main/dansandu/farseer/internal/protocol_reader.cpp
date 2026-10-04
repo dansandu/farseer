@@ -19,13 +19,15 @@ namespace dansandu::farseer::internal::protocol_reader
 {
 
 ProtocolReader::ProtocolReader(
-    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& outboundResponseConsumer)
+    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& outboundResponseConsumer
+)
     : outboundResponseConsumer_{std::move(outboundResponseConsumer)}
 {
 }
 
-void ProtocolReader::registerInboundMessageConsumer(const ProtocolIdentifier messageIdentifier,
-                                                    UniqueFunction<void(std::any&&)>&& messageConsumer)
+void ProtocolReader::registerInboundMessageConsumer(
+    const ProtocolIdentifier messageIdentifier, UniqueFunction<void(std::any&&)>&& messageConsumer
+)
 {
     if (!ProtocolRegistry::getGlobalInstance().isProtocolRegistered(messageIdentifier))
     {
@@ -38,13 +40,16 @@ void ProtocolReader::registerInboundMessageConsumer(const ProtocolIdentifier mes
     }
     else
     {
-        THROW(ProtocolConsumerAlreadyRegisteredError,
-              "Another protocol consumer is already registered with identifier ", messageIdentifier);
+        THROW(
+            ProtocolConsumerAlreadyRegisteredError, "Another protocol consumer is already registered with identifier ",
+            messageIdentifier
+        );
     }
 }
 
-void ProtocolReader::registerInboundRequestConsumer(const ProtocolIdentifier requestIdentifier,
-                                                    UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+void ProtocolReader::registerInboundRequestConsumer(
+    const ProtocolIdentifier requestIdentifier, UniqueFunction<std::any(std::any&&)>&& requestConsumer
+)
 {
     if (!ProtocolRegistry::getGlobalInstance().isProtocolRegistered(requestIdentifier))
     {
@@ -57,13 +62,16 @@ void ProtocolReader::registerInboundRequestConsumer(const ProtocolIdentifier req
     }
     else
     {
-        THROW(ProtocolConsumerAlreadyRegisteredError,
-              "Another protocol consumer is already registered with identifier ", requestIdentifier);
+        THROW(
+            ProtocolConsumerAlreadyRegisteredError, "Another protocol consumer is already registered with identifier ",
+            requestIdentifier
+        );
     }
 }
 
-void ProtocolReader::registerInboundOneShotResponseConsumer(const ProtocolSequenceNumber sequenceNumber,
-                                                            UniqueFunction<void(std::any&&)>&& responseConsumer)
+void ProtocolReader::registerInboundOneShotResponseConsumer(
+    const ProtocolSequenceNumber sequenceNumber, UniqueFunction<void(std::any&&)>&& responseConsumer
+)
 {
     if (!inboundOneShotResponseConsumers_.contains(sequenceNumber))
     {
@@ -71,8 +79,10 @@ void ProtocolReader::registerInboundOneShotResponseConsumer(const ProtocolSequen
     }
     else
     {
-        THROW(ProtocolConsumerAlreadyRegisteredError,
-              "Another response consumer is already registered with sequence number ", sequenceNumber);
+        THROW(
+            ProtocolConsumerAlreadyRegisteredError,
+            "Another response consumer is already registered with sequence number ", sequenceNumber
+        );
     }
 }
 
@@ -86,8 +96,9 @@ void eraseBits(std::vector<uint8_t>& bytes, const size_t bitsOffset)
     bytes.erase(bytes.cbegin(), bytes.cbegin() + numberOfBytesToErase);
 }
 
-void wrapInTryCatchAndInvoke(const ProtocolIdentifier protocolIdentifier,
-                             const UniqueFunction<void(std::any&&)>& consumer, std::any&& protocol)
+void wrapInTryCatchAndInvoke(
+    const ProtocolIdentifier protocolIdentifier, const UniqueFunction<void(std::any&&)>& consumer, std::any&& protocol
+)
 {
     try
     {
@@ -95,25 +106,33 @@ void wrapInTryCatchAndInvoke(const ProtocolIdentifier protocolIdentifier,
     }
     catch (const WideException& exception)
     {
-        LOG_ERROR("While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-                  " a wide exception was caught with the message: ", exception.getMessage());
+        LOG_ERROR(
+            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
+            " a wide exception was caught with the message: ", exception.getMessage()
+        );
     }
     catch (const std::exception& exception)
     {
-        LOG_ERROR("While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-                  " an exception was caught with the message: ", exception.what());
+        LOG_ERROR(
+            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
+            " an exception was caught with the message: ", exception.what()
+        );
     }
     catch (...)
     {
-        LOG_ERROR("While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-                  " an unknown exception was caught");
+        LOG_ERROR(
+            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
+            " an unknown exception was caught"
+        );
     }
 }
 
 }
 
-bool ProtocolReader::readInboundMessage(std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier messageIdentifier,
-                                        const ProtocolDescriptor& messageDescriptor, size_t& bitsOffset)
+bool ProtocolReader::readInboundMessage(
+    std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier messageIdentifier,
+    const ProtocolDescriptor& messageDescriptor, size_t& bitsOffset
+)
 {
     auto message = std::any{};
 
@@ -130,8 +149,10 @@ bool ProtocolReader::readInboundMessage(std::vector<uint8_t>& pendingBytes, cons
         }
         else
         {
-            LOG_WARNING("The message protocol with identifier ", messageIdentifier,
-                        " has no consumer registered and will be skipped");
+            LOG_WARNING(
+                "The message protocol with identifier ", messageIdentifier,
+                " has no consumer registered and will be skipped"
+            );
         }
 
         return true;
@@ -144,9 +165,10 @@ bool ProtocolReader::readInboundMessage(std::vector<uint8_t>& pendingBytes, cons
     }
 }
 
-bool ProtocolReader::readInboundRequest(const SocketIdentifier receivingSocketIdentifier,
-                                        std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier requestIdentifier,
-                                        const ProtocolDescriptor& requestDescriptor, size_t& bitsOffset)
+bool ProtocolReader::readInboundRequest(
+    const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>& pendingBytes,
+    const ProtocolIdentifier requestIdentifier, const ProtocolDescriptor& requestDescriptor, size_t& bitsOffset
+)
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
 
@@ -186,8 +208,10 @@ bool ProtocolReader::readInboundRequest(const SocketIdentifier receivingSocketId
         }
         else
         {
-            LOG_WARNING("The request protocol with identifier ", requestIdentifier,
-                        " has no consumer registered and will be skipped");
+            LOG_WARNING(
+                "The request protocol with identifier ", requestIdentifier,
+                " has no consumer registered and will be skipped"
+            );
         }
 
         return true;
@@ -200,9 +224,10 @@ bool ProtocolReader::readInboundRequest(const SocketIdentifier receivingSocketId
     }
 }
 
-bool ProtocolReader::readInboundResponse(std::vector<uint8_t>& pendingBytes,
-                                         const ProtocolIdentifier responseIdentifier,
-                                         const ProtocolDescriptor& responseDescriptor, size_t& bitsOffset)
+bool ProtocolReader::readInboundResponse(
+    std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier responseIdentifier,
+    const ProtocolDescriptor& responseDescriptor, size_t& bitsOffset
+)
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
 
@@ -223,8 +248,10 @@ bool ProtocolReader::readInboundResponse(std::vector<uint8_t>& pendingBytes,
         }
         else
         {
-            LOG_ERROR("The response protocol with identifier ", responseIdentifier, " and sequence number ",
-                      sequenceNumber, " has no consumer registered and will be skipped");
+            LOG_ERROR(
+                "The response protocol with identifier ", responseIdentifier, " and sequence number ", sequenceNumber,
+                " has no consumer registered and will be skipped"
+            );
         }
 
         return true;
@@ -237,8 +264,10 @@ bool ProtocolReader::readInboundResponse(std::vector<uint8_t>& pendingBytes,
     }
 }
 
-void ProtocolReader::readInboundBytes(const SocketIdentifier receivingSocketIdentifier,
-                                      std::vector<uint8_t>& pendingBytes, const std::span<const uint8_t> bytes)
+void ProtocolReader::readInboundBytes(
+    const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>& pendingBytes,
+    const std::span<const uint8_t> bytes
+)
 {
     pendingBytes.insert(pendingBytes.end(), bytes.cbegin(), bytes.cend());
 

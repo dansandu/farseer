@@ -46,8 +46,10 @@ Socket& SocketContainer::insertSocket(const uint32_t events, Socket&& socket)
 
     if (!socketInserted)
     {
-        THROW(std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
-              " because its ID is used by another socket");
+        THROW(
+            std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
+            " because its ID is used by another socket"
+        );
     }
 
     SCOPE_FAILURE([&] { sockets_.erase(socketPosition); });
@@ -59,8 +61,10 @@ Socket& SocketContainer::insertSocket(const uint32_t events, Socket&& socket)
 
     if (!descriptorInserted)
     {
-        THROW(std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
-              " because its file descriptor is used by another socket");
+        THROW(
+            std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
+            " because its file descriptor is used by another socket"
+        );
     }
 
     SCOPE_FAILURE([&] { fileDescriptorsToSockets_.erase(descriptorPosition); });
@@ -82,8 +86,10 @@ Socket& SocketContainer::getSocketOrThrow(const SocketIdentifier socketIdentifie
     WTHROW(InternalSocketError, "Couldn't find socket with ID ", socketIdentifier);
 }
 
-void SocketContainer::listen(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                             UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+void SocketContainer::listen(
+    const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
     auto& socket = insertSocket(
         EPOLLIN | EPOLLET,
@@ -96,33 +102,41 @@ void SocketContainer::listen(const SocketIdentifier socketIdentifier, const std:
                                { sendBytes(receivingSocketIdentifier, response); }},
             .connectionCallback = std::move(connectionCallback),
             .pendingBytes = {},
-        });
+        }
+    );
 
     socket.connectionCallback(SocketEvent::serverOpen, socket.socketIdentifier);
 
-    LOG_INFO("Opened listening socket with ID ", socket.socketIdentifier, " and address ", socket.socket.getIpAddress(),
-             ":", socket.socket.getPort());
+    LOG_INFO(
+        "Opened listening socket with ID ", socket.socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
+        socket.socket.getPort()
+    );
 }
 
-void SocketContainer::connect(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                              UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+void SocketContainer::connect(
+    const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
-    insertSocket(EPOLLOUT | EPOLLET,
-                 Socket{
-                     .socketIdentifier = socketIdentifier,
-                     .listeningSocketIdentifier = invalidSocketIdentifier,
-                     .socket = LinuxSocket::connect(ipAddress, port),
-                     .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                          std::vector<uint8_t>&& response)
-                                                      { sendBytes(receivingSocketIdentifier, response); }},
-                     .connectionCallback = std::move(connectionCallback),
-                     .pendingBytes = {},
-                 });
+    insertSocket(
+        EPOLLOUT | EPOLLET,
+        Socket{
+            .socketIdentifier = socketIdentifier,
+            .listeningSocketIdentifier = invalidSocketIdentifier,
+            .socket = LinuxSocket::connect(ipAddress, port),
+            .protocolReader =
+                ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>&& response)
+                               { sendBytes(receivingSocketIdentifier, response); }},
+            .connectionCallback = std::move(connectionCallback),
+            .pendingBytes = {},
+        }
+    );
 }
 
-void SocketContainer::registerMessageConsumer(const SocketIdentifier socketIdentifier,
-                                              const ProtocolIdentifier protocolIdentifier,
-                                              UniqueFunction<void(std::any&&)>&& messageConsumer)
+void SocketContainer::registerMessageConsumer(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<void(std::any&&)>&& messageConsumer
+)
 
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
@@ -132,9 +146,10 @@ void SocketContainer::registerMessageConsumer(const SocketIdentifier socketIdent
     LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier, " and socket ID ", socketIdentifier);
 }
 
-void SocketContainer::registerRequestCallback(const SocketIdentifier socketIdentifier,
-                                              const ProtocolIdentifier protocolIdentifier,
-                                              UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+void SocketContainer::registerRequestCallback(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<std::any(std::any&&)>&& requestConsumer
+)
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
@@ -168,10 +183,10 @@ void SocketContainer::sendBytes(const SocketIdentifier socketIdentifier, const s
     sendBytes(socket, bytes);
 }
 
-void SocketContainer::sendRequest(const SocketIdentifier socketIdentifier,
-                                  const ProtocolSequenceNumber protocolSequenceNumber,
-                                  const std::span<const uint8_t> bytes,
-                                  UniqueFunction<void(std::any&&)>&& responseConsumer)
+void SocketContainer::sendRequest(
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+)
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
@@ -196,7 +211,8 @@ void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
                 fileDescriptorsToSockets_.erase(socketFileDescriptor);
 
                 sockets_.erase(position);
-            });
+            }
+        );
 
         const auto& socket = position->second;
 
@@ -216,8 +232,10 @@ void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
                 socket.connectionCallback(SocketEvent::serverClosed, socketIdentifier);
             }
 
-            LOG_INFO("Socket with ID ", socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
-                     socket.socket.getPort(), " was closed");
+            LOG_INFO(
+                "Socket with ID ", socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
+                socket.socket.getPort(), " was closed"
+            );
         }
         catch (const WideException& wideException)
         {
@@ -243,23 +261,26 @@ void SocketContainer::handleListeningSocketEvents(Socket& socket)
 
         const auto acceptedSocketIdentifier = socketIdentifierSequencer_.generate();
 
-        auto& acceptedSocket =
-            insertSocket(EPOLLIN | EPOLLET,
-                         Socket{
-                             .socketIdentifier = acceptedSocketIdentifier,
-                             .listeningSocketIdentifier = socket.socketIdentifier,
-                             .socket = std::move(*candidateSocket),
-                             .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                                  std::vector<uint8_t>&& response)
-                                                              { sendBytes(receivingSocketIdentifier, response); }},
-                             .connectionCallback = {},
-                             .pendingBytes = {},
-                         });
+        auto& acceptedSocket = insertSocket(
+            EPOLLIN | EPOLLET,
+            Socket{
+                .socketIdentifier = acceptedSocketIdentifier,
+                .listeningSocketIdentifier = socket.socketIdentifier,
+                .socket = std::move(*candidateSocket),
+                .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
+                                                     std::vector<uint8_t>&& response)
+                                                 { sendBytes(receivingSocketIdentifier, response); }},
+                .connectionCallback = {},
+                .pendingBytes = {},
+            }
+        );
 
         socket.connectionCallback(SocketEvent::clientOpen, acceptedSocketIdentifier);
 
-        LOG_INFO("Accepted client socket with ID ", acceptedSocketIdentifier, " and address ",
-                 acceptedSocket.socket.getIpAddress(), ":", acceptedSocket.socket.getPort());
+        LOG_INFO(
+            "Accepted client socket with ID ", acceptedSocketIdentifier, " and address ",
+            acceptedSocket.socket.getIpAddress(), ":", acceptedSocket.socket.getPort()
+        );
     }
 }
 
@@ -271,28 +292,35 @@ void SocketContainer::handleConnectingSocketEvents(Socket& socket)
 
     socket.connectionCallback(SocketEvent::clientOpen, invalidSocketIdentifier);
 
-    LOG_INFO("Connected to socket with ID ", socket.socketIdentifier, " and address ", socket.socket.getIpAddress(),
-             ":", socket.socket.getPort());
+    LOG_INFO(
+        "Connected to socket with ID ", socket.socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
+        socket.socket.getPort()
+    );
 }
 
 void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t socketEvents)
 {
     if (socketEvents & EPOLLIN)
     {
-        LOG_DEBUG("Receiving bytes from socket with ID ", socket.socketIdentifier, " and address ",
-                  socket.socket.getIpAddress(), ":", socket.socket.getPort());
+        LOG_DEBUG(
+            "Receiving bytes from socket with ID ", socket.socketIdentifier, " and address ",
+            socket.socket.getIpAddress(), ":", socket.socket.getPort()
+        );
 
         const auto [receivedBytes, closed] = socket.socket.receiveBytes();
 
-        LOG_INFO("Received bytes ", receivedBytes.size(), " from socket with ID ", socket.socketIdentifier,
-                 " and address ", socket.socket.getIpAddress(), ":", socket.socket.getPort());
+        LOG_INFO(
+            "Received bytes ", receivedBytes.size(), " from socket with ID ", socket.socketIdentifier, " and address ",
+            socket.socket.getIpAddress(), ":", socket.socket.getPort()
+        );
 
         if (socket.listeningSocketIdentifier != invalidSocketIdentifier)
         {
             auto& listeningSocket = getSocketOrThrow(socket.listeningSocketIdentifier);
 
-            listeningSocket.protocolReader.readInboundBytes(socket.socketIdentifier, socket.pendingBytes,
-                                                            receivedBytes);
+            listeningSocket.protocolReader.readInboundBytes(
+                socket.socketIdentifier, socket.pendingBytes, receivedBytes
+            );
         }
         else
         {
@@ -317,8 +345,10 @@ void SocketContainer::handleSocketEventsWork(Socket& socket, const uint32_t sock
 
     if (socketEvents & EPOLLRDHUP)
     {
-        LOG_INFO("Connection was closed for socket with ID ", socketIdentifier, " and address ",
-                 socket.socket.getIpAddress(), ':', socket.socket.getPort());
+        LOG_INFO(
+            "Connection was closed for socket with ID ", socketIdentifier, " and address ",
+            socket.socket.getIpAddress(), ':', socket.socket.getPort()
+        );
 
         eraseSocket(socketIdentifier);
 
@@ -327,8 +357,10 @@ void SocketContainer::handleSocketEventsWork(Socket& socket, const uint32_t sock
 
     if (socketEvents & EPOLLERR)
     {
-        LOG_WARNING("Connection was aborted for socket with ID ", socketIdentifier, " and address ",
-                    socket.socket.getIpAddress(), ':', socket.socket.getPort());
+        LOG_WARNING(
+            "Connection was aborted for socket with ID ", socketIdentifier, " and address ",
+            socket.socket.getIpAddress(), ':', socket.socket.getPort()
+        );
 
         eraseSocket(socketIdentifier);
 
@@ -375,15 +407,19 @@ void SocketContainer::handleSocketEvents(const int socketFileDescriptor, const u
     }
     catch (const WideException& exception)
     {
-        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier,
-                  ", the socket will be erased: ", exception.getMessage());
+        LOG_ERROR(
+            "Error processing events for socket with ID ", socketIdentifier,
+            ", the socket will be erased: ", exception.getMessage()
+        );
 
         eraseSocket(socketIdentifier);
     }
     catch (const std::exception& exception)
     {
-        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier,
-                  ", the socket will be erased: ", exception.what());
+        LOG_ERROR(
+            "Error processing events for socket with ID ", socketIdentifier,
+            ", the socket will be erased: ", exception.what()
+        );
 
         eraseSocket(socketIdentifier);
     }

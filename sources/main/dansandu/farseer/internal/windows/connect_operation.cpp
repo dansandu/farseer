@@ -18,8 +18,10 @@ namespace dansandu::farseer::internal::windows::connect_operation
 class ConnectOperation : public IOperation
 {
 public:
-    ConnectOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                     UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+    ConnectOperation(
+        const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    )
         : socketIdentifier_{socketIdentifier},
           ipAddress_{ipAddress},
           port_{port},
@@ -88,11 +90,13 @@ public:
                                                          std::vector<uint8_t>&& response)
                                                      {
                                                          operationScheduler.scheduleSendBytesOperation(
-                                                             receivingSocketIdentifier, std::move(response));
+                                                             receivingSocketIdentifier, std::move(response)
+                                                         );
                                                      }},
                     .listeningSocketIdentifier = invalidSocketIdentifier,
                     .connectionCallback = std::move(connectionCallback_),
-                });
+                }
+            );
 
             connectionPending_ = true;
         }
@@ -106,8 +110,10 @@ public:
 
             operationScheduler.scheduleReceiveOperation(socketIdentifier_);
 
-            LOG_INFO("Connected to socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(),
-                     ":", socket.socket.getPort());
+            LOG_INFO(
+                "Connected to socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(), ":",
+                socket.socket.getPort()
+            );
         }
     }
 
@@ -120,9 +126,10 @@ private:
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation>
-createConnectOperation(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                       UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+std::unique_ptr<IOperation> createConnectOperation(
+    const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
     return std::make_unique<ConnectOperation>(socketIdentifier, ipAddress, port, std::move(connectionCallback));
 }

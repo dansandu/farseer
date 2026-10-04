@@ -11,8 +11,10 @@ namespace dansandu::farseer::internal::linux::register_message_consumer_task
 class RegisterMessageConsumerTask : public ITask
 {
 public:
-    RegisterMessageConsumerTask(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-                                UniqueFunction<void(std::any&&)>&& messageConsumer)
+    RegisterMessageConsumerTask(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<void(std::any&&)>&& messageConsumer
+    )
         : socketIdentifier_{socketIdentifier},
           protocolIdentifier_{protocolIdentifier},
           messageConsumer_{std::move(messageConsumer)}
@@ -40,12 +42,14 @@ private:
     UniqueFunction<void(std::any&&)> messageConsumer_;
 };
 
-std::unique_ptr<ITask> createRegisterMessageConsumerTask(const SocketIdentifier socketIdentifier,
-                                                         const ProtocolIdentifier protocolIdentifier,
-                                                         UniqueFunction<void(std::any&&)>&& messageConsumer)
+std::unique_ptr<ITask> createRegisterMessageConsumerTask(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<void(std::any&&)>&& messageConsumer
+)
 {
-    return std::make_unique<RegisterMessageConsumerTask>(socketIdentifier, protocolIdentifier,
-                                                         std::move(messageConsumer));
+    return std::make_unique<RegisterMessageConsumerTask>(
+        socketIdentifier, protocolIdentifier, std::move(messageConsumer)
+    );
 }
 
 }

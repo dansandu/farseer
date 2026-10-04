@@ -8,9 +8,9 @@
 namespace dansandu::farseer::internal::windows::register_request_callback_operation
 {
 
-std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>
-createRegisterRequestCallbackOperation(const SocketIdentifier socketIdentifier,
-                                       const ProtocolIdentifier protocolIdentifier,
-                                       UniqueFunction<std::any(std::any&&)>&& requestConsumer);
+std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation> createRegisterRequestCallbackOperation(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<std::any(std::any&&)>&& requestConsumer
+);
 
 }

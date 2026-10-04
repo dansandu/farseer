@@ -11,8 +11,10 @@ namespace dansandu::farseer::internal::linux::listen_task
 class ListenTask : public ITask
 {
 public:
-    ListenTask(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-               UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+    ListenTask(
+        const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    )
         : socketIdentifier_{socketIdentifier},
           ipAddress_{ipAddress},
           port_{port},
@@ -42,9 +44,10 @@ private:
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback_;
 };
 
-std::unique_ptr<ITask>
-createListenTask(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                 UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+std::unique_ptr<ITask> createListenTask(
+    const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
     return std::make_unique<ListenTask>(socketIdentifier, ipAddress, port, std::move(connectionCallback));
 }

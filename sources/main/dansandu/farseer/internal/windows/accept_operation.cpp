@@ -13,8 +13,9 @@ namespace dansandu::farseer::internal::windows::accept_operation
 class AcceptOperation : public IOperation
 {
 public:
-    AcceptOperation(const SocketIdentifier listeningSocketIdentifier,
-                    const SocketIdentifier pendingAcceptSocketIdentifier)
+    AcceptOperation(
+        const SocketIdentifier listeningSocketIdentifier, const SocketIdentifier pendingAcceptSocketIdentifier
+    )
         : listeningSocketIdentifier_{listeningSocketIdentifier},
           pendingAcceptSocketIdentifier_{pendingAcceptSocketIdentifier}
     {
@@ -55,17 +56,20 @@ public:
         operationScheduler.insertSocket(
             pendingAcceptSocketIdentifier_,
             Socket{
-                .socket =
-                    listeningSocket.socket.postAccept(receiveBuffer_, std::size(receiveBuffer_),
-                                                      pendingAcceptSocketIdentifier_, completionPort, &overlapped_),
+                .socket = listeningSocket.socket.postAccept(
+                    receiveBuffer_, std::size(receiveBuffer_), pendingAcceptSocketIdentifier_, completionPort,
+                    &overlapped_
+                ),
                 .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
                                                      std::vector<uint8_t>&& response)
                                                  {
                                                      operationScheduler.scheduleSendBytesOperation(
-                                                         receivingSocketIdentifier, std::move(response));
+                                                         receivingSocketIdentifier, std::move(response)
+                                                     );
                                                  }},
                 .listeningSocketIdentifier = listeningSocketIdentifier_,
-            });
+            }
+        );
     }
 
     void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
@@ -82,8 +86,10 @@ public:
 
         listeningSocket.connectionCallback(SocketEvent::clientOpen, pendingAcceptSocketIdentifier_);
 
-        LOG_INFO("Accepted client socket with ID ", pendingAcceptSocketIdentifier_, " and address ",
-                 acceptedSocket.socket.getIpAddress(), ":", acceptedSocket.socket.getPort());
+        LOG_INFO(
+            "Accepted client socket with ID ", pendingAcceptSocketIdentifier_, " and address ",
+            acceptedSocket.socket.getIpAddress(), ":", acceptedSocket.socket.getPort()
+        );
     }
 
 private:
@@ -95,8 +101,9 @@ private:
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation> createAcceptOperation(const SocketIdentifier listeningSocketIdentifier,
-                                                  const SocketIdentifier pendingAcceptSocketIdentifier)
+std::unique_ptr<IOperation> createAcceptOperation(
+    const SocketIdentifier listeningSocketIdentifier, const SocketIdentifier pendingAcceptSocketIdentifier
+)
 {
     return std::make_unique<AcceptOperation>(listeningSocketIdentifier, pendingAcceptSocketIdentifier);
 }

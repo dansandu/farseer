@@ -13,25 +13,26 @@
 namespace dansandu::farseer::binary_serialization
 {
 
-using AssociatedUnsignedTypes =
-    dansandu::ballotin::type_traits::TypeDictionary<dansandu::ballotin::type_traits::TypeEntry<int8_t, uint8_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<int16_t, uint16_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<int32_t, uint32_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<int64_t, uint64_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<uint8_t, uint8_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<uint16_t, uint16_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<uint32_t, uint32_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<uint64_t, uint64_t>,
-                                                    dansandu::ballotin::type_traits::TypeEntry<char, unsigned char>>;
+using AssociatedUnsignedTypes = dansandu::ballotin::type_traits::TypeDictionary<
+    dansandu::ballotin::type_traits::TypeEntry<int8_t, uint8_t>,
+    dansandu::ballotin::type_traits::TypeEntry<int16_t, uint16_t>,
+    dansandu::ballotin::type_traits::TypeEntry<int32_t, uint32_t>,
+    dansandu::ballotin::type_traits::TypeEntry<int64_t, uint64_t>,
+    dansandu::ballotin::type_traits::TypeEntry<uint8_t, uint8_t>,
+    dansandu::ballotin::type_traits::TypeEntry<uint16_t, uint16_t>,
+    dansandu::ballotin::type_traits::TypeEntry<uint32_t, uint32_t>,
+    dansandu::ballotin::type_traits::TypeEntry<uint64_t, uint64_t>,
+    dansandu::ballotin::type_traits::TypeEntry<char, unsigned char>>;
 
 template<typename PrimitiveType>
 concept SerializablePrimitiveType = AssociatedUnsignedTypes::containsKey<PrimitiveType>;
 
 template<typename Protocol>
-concept SerializableProtocol = std::is_same_v<decltype(Protocol::Metadata::deserializeHeaderless),
-                                              Protocol(const std::vector<uint8_t>&, size_t&)> &&
-                               std::is_same_v<decltype(Protocol::Metadata::serializeHeaderless),
-                                              void(const Protocol&, std::vector<uint8_t>&, size_t&)>;
+concept SerializableProtocol =
+    std::is_same_v<
+        decltype(Protocol::Metadata::deserializeHeaderless), Protocol(const std::vector<uint8_t>&, size_t&)> &&
+    std::is_same_v<
+        decltype(Protocol::Metadata::serializeHeaderless), void(const Protocol&, std::vector<uint8_t>&, size_t&)>;
 
 template<typename T>
 struct BinarySerializer;
@@ -56,8 +57,9 @@ struct BinarySerializer<PrimitiveType>
         using dansandu::ballotin::binary::bitsPerByte;
         using dansandu::ballotin::binary::pushBitsMostSignificant;
 
-        pushBitsMostSignificant(bytes, bitsOffset, static_cast<UnsignedType>(value),
-                                bitsPerByte * sizeof(UnsignedType));
+        pushBitsMostSignificant(
+            bytes, bitsOffset, static_cast<UnsignedType>(value), bitsPerByte * sizeof(UnsignedType)
+        );
     }
 };
 
@@ -81,13 +83,15 @@ struct BinarySerializer<ProtocolIdentifier>
     static ProtocolIdentifier deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
         return ProtocolIdentifier{
-            BinarySerializer<typename ProtocolIdentifier::UnderlyingType>::deserialize(bytes, bitsOffset)};
+            BinarySerializer<typename ProtocolIdentifier::UnderlyingType>::deserialize(bytes, bitsOffset)
+        };
     }
 
     static void serialize(const ProtocolIdentifier& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<typename ProtocolIdentifier::UnderlyingType>::serialize(value.getUnderlying(), bytes,
-                                                                                 bitsOffset);
+        BinarySerializer<typename ProtocolIdentifier::UnderlyingType>::serialize(
+            value.getUnderlying(), bytes, bitsOffset
+        );
     }
 };
 
@@ -111,13 +115,15 @@ struct BinarySerializer<ProtocolSequenceNumber>
     static ProtocolSequenceNumber deserialize(const std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
         return ProtocolSequenceNumber{
-            BinarySerializer<typename ProtocolSequenceNumber::UnderlyingType>::deserialize(bytes, bitsOffset)};
+            BinarySerializer<typename ProtocolSequenceNumber::UnderlyingType>::deserialize(bytes, bitsOffset)
+        };
     }
 
     static void serialize(const ProtocolSequenceNumber& value, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<typename ProtocolSequenceNumber::UnderlyingType>::serialize(value.getUnderlying(), bytes,
-                                                                                     bitsOffset);
+        BinarySerializer<typename ProtocolSequenceNumber::UnderlyingType>::serialize(
+            value.getUnderlying(), bytes, bitsOffset
+        );
     }
 };
 
