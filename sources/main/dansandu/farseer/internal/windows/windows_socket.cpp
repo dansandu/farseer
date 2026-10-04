@@ -32,9 +32,10 @@ WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketIdentifier
     if (socket_ != INVALID_SOCKET)
     {
         const auto numberOfConcurrentThreads = 0;
-        const auto completionPortResult =
-            ::CreateIoCompletionPort(reinterpret_cast<HANDLE>(socket_), completionPort,
-                                     socketIdentifier.getUnderlying(), numberOfConcurrentThreads);
+        const auto completionPortResult = ::CreateIoCompletionPort(
+            reinterpret_cast<HANDLE>(socket_), completionPort, socketIdentifier.getUnderlying(),
+            numberOfConcurrentThreads
+        );
         if (completionPortResult == nullptr)
         {
             ::closesocket(socket_);
@@ -141,9 +142,10 @@ void WindowsSocket::listen(const std::string& ipAddress, const int port)
     auto acceptExGuid = GUID(WSAID_ACCEPTEX);
     auto numberOfBytes = DWORD(0);
 
-    const auto ioResult = ::WSAIoctl(socket_, SIO_GET_EXTENSION_FUNCTION_POINTER, &acceptExGuid, sizeof(acceptExGuid),
-                                     static_cast<LPVOID>(&acceptFunction_), sizeof(acceptFunction_), &numberOfBytes,
-                                     overlapped, completionRoutine);
+    const auto ioResult = ::WSAIoctl(
+        socket_, SIO_GET_EXTENSION_FUNCTION_POINTER, &acceptExGuid, sizeof(acceptExGuid),
+        static_cast<LPVOID>(&acceptFunction_), sizeof(acceptFunction_), &numberOfBytes, overlapped, completionRoutine
+    );
     if (ioResult == SOCKET_ERROR)
     {
         WTHROW(InternalSocketError, "WSAIoctl failed with error ", getLastWsaErrorMessage());
@@ -153,9 +155,10 @@ void WindowsSocket::listen(const std::string& ipAddress, const int port)
     port_ = port;
 }
 
-WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD receiveBufferSize,
-                                        const SocketIdentifier pendingAcceptSocketIdentifier,
-                                        const HANDLE completionPort, const LPWSAOVERLAPPED overlapped) const
+WindowsSocket WindowsSocket::postAccept(
+    CHAR* const receiveBuffer, const DWORD receiveBufferSize, const SocketIdentifier pendingAcceptSocketIdentifier,
+    const HANDLE completionPort, const LPWSAOVERLAPPED overlapped
+) const
 {
     if (socket_ == INVALID_SOCKET)
     {
@@ -174,8 +177,10 @@ WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD r
 
     if (receiveBufferSize < 2 * (sizeof(::sockaddr_in) + 16))
     {
-        WTHROW(InternalSocketError,
-               "The receive buffer must have enough space to store the local and remote address of the connection");
+        WTHROW(
+            InternalSocketError,
+            "The receive buffer must have enough space to store the local and remote address of the connection"
+        );
     }
 
     auto pendingAcceptSocket = WindowsSocket{completionPort, pendingAcceptSocketIdentifier};
@@ -185,9 +190,10 @@ WindowsSocket WindowsSocket::postAccept(CHAR* const receiveBuffer, const DWORD r
 
     auto numberOfBytesReceived = DWORD{0};
 
-    const auto acceptResult =
-        acceptFunction_(socket_, pendingAcceptSocket.socket_, receiveBuffer, overrideReceiveBufferSize,
-                        sizeof(::sockaddr_in) + 16, sizeof(::sockaddr_in) + 16, &numberOfBytesReceived, overlapped);
+    const auto acceptResult = acceptFunction_(
+        socket_, pendingAcceptSocket.socket_, receiveBuffer, overrideReceiveBufferSize, sizeof(::sockaddr_in) + 16,
+        sizeof(::sockaddr_in) + 16, &numberOfBytesReceived, overlapped
+    );
     if (acceptResult == FALSE)
     {
         const auto errorCode = ::WSAGetLastError();
@@ -247,8 +253,10 @@ void WindowsSocket::accept(const WindowsSocket& listeningSocket)
     }
     else if (remoteAddressSize != expectedAddressSize)
     {
-        WTHROW(InternalSocketError, "getpeername truncated the address because the buffer is to small (",
-               expectedAddressSize, " bytes were supplied but ", remoteAddressSize, " bytes are needed)");
+        WTHROW(
+            InternalSocketError, "getpeername truncated the address because the buffer is to small (",
+            expectedAddressSize, " bytes were supplied but ", remoteAddressSize, " bytes are needed)"
+        );
     }
 
     char ipAddressBuffer[INET_ADDRSTRLEN];
@@ -300,9 +308,11 @@ void WindowsSocket::postConnect(const std::string& ipAddress, const int port, co
     auto connectExGuid = GUID(WSAID_CONNECTEX);
     auto numberOfBytes = DWORD(0);
 
-    const auto ioResult = ::WSAIoctl(socket_, SIO_GET_EXTENSION_FUNCTION_POINTER, &connectExGuid, sizeof(connectExGuid),
-                                     static_cast<LPVOID>(&connectFunction_), sizeof(connectFunction_), &numberOfBytes,
-                                     ioOverlapped, completionRoutine);
+    const auto ioResult = ::WSAIoctl(
+        socket_, SIO_GET_EXTENSION_FUNCTION_POINTER, &connectExGuid, sizeof(connectExGuid),
+        static_cast<LPVOID>(&connectFunction_), sizeof(connectFunction_), &numberOfBytes, ioOverlapped,
+        completionRoutine
+    );
     if (ioResult == SOCKET_ERROR)
     {
         WTHROW(InternalSocketError, "WSAIoctl failed with error ", getLastWsaErrorMessage());
@@ -327,9 +337,10 @@ void WindowsSocket::postConnect(const std::string& ipAddress, const int port, co
     const auto sendBuffer = PVOID{nullptr};
     const auto sendBufferSize = DWORD{0};
 
-    const auto connectResult =
-        connectFunction_(socket_, reinterpret_cast<const SOCKADDR*>(&remoteAddress), sizeof(remoteAddress), sendBuffer,
-                         sendBufferSize, &numberOfBytes, overlapped);
+    const auto connectResult = connectFunction_(
+        socket_, reinterpret_cast<const SOCKADDR*>(&remoteAddress), sizeof(remoteAddress), sendBuffer, sendBufferSize,
+        &numberOfBytes, overlapped
+    );
     if (connectResult == FALSE)
     {
         const auto errorCode = ::WSAGetLastError();
@@ -371,8 +382,9 @@ void WindowsSocket::connect()
     }
 }
 
-void WindowsSocket::postReceive(CHAR* const receiveBuffer, const ULONG receiveBufferSize,
-                                const LPWSAOVERLAPPED overlapped) const
+void WindowsSocket::postReceive(
+    CHAR* const receiveBuffer, const ULONG receiveBufferSize, const LPWSAOVERLAPPED overlapped
+) const
 {
     if (socket_ == INVALID_SOCKET)
     {
@@ -405,8 +417,9 @@ void WindowsSocket::postReceive(CHAR* const receiveBuffer, const ULONG receiveBu
     }
 }
 
-void WindowsSocket::postSend(CHAR* const bytesToSend, const ULONG numberOfBytesToSend,
-                             const LPWSAOVERLAPPED overlapped) const
+void WindowsSocket::postSend(
+    CHAR* const bytesToSend, const ULONG numberOfBytesToSend, const LPWSAOVERLAPPED overlapped
+) const
 {
     if (socket_ == INVALID_SOCKET)
     {

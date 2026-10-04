@@ -31,8 +31,8 @@ class TypeDefinition
 public:
     static TypeDefinition fromSimple(const Type type);
 
-    static TypeDefinition fromMessage(const std::string& name, const bool hasStaticSize,
-                                      const ProtocolSize staticNumberOfBits);
+    static TypeDefinition
+    fromMessage(const std::string& name, const bool hasStaticSize, const ProtocolSize staticNumberOfBits);
 
     static TypeDefinition fromList(TypeDefinition subtype);
 

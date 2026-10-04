@@ -21,22 +21,24 @@ public:
 
     HANDLE getCompletionPort() override;
 
-    dansandu::farseer::internal::windows::operation::Socket&
-    insertSocket(const SocketIdentifier socketIdentifier,
-                 dansandu::farseer::internal::windows::operation::Socket&& socket) override;
+    dansandu::farseer::internal::windows::operation::Socket& insertSocket(
+        const SocketIdentifier socketIdentifier, dansandu::farseer::internal::windows::operation::Socket&& socket
+    ) override;
 
     dansandu::farseer::internal::windows::operation::Socket&
     getSocketOrThrow(const SocketIdentifier socketIdentifier) override;
 
     void eraseSocket(const SocketIdentifier socketIdentifier) override;
 
-    SocketIdentifier
-    scheduleConnectOperation(const std::string& ipAddress, const int port,
-                             UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
+    SocketIdentifier scheduleConnectOperation(
+        const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    );
 
-    SocketIdentifier
-    scheduleListenOperation(const std::string& ipAddress, const int port,
-                            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
+    SocketIdentifier scheduleListenOperation(
+        const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    );
 
     void scheduleAcceptOperation(const SocketIdentifier listeningSocketIdentifier) override;
 
@@ -44,17 +46,20 @@ public:
 
     void scheduleSendBytesOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) override;
 
-    void scheduleSendRequestOperation(const SocketIdentifier socketIdentifier,
-                                      const ProtocolSequenceNumber protocolSequenceNumber, std::vector<uint8_t>&& bytes,
-                                      UniqueFunction<void(std::any&&)>&& responseConsumer);
+    void scheduleSendRequestOperation(
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    );
 
-    void scheduleRegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
-                                                  const ProtocolIdentifier protocolIdentifier,
-                                                  UniqueFunction<void(std::any&&)>&& messageConsumer);
+    void scheduleRegisterMessageConsumerOperation(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<void(std::any&&)>&& messageConsumer
+    );
 
-    void scheduleRegisterRequestCallbackOperation(const SocketIdentifier socketIdentifier,
-                                                  const ProtocolIdentifier protocolIdentifier,
-                                                  UniqueFunction<std::any(std::any&&)>&& requestConsumer);
+    void scheduleRegisterRequestCallbackOperation(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<std::any(std::any&&)>&& requestConsumer
+    );
 
     void scheduleCloseOperation(const SocketIdentifier socketIdentifier);
 

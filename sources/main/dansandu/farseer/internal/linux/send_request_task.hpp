@@ -11,8 +11,9 @@
 namespace dansandu::farseer::internal::linux::send_request_task
 {
 
-std::unique_ptr<dansandu::farseer::internal::linux::task::ITask>
-createSendRequestTask(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-                      std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer);
+std::unique_ptr<dansandu::farseer::internal::linux::task::ITask> createSendRequestTask(
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+);
 
 }

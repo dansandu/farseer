@@ -31,8 +31,10 @@ void OperationContainer::insert(std::unique_ptr<IOperation>&& operation)
 
     if (!inserted)
     {
-        THROW(std::logic_error, "Couldn't insert ", name, " with socket ID ", socketIdentifier,
-              " because operation already exists");
+        THROW(
+            std::logic_error, "Couldn't insert ", name, " with socket ID ", socketIdentifier,
+            " because operation already exists"
+        );
     }
 
     SCOPE_FAILURE([&]() { operations_.erase(position); });
@@ -42,8 +44,9 @@ void OperationContainer::insert(std::unique_ptr<IOperation>&& operation)
     LOG_DEBUG("Inserted ", name, " with socket ID ", socketIdentifier);
 }
 
-void OperationContainer::handleSuccessfulOperation(const LPWSAOVERLAPPED overlapped,
-                                                   const DWORD numberOfBytesTransferred)
+void OperationContainer::handleSuccessfulOperation(
+    const LPWSAOVERLAPPED overlapped, const DWORD numberOfBytesTransferred
+)
 {
     auto operationGuard = std::unique_ptr<IOperation>{};
     auto discard = false;
@@ -108,7 +111,8 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
             {
                 operations_.erase(position);
                 operationScheduler_.eraseSocket(socketIdentifier);
-            });
+            }
+        );
 
         const auto name = position->second->getName();
         const auto level = position->second->getSystemErrorCodeLevel(errorCode);
@@ -124,8 +128,9 @@ void OperationContainer::handleFailedOperation(const LPWSAOVERLAPPED overlapped,
     }
 }
 
-void OperationContainer::handleOperationExecutionFailure(IOperation& operation, const bool discarded,
-                                                         const std::wstring_view message)
+void OperationContainer::handleOperationExecutionFailure(
+    IOperation& operation, const bool discarded, const std::wstring_view message
+)
 {
     const auto socketIdentifier = operation.getSocketIdentifier();
 
@@ -135,8 +140,10 @@ void OperationContainer::handleOperationExecutionFailure(IOperation& operation, 
     }
     else
     {
-        LOG_ERROR(operation.getName(), " with socket ID ", socketIdentifier,
-                  " failed and the socket will be erased: ", message);
+        LOG_ERROR(
+            operation.getName(), " with socket ID ", socketIdentifier,
+            " failed and the socket will be erased: ", message
+        );
     }
 
     if (!discarded)

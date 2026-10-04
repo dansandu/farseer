@@ -71,8 +71,9 @@ public:
 
             LOG_DEBUG("Sending ", bytes_.size(), " bytes to socket with ID ", socketIdentifier_);
 
-            socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()),
-                                   &overlapped_);
+            socket.socket.postSend(
+                reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()), &overlapped_
+            );
         }
         else
         {
@@ -87,8 +88,8 @@ private:
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation> createSendBytesOperation(const SocketIdentifier socketIdentifier,
-                                                     std::vector<uint8_t>&& bytes)
+std::unique_ptr<IOperation>
+createSendBytesOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes)
 {
     return std::make_unique<SendBytesOperation>(socketIdentifier, std::move(bytes));
 }

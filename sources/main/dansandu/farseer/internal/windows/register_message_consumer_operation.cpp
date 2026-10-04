@@ -14,9 +14,10 @@ namespace dansandu::farseer::internal::windows::register_message_consumer_operat
 class RegisterMessageConsumerOperation : public IOperation
 {
 public:
-    RegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
-                                     const ProtocolIdentifier protocolIdentifier,
-                                     UniqueFunction<void(std::any&&)>&& messageConsumer)
+    RegisterMessageConsumerOperation(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<void(std::any&&)>&& messageConsumer
+    )
         : socketIdentifier_{socketIdentifier},
           protocolIdentifier_{protocolIdentifier},
           messageConsumer_{std::move(messageConsumer)}
@@ -69,8 +70,9 @@ public:
 
         socket.protocolReader.registerInboundMessageConsumer(protocolIdentifier_, std::move(messageConsumer_));
 
-        LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier_, " and socket ID ",
-                 socketIdentifier_);
+        LOG_INFO(
+            "Registered message consumer with protocol ID ", protocolIdentifier_, " and socket ID ", socketIdentifier_
+        );
     }
 
 private:
@@ -80,12 +82,14 @@ private:
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation> createRegisterMessageConsumerOperation(const SocketIdentifier socketIdentifier,
-                                                                   const ProtocolIdentifier protocolIdentifier,
-                                                                   UniqueFunction<void(std::any&&)>&& messageConsumer)
+std::unique_ptr<IOperation> createRegisterMessageConsumerOperation(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<void(std::any&&)>&& messageConsumer
+)
 {
-    return std::make_unique<RegisterMessageConsumerOperation>(socketIdentifier, protocolIdentifier,
-                                                              std::move(messageConsumer));
+    return std::make_unique<RegisterMessageConsumerOperation>(
+        socketIdentifier, protocolIdentifier, std::move(messageConsumer)
+    );
 }
 
 }

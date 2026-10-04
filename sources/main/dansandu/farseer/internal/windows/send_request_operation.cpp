@@ -14,8 +14,10 @@ namespace dansandu::farseer::internal::windows::send_request_operation
 class SendRequestOperation : public IOperation
 {
 public:
-    SendRequestOperation(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-                         std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer)
+    SendRequestOperation(
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    )
         : socketIdentifier_{socketIdentifier},
           protocolSequenceNumber_{protocolSequenceNumber},
           bytes_{std::move(bytes)},
@@ -72,13 +74,15 @@ public:
 
             auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
 
-            socket.protocolReader.registerInboundOneShotResponseConsumer(protocolSequenceNumber_,
-                                                                         std::move(responseConsumer_));
+            socket.protocolReader.registerInboundOneShotResponseConsumer(
+                protocolSequenceNumber_, std::move(responseConsumer_)
+            );
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
-            socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()),
-                                   &overlapped_);
+            socket.socket.postSend(
+                reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()), &overlapped_
+            );
         }
         else
         {
@@ -95,13 +99,14 @@ private:
     WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation> createSendRequestOperation(const SocketIdentifier socketIdentifier,
-                                                       const ProtocolSequenceNumber protocolSequenceNumber,
-                                                       std::vector<uint8_t>&& bytes,
-                                                       UniqueFunction<void(std::any&&)>&& responseConsumer)
+std::unique_ptr<IOperation> createSendRequestOperation(
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+)
 {
-    return std::make_unique<SendRequestOperation>(socketIdentifier, protocolSequenceNumber, std::move(bytes),
-                                                  std::move(responseConsumer));
+    return std::make_unique<SendRequestOperation>(
+        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+    );
 }
 
 }

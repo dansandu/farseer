@@ -171,21 +171,20 @@ TEST_CASE("protocol_validation")
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages = {},
-            .requests =
-                {
-                    RequestProtocolDefinition{
-                        .fileNamespace = "organization.artifact.module",
-                        .name = "Person",
-                        .requestFields =
-                            {
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromMessage("House", false, ProtocolSize{64}),
-                                    .name = "residence",
-                                },
+            .requests = {
+                RequestProtocolDefinition{
+                    .fileNamespace = "organization.artifact.module",
+                    .name = "Person",
+                    .requestFields =
+                        {
+                            FieldDefinition{
+                                .typeDefinition = TypeDefinition::fromMessage("House", false, ProtocolSize{64}),
+                                .name = "residence",
                             },
-                        .responseFields = {},
-                    },
+                        },
+                    .responseFields = {},
                 },
+            },
         };
 
         REQUIRE_THROW(MessageNameNotDefinedError, validateProtocolDefinition(protocolDefinition));
@@ -209,21 +208,20 @@ TEST_CASE("protocol_validation")
                             },
                     },
                 },
-            .requests =
-                {
-                    RequestProtocolDefinition{
-                        .fileNamespace = "organization.artifact.module",
-                        .name = "Person",
-                        .requestFields =
-                            {
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
-                                    .name = "fullName",
-                                },
+            .requests = {
+                RequestProtocolDefinition{
+                    .fileNamespace = "organization.artifact.module",
+                    .name = "Person",
+                    .requestFields =
+                        {
+                            FieldDefinition{
+                                .typeDefinition = TypeDefinition::fromSimple(Type::string),
+                                .name = "fullName",
                             },
-                        .responseFields = {},
-                    },
+                        },
+                    .responseFields = {},
                 },
+            },
         };
 
         REQUIRE_THROW(DuplicateProtocolNameError, validateProtocolDefinition(protocolDefinition));
@@ -234,25 +232,24 @@ TEST_CASE("protocol_validation")
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages = {},
-            .requests =
-                {
-                    RequestProtocolDefinition{
-                        .fileNamespace = "organization.artifact.module",
-                        .name = "Person",
-                        .requestFields =
-                            {
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
-                                    .name = "name",
-                                },
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
-                                    .name = "parent",
-                                },
+            .requests = {
+                RequestProtocolDefinition{
+                    .fileNamespace = "organization.artifact.module",
+                    .name = "Person",
+                    .requestFields =
+                        {
+                            FieldDefinition{
+                                .typeDefinition = TypeDefinition::fromSimple(Type::string),
+                                .name = "name",
                             },
-                        .responseFields = {},
-                    },
+                            FieldDefinition{
+                                .typeDefinition = TypeDefinition::fromMessage("Person", false, ProtocolSize{64}),
+                                .name = "parent",
+                            },
+                        },
+                    .responseFields = {},
                 },
+            },
         };
 
         REQUIRE_THROW(ProtocolFieldSelfReferenceError, validateProtocolDefinition(protocolDefinition));
@@ -263,29 +260,28 @@ TEST_CASE("protocol_validation")
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages = {},
-            .requests =
-                {
-                    RequestProtocolDefinition{
-                        .fileNamespace = "organization.artifact.module",
-                        .name = "Product",
-                        .requestFields =
-                            {
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
-                                    .name = "id",
-                                },
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::u32),
-                                    .name = "age",
-                                },
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::i64),
-                                    .name = "id",
-                                },
+            .requests = {
+                RequestProtocolDefinition{
+                    .fileNamespace = "organization.artifact.module",
+                    .name = "Product",
+                    .requestFields =
+                        {
+                            FieldDefinition{
+                                .typeDefinition = TypeDefinition::fromSimple(Type::string),
+                                .name = "id",
                             },
-                        .responseFields = {},
-                    },
+                            FieldDefinition{
+                                .typeDefinition = TypeDefinition::fromSimple(Type::u32),
+                                .name = "age",
+                            },
+                            FieldDefinition{
+                                .typeDefinition = TypeDefinition::fromSimple(Type::i64),
+                                .name = "id",
+                            },
+                        },
+                    .responseFields = {},
                 },
+            },
         };
 
         REQUIRE_THROW(DuplicateFieldNameError, validateProtocolDefinition(protocolDefinition));
@@ -296,29 +292,27 @@ TEST_CASE("protocol_validation")
         const auto protocolDefinition = ProtocolDefinition{
             .fileNamespace = "organization.artifact.module",
             .messages = {},
-            .requests =
-                {
-                    RequestProtocolDefinition{
-                        .fileNamespace = "organization.artifact.module",
-                        .name = "Product",
-                        .requestFields = {},
-                        .responseFields =
-                            {
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::string),
-                                    .name = "id",
-                                },
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::u32),
-                                    .name = "age",
-                                },
-                                FieldDefinition{
-                                    .typeDefinition = TypeDefinition::fromSimple(Type::i64),
-                                    .name = "id",
-                                },
-                            },
+            .requests = {
+                RequestProtocolDefinition{
+                    .fileNamespace = "organization.artifact.module",
+                    .name = "Product",
+                    .requestFields = {},
+                    .responseFields = {
+                        FieldDefinition{
+                            .typeDefinition = TypeDefinition::fromSimple(Type::string),
+                            .name = "id",
+                        },
+                        FieldDefinition{
+                            .typeDefinition = TypeDefinition::fromSimple(Type::u32),
+                            .name = "age",
+                        },
+                        FieldDefinition{
+                            .typeDefinition = TypeDefinition::fromSimple(Type::i64),
+                            .name = "id",
+                        },
                     },
                 },
+            },
         };
 
         REQUIRE_THROW(DuplicateFieldNameError, validateProtocolDefinition(protocolDefinition));

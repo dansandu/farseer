@@ -11,8 +11,10 @@ namespace dansandu::farseer::internal::linux::register_request_callback_task
 class RegisterRequestCallbackTask : public ITask
 {
 public:
-    RegisterRequestCallbackTask(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-                                UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+    RegisterRequestCallbackTask(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<std::any(std::any&&)>&& requestConsumer
+    )
         : socketIdentifier_{socketIdentifier},
           protocolIdentifier_{protocolIdentifier},
           requestConsumer_{std::move(requestConsumer)}
@@ -40,12 +42,14 @@ private:
     UniqueFunction<std::any(std::any&&)> requestConsumer_;
 };
 
-std::unique_ptr<ITask> createRegisterRequestCallbackTask(const SocketIdentifier socketIdentifier,
-                                                         const ProtocolIdentifier protocolIdentifier,
-                                                         UniqueFunction<std::any(std::any&&)>&& requestConsumer)
+std::unique_ptr<ITask> createRegisterRequestCallbackTask(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<std::any(std::any&&)>&& requestConsumer
+)
 {
-    return std::make_unique<RegisterRequestCallbackTask>(socketIdentifier, protocolIdentifier,
-                                                         std::move(requestConsumer));
+    return std::make_unique<RegisterRequestCallbackTask>(
+        socketIdentifier, protocolIdentifier, std::move(requestConsumer)
+    );
 }
 
 }

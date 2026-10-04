@@ -31,29 +31,32 @@ ProtocolDescriptor ProtocolRegistry::getProtocolDescriptor(const ProtocolIdentif
     THROW(ProtocolNotRegisteredError, "No protocol descriptor is registered with identifier ", identifier);
 }
 
-void ProtocolRegistry::registerMessageProtocol(const ProtocolIdentifier identifier,
-                                               const MessageWithHeaderDeserializer deserializer)
+void ProtocolRegistry::registerMessageProtocol(
+    const ProtocolIdentifier identifier, const MessageWithHeaderDeserializer deserializer
+)
 {
     const auto lock = std::lock_guard<std::mutex>{mutex_};
-    const auto [position, inserted] =
-        protocolDescriptors_.insert({identifier, ProtocolDescriptor{
-                                                     .protocolType = ProtocolType::message,
-                                                     .messageWithHeaderDeserializer = deserializer,
-                                                     .sequencedProtocolWithHeaderDeserializer = nullptr,
-                                                     .responseWithHeaderSerializer = nullptr,
-                                                 }});
+    const auto [position, inserted] = protocolDescriptors_.insert(
+        {identifier, ProtocolDescriptor{
+                         .protocolType = ProtocolType::message,
+                         .messageWithHeaderDeserializer = deserializer,
+                         .sequencedProtocolWithHeaderDeserializer = nullptr,
+                         .responseWithHeaderSerializer = nullptr,
+                     }}
+    );
     if (!inserted)
     {
-        THROW(ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ",
-              identifier);
+        THROW(
+            ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ", identifier
+        );
     }
 }
 
-void ProtocolRegistry::registerRequestProtocol(const ProtocolIdentifier requestIdentifier,
-                                               const SequencedProtocolWithHeaderDeserializer requestDeserializer,
-                                               const ProtocolIdentifier responseIdentifier,
-                                               const SequencedProtocolWithHeaderDeserializer responseDeserializer,
-                                               const ResponseWithHeaderSerializer responseSerializer)
+void ProtocolRegistry::registerRequestProtocol(
+    const ProtocolIdentifier requestIdentifier, const SequencedProtocolWithHeaderDeserializer requestDeserializer,
+    const ProtocolIdentifier responseIdentifier, const SequencedProtocolWithHeaderDeserializer responseDeserializer,
+    const ResponseWithHeaderSerializer responseSerializer
+)
 {
     const auto lock = std::lock_guard<std::mutex>{mutex_};
     const auto [requestPosition, requestInserted] = protocolDescriptors_.insert(
@@ -62,11 +65,14 @@ void ProtocolRegistry::registerRequestProtocol(const ProtocolIdentifier requestI
                                 .messageWithHeaderDeserializer = nullptr,
                                 .sequencedProtocolWithHeaderDeserializer = requestDeserializer,
                                 .responseWithHeaderSerializer = responseSerializer,
-                            }});
+                            }}
+    );
     if (!requestInserted)
     {
-        THROW(ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ",
-              requestIdentifier);
+        THROW(
+            ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ",
+            requestIdentifier
+        );
     }
 
     SCOPE_FAILURE([&] { protocolDescriptors_.erase(requestPosition); });
@@ -77,11 +83,14 @@ void ProtocolRegistry::registerRequestProtocol(const ProtocolIdentifier requestI
                                  .messageWithHeaderDeserializer = nullptr,
                                  .sequencedProtocolWithHeaderDeserializer = responseDeserializer,
                                  .responseWithHeaderSerializer = nullptr,
-                             }});
+                             }}
+    );
     if (!responseInserted)
     {
-        THROW(ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ",
-              responseIdentifier);
+        THROW(
+            ProtocolIdentifierAlreadyRegisteredError, "A protocol is already registered with identifier ",
+            responseIdentifier
+        );
     }
 }
 

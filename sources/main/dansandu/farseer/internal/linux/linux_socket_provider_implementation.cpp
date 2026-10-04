@@ -72,18 +72,20 @@ public:
         thread_.join();
     }
 
-    SocketIdentifier
-    listen(const std::string& ipAddress, const int port,
-           UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) override
+    SocketIdentifier listen(
+        const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    ) override
     {
         const auto socketIdentifier = socketIdentifierSequencer_.generate();
         taskQueue_.insert(createListenTask(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
         return socketIdentifier;
     }
 
-    SocketIdentifier
-    connect(const std::string& ipAddress, const int port,
-            UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback) override
+    SocketIdentifier connect(
+        const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    ) override
     {
         const auto socketIdentifier = socketIdentifierSequencer_.generate();
         taskQueue_.insert(createConnectTask(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
@@ -95,25 +97,34 @@ public:
         taskQueue_.insert(createSendBytesTask(socketIdentifier, std::move(bytes)));
     }
 
-    void sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-                     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer) override
+    void sendRequest(
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    ) override
     {
-        taskQueue_.insert(createSendRequestTask(socketIdentifier, protocolSequenceNumber, std::move(bytes),
-                                                std::move(responseConsumer)));
+        taskQueue_.insert(createSendRequestTask(
+            socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+        ));
     }
 
-    void registerMessageConsumer(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-                                 UniqueFunction<void(std::any&&)>&& messageConsumer) override
+    void registerMessageConsumer(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<void(std::any&&)>&& messageConsumer
+    ) override
     {
         taskQueue_.insert(
-            createRegisterMessageConsumerTask(socketIdentifier, protocolIdentifier, std::move(messageConsumer)));
+            createRegisterMessageConsumerTask(socketIdentifier, protocolIdentifier, std::move(messageConsumer))
+        );
     }
 
-    void registerRequestCallback(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-                                 UniqueFunction<std::any(std::any&&)>&& requestCallback) override
+    void registerRequestCallback(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<std::any(std::any&&)>&& requestCallback
+    ) override
     {
         taskQueue_.insert(
-            createRegisterRequestCallbackTask(socketIdentifier, protocolIdentifier, std::move(requestCallback)));
+            createRegisterRequestCallbackTask(socketIdentifier, protocolIdentifier, std::move(requestCallback))
+        );
     }
 
     void close(const SocketIdentifier socketIdentifier) override

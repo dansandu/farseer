@@ -11,7 +11,8 @@
 namespace dansandu::farseer::internal::linux::register_message_consumer_task
 {
 
-std::unique_ptr<dansandu::farseer::internal::linux::task::ITask>
-createRegisterMessageConsumerTask(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-                                  UniqueFunction<void(std::any&&)>&& messageConsumer);
+std::unique_ptr<dansandu::farseer::internal::linux::task::ITask> createRegisterMessageConsumerTask(
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+    UniqueFunction<void(std::any&&)>&& messageConsumer
+);
 }

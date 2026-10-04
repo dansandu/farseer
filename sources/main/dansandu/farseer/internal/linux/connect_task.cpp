@@ -11,8 +11,10 @@ namespace dansandu::farseer::internal::linux::connect_task
 class ConnectTask : public ITask
 {
 public:
-    ConnectTask(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+    ConnectTask(
+        const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    )
         : socketIdentifier_{socketIdentifier},
           ipAddress_{ipAddress},
           port_{port},
@@ -42,9 +44,10 @@ private:
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback_;
 };
 
-std::unique_ptr<ITask>
-createConnectTask(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                  UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback)
+std::unique_ptr<ITask> createConnectTask(
+    const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+    UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+)
 {
     return std::make_unique<ConnectTask>(socketIdentifier, ipAddress, port, std::move(connectionCallback));
 }

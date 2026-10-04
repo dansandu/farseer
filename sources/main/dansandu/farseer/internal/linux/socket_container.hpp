@@ -36,28 +36,39 @@ public:
 
     explicit SocketContainer(
         dansandu::farseer::internal::linux::event_poll::EventPoll& eventPoll,
-        dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier>& socketIdentifierSequencer);
+        dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier>& socketIdentifierSequencer
+    );
 
     ~SocketContainer() noexcept;
 
     size_t getNumberOfSockets() const;
 
-    void listen(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
+    void listen(
+        const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    );
 
-    void connect(const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
-                 UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback);
+    void connect(
+        const SocketIdentifier socketIdentifier, const std::string& ipAddress, const int port,
+        UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
+    );
 
-    void registerMessageConsumer(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-                                 UniqueFunction<void(std::any&&)>&& messageConsumer);
+    void registerMessageConsumer(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<void(std::any&&)>&& messageConsumer
+    );
 
-    void registerRequestCallback(const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
-                                 UniqueFunction<std::any(std::any&&)>&& requestConsumer);
+    void registerRequestCallback(
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
+        UniqueFunction<std::any(std::any&&)>&& requestConsumer
+    );
 
     void sendBytes(const SocketIdentifier socketIdentifier, const std::span<const uint8_t> bytes);
 
-    void sendRequest(const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-                     const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer);
+    void sendRequest(
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+        const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    );
 
     void eraseSocket(const SocketIdentifier socketIdentifier);
 

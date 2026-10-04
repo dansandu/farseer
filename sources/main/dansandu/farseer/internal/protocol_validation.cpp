@@ -23,8 +23,10 @@ namespace dansandu::farseer::internal::protocol_validation
 namespace
 {
 
-void validateFieldDefinitions(const std::vector<FieldDefinition>& fields, const std::set<std::string>& messageNames,
-                              const std::string_view protocolName)
+void validateFieldDefinitions(
+    const std::vector<FieldDefinition>& fields, const std::set<std::string>& messageNames,
+    const std::string_view protocolName
+)
 {
     auto fieldNames = std::set<std::string>{};
 
@@ -64,15 +66,17 @@ void validateFieldDefinitions(const std::vector<FieldDefinition>& fields, const 
     }
 }
 
-void validateMessageDefinitions(const std::vector<MessageProtocolDefinition>& messages,
-                                std::set<std::string>& messageNames)
+void validateMessageDefinitions(
+    const std::vector<MessageProtocolDefinition>& messages, std::set<std::string>& messageNames
+)
 {
     for (const auto& message : messages)
     {
         if (messageNames.contains(message.name))
         {
-            THROW(DuplicateProtocolNameError, "the protocol name ", message.name,
-                  " is already used by another protocol");
+            THROW(
+                DuplicateProtocolNameError, "the protocol name ", message.name, " is already used by another protocol"
+            );
         }
 
         messageNames.insert(message.name);
@@ -81,8 +85,9 @@ void validateMessageDefinitions(const std::vector<MessageProtocolDefinition>& me
     }
 }
 
-void validateRequestDefinitions(const std::vector<RequestProtocolDefinition>& requests,
-                                const std::set<std::string>& messageNames)
+void validateRequestDefinitions(
+    const std::vector<RequestProtocolDefinition>& requests, const std::set<std::string>& messageNames
+)
 {
     auto requestNames = std::set<std::string>{};
 
@@ -90,8 +95,9 @@ void validateRequestDefinitions(const std::vector<RequestProtocolDefinition>& re
     {
         if (messageNames.contains(request.name) || requestNames.contains(request.name))
         {
-            THROW(DuplicateProtocolNameError, "the protocol name ", request.name,
-                  " is already used by another protocol");
+            THROW(
+                DuplicateProtocolNameError, "the protocol name ", request.name, " is already used by another protocol"
+            );
         }
 
         requestNames.insert(request.name);
