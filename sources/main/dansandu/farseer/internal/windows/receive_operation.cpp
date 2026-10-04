@@ -70,11 +70,11 @@ public:
             {
                 auto& listeningSocket = operationScheduler.getSocketOrThrow(listeningSocketIdentifier);
 
-                listeningSocket.protocolReader.read(socketIdentifier_, socket.pendingBytes, bytes);
+                listeningSocket.protocolReader.readInboundBytes(socketIdentifier_, socket.pendingBytes, bytes);
             }
             else
             {
-                socket.protocolReader.read(socketIdentifier_, socket.pendingBytes, bytes);
+                socket.protocolReader.readInboundBytes(socketIdentifier_, socket.pendingBytes, bytes);
             }
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));

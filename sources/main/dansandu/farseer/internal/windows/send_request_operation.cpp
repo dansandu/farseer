@@ -72,8 +72,8 @@ public:
 
             auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
 
-            socket.protocolReader.registerOneShotResponseConsumer(protocolSequenceNumber_,
-                                                                  std::move(responseConsumer_));
+            socket.protocolReader.registerInboundOneShotResponseConsumer(protocolSequenceNumber_,
+                                                                         std::move(responseConsumer_));
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
 
