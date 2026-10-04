@@ -127,10 +127,9 @@ void SocketContainer::registerMessageConsumer(const SocketIdentifier socketIdent
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
-    socket.protocolReader.registerMessageConsumer(protocolIdentifier, std::move(messageConsumer));
+    socket.protocolReader.registerInboundMessageConsumer(protocolIdentifier, std::move(messageConsumer));
 
-    LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier, " and socket socket ID ",
-             socketIdentifier);
+    LOG_INFO("Registered message consumer with protocol ID ", protocolIdentifier, " and socket ID ", socketIdentifier);
 }
 
 void SocketContainer::registerRequestCallback(const SocketIdentifier socketIdentifier,
@@ -139,7 +138,7 @@ void SocketContainer::registerRequestCallback(const SocketIdentifier socketIdent
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
-    socket.protocolReader.registerRequestConsumer(protocolIdentifier, std::move(requestConsumer));
+    socket.protocolReader.registerInboundRequestConsumer(protocolIdentifier, std::move(requestConsumer));
 
     LOG_INFO("Registered request consumer with protocol ID ", protocolIdentifier, " and socket ID ", socketIdentifier);
 }
@@ -176,7 +175,7 @@ void SocketContainer::sendRequest(const SocketIdentifier socketIdentifier,
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
-    socket.protocolReader.registerOneShotResponseConsumer(protocolSequenceNumber, std::move(responseConsumer));
+    socket.protocolReader.registerInboundOneShotResponseConsumer(protocolSequenceNumber, std::move(responseConsumer));
 
     sendBytes(socket, bytes);
 }
@@ -292,11 +291,12 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
         {
             auto& listeningSocket = getSocketOrThrow(socket.listeningSocketIdentifier);
 
-            listeningSocket.protocolReader.read(socket.socketIdentifier, socket.pendingBytes, receivedBytes);
+            listeningSocket.protocolReader.readInboundBytes(socket.socketIdentifier, socket.pendingBytes,
+                                                            receivedBytes);
         }
         else
         {
-            socket.protocolReader.read(socket.socketIdentifier, socket.pendingBytes, receivedBytes);
+            socket.protocolReader.readInboundBytes(socket.socketIdentifier, socket.pendingBytes, receivedBytes);
         }
 
         if (closed)
@@ -375,13 +375,21 @@ void SocketContainer::handleSocketEvents(const int socketFileDescriptor, const u
     }
     catch (const WideException& exception)
     {
-        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier, ": ", exception.getMessage());
+        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier,
+                  ", the socket will be erased: ", exception.getMessage());
 
         eraseSocket(socketIdentifier);
     }
     catch (const std::exception& exception)
     {
-        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier, ": ", exception.what());
+        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier,
+                  ", the socket will be erased: ", exception.what());
+
+        eraseSocket(socketIdentifier);
+    }
+    catch (...)
+    {
+        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier, ", the socket will be erased");
 
         eraseSocket(socketIdentifier);
     }

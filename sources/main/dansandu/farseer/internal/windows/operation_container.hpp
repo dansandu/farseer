@@ -28,7 +28,7 @@ public:
 
 private:
     void handleOperationExecutionFailure(dansandu::farseer::internal::windows::operation::IOperation& operation,
-                                         const bool discarded, const std::wstring_view message);
+                                         const bool discarded, const std::wstring_view message = {});
 
     dansandu::farseer::internal::windows::operation::IOperationScheduler& operationScheduler_;
     std::map<LPWSAOVERLAPPED, std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>> operations_;

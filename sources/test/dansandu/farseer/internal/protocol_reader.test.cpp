@@ -1,6 +1,7 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
+#include "dansandu/journey/common.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 using dansandu::farseer::Expected;
@@ -13,6 +14,8 @@ using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::MyRequest;
 using dansandu::farseer::sample_protocol::StaticMessage;
+using dansandu::journey::Level;
+using dansandu::radiance::Log;
 
 namespace
 {
@@ -34,11 +37,12 @@ TEST_CASE("protocol_reader")
 
     auto outboundSocketIdentifiers = std::vector<SocketIdentifier>{};
 
-    auto protocolReader = ProtocolReader{[&](const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes)
-                                         {
-                                             outboundSocketIdentifiers.push_back(socketIdentifier);
-                                             insertBack(outboundBuffer, bytes);
-                                         }};
+    auto protocolReader =
+        ProtocolReader{[&](const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& outboundBytes)
+                       {
+                           outboundSocketIdentifiers.push_back(socketIdentifier);
+                           insertBack(outboundBuffer, outboundBytes);
+                       }};
 
     SECTION("empty message")
     {
@@ -46,11 +50,11 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerMessageConsumer(EmptyMessage::Metadata::getProtocolIdentifier(),
-                                               [&protocol](std::any&& receivedMessage)
-                                               { protocol = std::move(receivedMessage); });
+        protocolReader.registerInboundMessageConsumer(EmptyMessage::Metadata::getProtocolIdentifier(),
+                                                      [&protocol](std::any&& inboundMessage)
+                                                      { protocol = std::move(inboundMessage); });
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -74,11 +78,11 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
-                                               [&protocol](std::any&& receivedMessage)
-                                               { protocol = std::move(receivedMessage); });
+        protocolReader.registerInboundMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
+                                                      [&protocol](std::any&& inboundMessage)
+                                                      { protocol = std::move(inboundMessage); });
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -104,9 +108,9 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
-                                               [&protocol](std::any&& receivedMessage)
-                                               { protocol = std::move(receivedMessage); });
+        protocolReader.registerInboundMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
+                                                      [&protocol](std::any&& inboundMessage)
+                                                      { protocol = std::move(inboundMessage); });
 
         const auto halfBytesCount = bytes.size() / 2;
 
@@ -114,7 +118,7 @@ TEST_CASE("protocol_reader")
 
         const auto bytesSecondHalf = std::span<const uint8_t>(bytes.cbegin() + halfBytesCount, bytes.cend());
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytesFirstHalf);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, bytesFirstHalf);
 
         REQUIRE(!protocol.has_value());
 
@@ -122,7 +126,7 @@ TEST_CASE("protocol_reader")
 
         REQUIRE(outboundBuffer.empty());
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytesSecondHalf);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, bytesSecondHalf);
 
         REQUIRE(protocol.has_value());
 
@@ -158,11 +162,11 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerMessageConsumer(DynamicMessage::Metadata::getProtocolIdentifier(),
-                                               [&protocol](std::any&& receivedMessage)
-                                               { protocol = std::move(receivedMessage); });
+        protocolReader.registerInboundMessageConsumer(DynamicMessage::Metadata::getProtocolIdentifier(),
+                                                      [&protocol](std::any&& inboundMessage)
+                                                      { protocol = std::move(inboundMessage); });
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, bytes);
 
         REQUIRE(protocol.has_value());
 
@@ -205,14 +209,14 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerRequestConsumer(MyRequest::Metadata::getProtocolIdentifier(),
-                                               [&protocol, &response](std::any&& receivedRequest)
-                                               {
-                                                   protocol = std::move(receivedRequest);
-                                                   return std::make_any<Expected<MyRequest::Response>>(response);
-                                               });
+        protocolReader.registerInboundRequestConsumer(MyRequest::Metadata::getProtocolIdentifier(),
+                                                      [&protocol, &response](std::any&& inboundRequest)
+                                                      {
+                                                          protocol = std::move(inboundRequest);
+                                                          return std::make_any<Expected<MyRequest::Response>>(response);
+                                                      });
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, requestBytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, requestBytes);
 
         REQUIRE(protocol.has_value());
 
@@ -248,14 +252,14 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerRequestConsumer(MyRequest::Metadata::getProtocolIdentifier(),
-                                               [&protocol, &response](std::any&& receivedRequest)
-                                               {
-                                                   protocol = std::move(receivedRequest);
-                                                   return std::make_any<Expected<MyRequest::Response>>(response);
-                                               });
+        protocolReader.registerInboundRequestConsumer(MyRequest::Metadata::getProtocolIdentifier(),
+                                                      [&protocol, &response](std::any&& inboundRequest)
+                                                      {
+                                                          protocol = std::move(inboundRequest);
+                                                          return std::make_any<Expected<MyRequest::Response>>(response);
+                                                      });
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, requestBytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, requestBytes);
 
         REQUIRE(protocol.has_value());
 
@@ -287,10 +291,10 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerOneShotResponseConsumer(sequenceNumber, [&protocol](std::any&& receivedResponse)
-                                                       { protocol = std::move(receivedResponse); });
+        protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, [&protocol](std::any&& inboundResponse)
+                                                              { protocol = std::move(inboundResponse); });
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, responseBytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, responseBytes);
 
         REQUIRE(protocol.has_value());
 
@@ -317,10 +321,10 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerOneShotResponseConsumer(sequenceNumber, [&protocol](std::any&& receivedResponse)
-                                                       { protocol = std::move(receivedResponse); });
+        protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, [&protocol](std::any&& inboundResponse)
+                                                              { protocol = std::move(inboundResponse); });
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, responseBytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, responseBytes);
 
         REQUIRE(protocol.has_value());
 
@@ -357,12 +361,12 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerRequestConsumer(MyRequest::Metadata::getProtocolIdentifier(),
-                                               [&protocol, &response](std::any&& receivedRequest)
-                                               {
-                                                   protocol = std::move(receivedRequest);
-                                                   return std::make_any<Expected<MyRequest::Response>>(response);
-                                               });
+        protocolReader.registerInboundRequestConsumer(MyRequest::Metadata::getProtocolIdentifier(),
+                                                      [&protocol, &response](std::any&& inboundRequest)
+                                                      {
+                                                          protocol = std::move(inboundRequest);
+                                                          return std::make_any<Expected<MyRequest::Response>>(response);
+                                                      });
 
         const auto halfBytesCount = requestBytes.size() / 2uz;
 
@@ -372,7 +376,7 @@ TEST_CASE("protocol_reader")
         const auto bytesSecondHalf =
             std::span<const uint8_t>(requestBytes.cbegin() + halfBytesCount, requestBytes.cend());
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytesFirstHalf);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, bytesFirstHalf);
 
         REQUIRE(!protocol.has_value());
 
@@ -380,7 +384,7 @@ TEST_CASE("protocol_reader")
 
         REQUIRE(outboundBuffer.empty());
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, bytesSecondHalf);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, bytesSecondHalf);
 
         REQUIRE(protocol.has_value());
 
@@ -414,20 +418,20 @@ TEST_CASE("protocol_reader")
 
         const auto consumer = [&consumerCalls](std::any&&) { ++consumerCalls; };
 
-        protocolReader.registerOneShotResponseConsumer(sequenceNumber, consumer);
+        protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, consumer);
 
         REQUIRE_THROW(ProtocolConsumerAlreadyRegisteredError,
-                      protocolReader.registerOneShotResponseConsumer(sequenceNumber, consumer));
+                      protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, consumer));
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, responseBytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, responseBytes);
 
         REQUIRE(consumerCalls == 1);
 
         REQUIRE(pendingBytes.empty());
 
-        protocolReader.registerOneShotResponseConsumer(sequenceNumber, consumer);
+        protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, consumer);
 
-        protocolReader.read(receivingSocketIdentifier, pendingBytes, responseBytes);
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, responseBytes);
 
         REQUIRE(consumerCalls == 2);
 
@@ -462,18 +466,19 @@ TEST_CASE("protocol_reader")
 
         auto messages = std::vector<StaticMessage>{};
 
-        protocolReader.registerMessageConsumer(
-            StaticMessage::Metadata::getProtocolIdentifier(), [&messages](std::any&& receivedMessage)
-            { messages.push_back(std::any_cast<const StaticMessage&>(receivedMessage)); });
+        protocolReader.registerInboundMessageConsumer(
+            StaticMessage::Metadata::getProtocolIdentifier(), [&messages](std::any&& inboundMessage)
+            { messages.push_back(std::any_cast<const StaticMessage&>(inboundMessage)); });
 
         const auto firstHalfBytesCount = firstBytes.size() / 2uz;
 
         const auto secondHalfBytesCount = secondBytes.size() / 2uz;
 
-        protocolReader.read(firstSocketIdentifier, firstPendingBytes,
-                            std::span<const uint8_t>(firstBytes.cbegin(), firstBytes.cbegin() + firstHalfBytesCount));
+        protocolReader.readInboundBytes(
+            firstSocketIdentifier, firstPendingBytes,
+            std::span<const uint8_t>(firstBytes.cbegin(), firstBytes.cbegin() + firstHalfBytesCount));
 
-        protocolReader.read(
+        protocolReader.readInboundBytes(
             secondSocketIdentifier, secondPendingBytes,
             std::span<const uint8_t>(secondBytes.cbegin(), secondBytes.cbegin() + secondHalfBytesCount));
 
@@ -481,11 +486,13 @@ TEST_CASE("protocol_reader")
 
         REQUIRE(secondPendingBytes.size() == secondHalfBytesCount);
 
-        protocolReader.read(firstSocketIdentifier, firstPendingBytes,
-                            std::span<const uint8_t>(firstBytes.cbegin() + firstHalfBytesCount, firstBytes.cend()));
+        protocolReader.readInboundBytes(
+            firstSocketIdentifier, firstPendingBytes,
+            std::span<const uint8_t>(firstBytes.cbegin() + firstHalfBytesCount, firstBytes.cend()));
 
-        protocolReader.read(secondSocketIdentifier, secondPendingBytes,
-                            std::span<const uint8_t>(secondBytes.cbegin() + secondHalfBytesCount, secondBytes.cend()));
+        protocolReader.readInboundBytes(
+            secondSocketIdentifier, secondPendingBytes,
+            std::span<const uint8_t>(secondBytes.cbegin() + secondHalfBytesCount, secondBytes.cend()));
 
         REQUIRE(messages.size() == 2uz);
 
@@ -502,5 +509,135 @@ TEST_CASE("protocol_reader")
         REQUIRE(secondPendingBytes.empty());
 
         REQUIRE(outboundBuffer.empty());
+    }
+
+    SECTION("reads all available protocols in pending bytes")
+    {
+        const auto firstMessage = StaticMessage{
+            .integer = -3894,
+            .boolean = false,
+        };
+
+        const auto secondMessage = StaticMessage{
+            .integer = 7198,
+            .boolean = true,
+        };
+
+        const auto thirdMessage = StaticMessage{
+            .integer = -99952,
+            .boolean = true,
+        };
+
+        const auto firstBytes = StaticMessage::Metadata::serializeWithHeader(firstMessage);
+
+        const auto secondBytes = StaticMessage::Metadata::serializeWithHeader(secondMessage);
+
+        const auto thirdBytes = StaticMessage::Metadata::serializeWithHeader(thirdMessage);
+
+        const auto halfBytesCount = thirdBytes.size() / 2uz;
+
+        auto inboundBuffer = firstBytes;
+
+        insertBack(inboundBuffer, secondBytes);
+
+        inboundBuffer.insert(inboundBuffer.end(), thirdBytes.cbegin(), thirdBytes.cbegin() + halfBytesCount);
+
+        auto messages = std::vector<StaticMessage>{};
+
+        protocolReader.registerInboundMessageConsumer(
+            StaticMessage::Metadata::getProtocolIdentifier(), [&messages](std::any&& inboundMessage)
+            { messages.push_back(std::any_cast<const StaticMessage&>(inboundMessage)); });
+
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, inboundBuffer);
+
+        REQUIRE(messages.size() == 2uz);
+
+        REQUIRE(messages.at(0).integer == firstMessage.integer);
+
+        REQUIRE(messages.at(0).boolean == firstMessage.boolean);
+
+        REQUIRE(messages.at(1).integer == secondMessage.integer);
+
+        REQUIRE(messages.at(1).boolean == secondMessage.boolean);
+
+        REQUIRE(pendingBytes.size() == halfBytesCount);
+
+        REQUIRE(outboundBuffer.empty());
+
+        const auto remainingBytes = std::span<const uint8_t>(thirdBytes.cbegin() + halfBytesCount, thirdBytes.cend());
+
+        protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, remainingBytes);
+
+        REQUIRE(messages.size() == 3uz);
+
+        REQUIRE(messages.at(2).integer == thirdMessage.integer);
+
+        REQUIRE(messages.at(2).boolean == thirdMessage.boolean);
+
+        REQUIRE(pendingBytes.empty());
+
+        REQUIRE(outboundBuffer.empty());
+    }
+
+    SECTION("second message is consumed even if the first message consumer throws")
+    {
+        const auto expectedMessages = std::vector<StaticMessage>{StaticMessage{
+                                                                     .integer = 20261002,
+                                                                     .boolean = false,
+                                                                 },
+                                                                 StaticMessage{
+                                                                     .integer = 2139,
+                                                                     .boolean = false,
+                                                                 }};
+
+        auto actualMessages = std::vector<StaticMessage>{};
+
+        protocolReader.registerInboundMessageConsumer(StaticMessage::Metadata::getProtocolIdentifier(),
+                                                      [&, invocations = 0](std::any&& inboundMessage) mutable
+                                                      {
+                                                          const auto& actualMessage =
+                                                              std::any_cast<const StaticMessage&>(inboundMessage);
+
+                                                          actualMessages.push_back(actualMessage);
+
+                                                          ++invocations;
+
+                                                          if (invocations == 1)
+                                                          {
+                                                              throw std::runtime_error{"oopsie"};
+                                                          }
+                                                      });
+
+        const auto firstBytes = StaticMessage::Metadata::serializeWithHeader(expectedMessages.at(0));
+
+        const auto secondBytes = StaticMessage::Metadata::serializeWithHeader(expectedMessages.at(1));
+
+        auto inboundBuffer = firstBytes;
+
+        insertBack(inboundBuffer, secondBytes);
+
+        const auto expectedLogs = std::vector<Log>{
+            Log{Level::debug, L"Successfully read the message protocol 3028821238"},
+            Log{Level::error, L"While invoking the consumer for the protocol with identifier 3028821238 an exception "
+                              L"was caught with the message: oopsie"},
+            Log{Level::debug, L"Successfully read the message protocol 3028821238"},
+        };
+
+        REQUIRE_LOG(expectedLogs,
+                    protocolReader.readInboundBytes(receivingSocketIdentifier, pendingBytes, inboundBuffer));
+
+        REQUIRE(expectedMessages.at(0).integer == actualMessages.at(0).integer);
+
+        REQUIRE(expectedMessages.at(0).boolean == actualMessages.at(0).boolean);
+
+        REQUIRE(expectedMessages.at(1).integer == actualMessages.at(1).integer);
+
+        REQUIRE(expectedMessages.at(1).boolean == actualMessages.at(1).boolean);
+
+        REQUIRE(pendingBytes.empty());
+
+        REQUIRE(outboundBuffer.empty());
+
+        REQUIRE(outboundSocketIdentifiers.empty());
     }
 }
