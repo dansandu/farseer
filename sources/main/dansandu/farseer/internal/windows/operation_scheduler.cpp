@@ -144,12 +144,20 @@ void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
         catch (const WideException& wideException)
         {
             LOG_ERROR(
-                "Wide exception was thrown while trying to close socket with message: ", wideException.getMessage()
+                "Wide exception was thrown while trying to close socket with ID ", socketIdentifier,
+                " with message: ", wideException.getMessage()
             );
         }
         catch (const std::exception& exception)
         {
-            LOG_ERROR("Exception was thrown while trying to close socket with message: ", exception.what());
+            LOG_ERROR(
+                "Exception was thrown while trying to close socket with ID ", socketIdentifier,
+                " with message: ", exception.what()
+            );
+        }
+        catch (...)
+        {
+            LOG_ERROR("Unknown exception was thrown while trying to close socket with ID ", socketIdentifier);
         }
     }
 }
@@ -302,6 +310,10 @@ void OperationScheduler::consumeOperations()
     catch (const std::exception& exception)
     {
         LOG_CRITICAL("Operations consumer thread exited with exception: ", exception.what());
+    }
+    catch (...)
+    {
+        LOG_CRITICAL("Operations consumer thread exited with unknown exception");
     }
 }
 
