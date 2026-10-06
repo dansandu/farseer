@@ -162,11 +162,21 @@ private:
             }
             catch (const WideException& exception)
             {
-                LOG_ERROR("Error executing ", name, " with socket ID ", socketIdentifier, ": ", exception.getMessage());
+                LOG_ERROR(
+                    "Wide exception was thrown while executing ", name, " with socket ID ", socketIdentifier, ": ",
+                    exception.getMessage()
+                );
             }
             catch (const std::exception& exception)
             {
-                LOG_ERROR("Error executing ", name, " with socket ID ", socketIdentifier, ": ", exception.what());
+                LOG_ERROR(
+                    "Exception was thrown while executing ", name, " with socket ID ", socketIdentifier, ": ",
+                    exception.what()
+                );
+            }
+            catch (...)
+            {
+                LOG_ERROR("Unknown exception was thrown while executing ", name, " with socket ID ", socketIdentifier);
             }
         }
 
@@ -234,6 +244,10 @@ private:
         catch (const std::exception& exception)
         {
             LOG_CRITICAL("Events consumer thread exited with exception: ", exception.what());
+        }
+        catch (...)
+        {
+            LOG_CRITICAL("Events consumer thread exited with unknown exception");
         }
     }
 

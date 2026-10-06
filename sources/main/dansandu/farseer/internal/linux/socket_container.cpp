@@ -239,11 +239,21 @@ void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
         }
         catch (const WideException& wideException)
         {
-            LOG_ERROR("Error trying to close socket with ID ", socketIdentifier, ": ", wideException.getMessage());
+            LOG_ERROR(
+                "Wide exception was thrown while trying to close socket with ID ", socketIdentifier,
+                " with message: ", wideException.getMessage()
+            );
         }
         catch (const std::exception& exception)
         {
-            LOG_ERROR("Error trying to close socket with ID ", socketIdentifier, ": ", exception.what());
+            LOG_ERROR(
+                "Exception was thrown while trying to close socket with ID ", socketIdentifier,
+                " with message: ", exception.what()
+            );
+        }
+        catch (...)
+        {
+            LOG_ERROR("Unknown exception was thrown while trying to close socket with ID ", socketIdentifier);
         }
     }
 }
@@ -408,7 +418,7 @@ void SocketContainer::handleSocketEvents(const int socketFileDescriptor, const u
     catch (const WideException& exception)
     {
         LOG_ERROR(
-            "Error processing events for socket with ID ", socketIdentifier,
+            "Wide exception was thrown while processing events for socket with ID ", socketIdentifier,
             ", the socket will be erased: ", exception.getMessage()
         );
 
@@ -417,7 +427,7 @@ void SocketContainer::handleSocketEvents(const int socketFileDescriptor, const u
     catch (const std::exception& exception)
     {
         LOG_ERROR(
-            "Error processing events for socket with ID ", socketIdentifier,
+            "Exception was thrown while processing events for socket with ID ", socketIdentifier,
             ", the socket will be erased: ", exception.what()
         );
 
@@ -425,7 +435,10 @@ void SocketContainer::handleSocketEvents(const int socketFileDescriptor, const u
     }
     catch (...)
     {
-        LOG_ERROR("Error processing events for socket with ID ", socketIdentifier, ", the socket will be erased");
+        LOG_ERROR(
+            "Unknown exception was thrown while processing events for socket with ID ", socketIdentifier,
+            ", the socket will be erased"
+        );
 
         eraseSocket(socketIdentifier);
     }
