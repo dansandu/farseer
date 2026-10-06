@@ -57,6 +57,14 @@ public:
     {
         if (numberOfBytesTransferred > 0)
         {
+            if (numberOfBytesTransferred > maximumReceiveBufferSize)
+            {
+                THROW(
+                    std::logic_error, "The number of bytes received ", numberOfBytesTransferred,
+                    " exceeds the maximum buffer size ", maximumReceiveBufferSize
+                );
+            }
+
             auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
 
             const auto listeningSocketIdentifier = socket.listeningSocketIdentifier;
@@ -90,7 +98,7 @@ public:
     }
 
 private:
-    static constexpr auto maximumReceiveBufferSize = 4096;
+    static constexpr DWORD maximumReceiveBufferSize = 4096;
 
     const SocketIdentifier socketIdentifier_;
     char receiveBuffer_[maximumReceiveBufferSize];

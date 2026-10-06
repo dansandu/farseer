@@ -77,7 +77,17 @@ public:
         }
         else
         {
-            LOG_INFO("Sent ", bytes_.size(), " bytes to socket with ID ", socketIdentifier_);
+            if (numberOfBytesTransferred == static_cast<DWORD>(bytes_.size()))
+            {
+                LOG_INFO("Sent ", bytes_.size(), " bytes to socket with ID ", socketIdentifier_);
+            }
+            else
+            {
+                THROW(
+                    std::logic_error, "The number of bytes sent ", numberOfBytesTransferred,
+                    " does not match the buffer size ", bytes_.size()
+                );
+            }
         }
     }
 
