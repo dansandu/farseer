@@ -340,6 +340,9 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
         if (closed)
         {
             eraseSocket(socket.socketIdentifier);
+
+            // EPOLLOUT may also be set. Return here to avoid sending bytes to an erased socket.
+            return;
         }
     }
 
