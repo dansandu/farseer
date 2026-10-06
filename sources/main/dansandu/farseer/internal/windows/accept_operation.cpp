@@ -54,21 +54,16 @@ public:
         const auto completionPort = operationScheduler.getCompletionPort();
 
         operationScheduler.insertSocket(
-            pendingAcceptSocketIdentifier_,
-            Socket{
-                .socket = listeningSocket.socket.postAccept(
-                    receiveBuffer_, std::size(receiveBuffer_), pendingAcceptSocketIdentifier_, completionPort,
-                    &overlapped_
-                ),
-                .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                     std::vector<uint8_t>&& response)
-                                                 {
-                                                     operationScheduler.scheduleSendBytesOperation(
-                                                         receivingSocketIdentifier, std::move(response)
-                                                     );
-                                                 }},
-                .listeningSocketIdentifier = listeningSocketIdentifier_,
-            }
+            pendingAcceptSocketIdentifier_, Socket{
+                                                .socket = listeningSocket.socket.postAccept(
+                                                    receiveBuffer_, std::size(receiveBuffer_),
+                                                    pendingAcceptSocketIdentifier_, completionPort, &overlapped_
+                                                ),
+                                                .protocolReader = ProtocolReader{},
+                                                .listeningSocketIdentifier = listeningSocketIdentifier_,
+                                                .inboundBytes = {},
+                                                .outboundBytes = {},
+                                            }
         );
     }
 

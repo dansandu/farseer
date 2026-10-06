@@ -104,6 +104,6 @@ using SequencedProtocolWithHeaderDeserializer = bool (*)(
 );
 
 using ResponseWithHeaderSerializer =
-    std::vector<uint8_t> (*)(const std::any& response, const ProtocolSequenceNumber sequenceNumber);
+    void (*)(const std::any& response, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes);
 
 }

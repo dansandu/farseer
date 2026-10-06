@@ -79,19 +79,14 @@ public:
         tempSocket.listen(ipAddress_, port_);
 
         auto& socket = operationScheduler.insertSocket(
-            socketIdentifier_,
-            Socket{
-                .socket = std::move(tempSocket),
-                .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                     std::vector<uint8_t>&& response)
-                                                 {
-                                                     operationScheduler.scheduleSendBytesOperation(
-                                                         receivingSocketIdentifier, std::move(response)
-                                                     );
-                                                 }},
-                .listeningSocketIdentifier = invalidSocketIdentifier,
-                .connectionCallback = std::move(connectionCallback_),
-            }
+            socketIdentifier_, Socket{
+                                   .socket = std::move(tempSocket),
+                                   .protocolReader = ProtocolReader{},
+                                   .listeningSocketIdentifier = invalidSocketIdentifier,
+                                   .connectionCallback = std::move(connectionCallback_),
+                                   .inboundBytes = {},
+                                   .outboundBytes = {},
+                               }
         );
 
         SCOPE_FAILURE([&]() { operationScheduler.eraseSocket(socketIdentifier_); });
