@@ -303,6 +303,7 @@ std::pair<std::vector<uint8_t>, bool> LinuxSocket::receiveBytes()
         {
             const auto errorCode = errno;
 
+            // If latency becomes a problem due to large buffers then cap here the bytes processed per event.
             if (errorCode == EAGAIN || errorCode == EWOULDBLOCK)
             {
                 break;

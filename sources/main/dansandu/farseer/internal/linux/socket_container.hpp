@@ -23,7 +23,9 @@ struct Socket
     dansandu::farseer::internal::linux::linux_socket::LinuxSocket socket;
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
-    std::vector<uint8_t> pendingBytes;
+    std::vector<uint8_t> inboundBytes;
+    // The outbound bytes buffer is part of the socket to reuse capacity and reduce allocations.
+    std::vector<uint8_t> outboundBytes;
 };
 
 class SocketContainer

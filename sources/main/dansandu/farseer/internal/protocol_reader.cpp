@@ -18,13 +18,6 @@ using dansandu::journey::exception::WideException;
 namespace dansandu::farseer::internal::protocol_reader
 {
 
-ProtocolReader::ProtocolReader(
-    UniqueFunction<void(const SocketIdentifier, std::vector<uint8_t>&&)>&& outboundResponseConsumer
-)
-    : outboundResponseConsumer_{std::move(outboundResponseConsumer)}
-{
-}
-
 void ProtocolReader::registerInboundMessageConsumer(
     const ProtocolIdentifier messageIdentifier, UniqueFunction<void(std::any&&)>&& messageConsumer
 )
@@ -130,17 +123,17 @@ void wrapInTryCatchAndInvoke(
 }
 
 bool ProtocolReader::readInboundMessage(
-    std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier messageIdentifier,
-    const ProtocolDescriptor& messageDescriptor, size_t& bitsOffset
+    const ProtocolIdentifier messageIdentifier, const ProtocolDescriptor& messageDescriptor,
+    std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
 )
 {
     auto message = std::any{};
 
-    if (messageDescriptor.messageWithHeaderDeserializer(pendingBytes, bitsOffset, message))
+    if (messageDescriptor.messageWithHeaderDeserializer(inboundBytes, inboundBitsOffset, message))
     {
         LOG_DEBUG("Successfully read the message protocol ", messageIdentifier);
 
-        eraseBits(pendingBytes, bitsOffset);
+        eraseBits(inboundBytes, inboundBitsOffset);
 
         const auto consumerPosition = inboundMessageConsumers_.find(messageIdentifier);
         if (consumerPosition != inboundMessageConsumers_.cend())
@@ -166,19 +159,21 @@ bool ProtocolReader::readInboundMessage(
 }
 
 bool ProtocolReader::readInboundRequest(
-    const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>& pendingBytes,
-    const ProtocolIdentifier requestIdentifier, const ProtocolDescriptor& requestDescriptor, size_t& bitsOffset
+    const ProtocolIdentifier requestIdentifier, const ProtocolDescriptor& requestDescriptor,
+    std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset, std::vector<uint8_t>& outboundBytes
 )
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
 
     auto request = std::any{};
 
-    if (requestDescriptor.sequencedProtocolWithHeaderDeserializer(pendingBytes, bitsOffset, sequenceNumber, request))
+    if (requestDescriptor.sequencedProtocolWithHeaderDeserializer(
+            inboundBytes, inboundBitsOffset, sequenceNumber, request
+        ))
     {
         LOG_DEBUG("Successfully read the request protocol ", requestIdentifier);
 
-        eraseBits(pendingBytes, bitsOffset);
+        eraseBits(inboundBytes, inboundBitsOffset);
 
         const auto consumerPosition = inboundRequestConsumers_.find(requestIdentifier);
         if (consumerPosition != inboundRequestConsumers_.cend())
@@ -200,11 +195,7 @@ bool ProtocolReader::readInboundRequest(
             //
             const auto response = consumerPosition->second(std::move(request));
 
-            auto serializedResponse = requestDescriptor.responseWithHeaderSerializer(response, sequenceNumber);
-
-            // If the outbound response consumer throws (i.e. the socket cannot send bytes), then the exception is
-            // propagated up to the SocketContainer/OperationContainer which should erase the receiving socket.
-            outboundResponseConsumer_(receivingSocketIdentifier, std::move(serializedResponse));
+            requestDescriptor.responseWithHeaderSerializer(response, sequenceNumber, outboundBytes);
         }
         else
         {
@@ -225,19 +216,21 @@ bool ProtocolReader::readInboundRequest(
 }
 
 bool ProtocolReader::readInboundResponse(
-    std::vector<uint8_t>& pendingBytes, const ProtocolIdentifier responseIdentifier,
-    const ProtocolDescriptor& responseDescriptor, size_t& bitsOffset
+    const ProtocolIdentifier responseIdentifier, const ProtocolDescriptor& responseDescriptor,
+    std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
 )
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
 
     auto response = std::any{};
 
-    if (responseDescriptor.sequencedProtocolWithHeaderDeserializer(pendingBytes, bitsOffset, sequenceNumber, response))
+    if (responseDescriptor.sequencedProtocolWithHeaderDeserializer(
+            inboundBytes, inboundBitsOffset, sequenceNumber, response
+        ))
     {
         LOG_DEBUG("Successfully read the response protocol ", responseIdentifier);
 
-        eraseBits(pendingBytes, bitsOffset);
+        eraseBits(inboundBytes, inboundBitsOffset);
 
         const auto consumerPosition = inboundOneShotResponseConsumers_.find(sequenceNumber);
         if (consumerPosition != inboundOneShotResponseConsumers_.cend())
@@ -264,18 +257,13 @@ bool ProtocolReader::readInboundResponse(
     }
 }
 
-void ProtocolReader::readInboundBytes(
-    const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>& pendingBytes,
-    const std::span<const uint8_t> bytes
-)
+void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes)
 {
-    pendingBytes.insert(pendingBytes.end(), bytes.cbegin(), bytes.cend());
-
-    while (pendingBytes.size() >= sizeof(ProtocolIdentifier))
+    while (inboundBytes.size() >= sizeof(ProtocolIdentifier))
     {
-        auto bitsOffset = size_t{0};
+        auto inboundBitsOffset = size_t{0};
 
-        const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(pendingBytes, bitsOffset);
+        const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(inboundBytes, inboundBitsOffset);
 
         // Unknown identifiers will cause getProtocolDescriptor to throw. The exception is propagated up to the
         // SocketContainer/OperationContainer which should erase the receiving socket.
@@ -285,15 +273,15 @@ void ProtocolReader::readInboundBytes(
 
         if (descriptor.protocolType == ProtocolType::message)
         {
-            consumed = readInboundMessage(pendingBytes, identifier, descriptor, bitsOffset);
+            consumed = readInboundMessage(identifier, descriptor, inboundBytes, inboundBitsOffset);
         }
         else if (descriptor.protocolType == ProtocolType::request)
         {
-            consumed = readInboundRequest(receivingSocketIdentifier, pendingBytes, identifier, descriptor, bitsOffset);
+            consumed = readInboundRequest(identifier, descriptor, inboundBytes, inboundBitsOffset, outboundBytes);
         }
         else if (descriptor.protocolType == ProtocolType::response)
         {
-            consumed = readInboundResponse(pendingBytes, identifier, descriptor, bitsOffset);
+            consumed = readInboundResponse(identifier, descriptor, inboundBytes, inboundBitsOffset);
         }
         else
         {

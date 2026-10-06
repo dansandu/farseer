@@ -36,6 +36,8 @@ struct PRALINE_EXPORT MyMessage
 
         static MyMessage deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
+        static void serializeWithHeader(const MyMessage& message, std::vector<uint8_t>& bytes);
+
         static std::vector<uint8_t> serializeWithHeader(const MyMessage& message);
 
         static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, std::any& message);
@@ -80,13 +82,13 @@ MyMessage MyMessage::Metadata::deserializeHeaderless(const std::vector<uint8_t>&
     return message;
 }
 
-std::vector<uint8_t> MyMessage::Metadata::serializeWithHeader(const MyMessage& message)
+void MyMessage::Metadata::serializeWithHeader(const MyMessage& message, std::vector<uint8_t>& bytes)
 {
+    using ::dansandu::ballotin::binary::bitsPerByte;
     using ::dansandu::farseer::binary_serialization::BinarySerializer;
     using ::dansandu::farseer::ProtocolIdentifier;
 
-    auto bytes = std::vector<uint8_t>{};
-    auto bitsOffset = size_t{0};
+    auto bitsOffset = bitsPerByte * bytes.size();
 
     BinarySerializer<ProtocolIdentifier>::serialize(MyMessage::Metadata::getProtocolIdentifier(), bytes, bitsOffset);
 
@@ -113,6 +115,13 @@ std::vector<uint8_t> MyMessage::Metadata::serializeWithHeader(const MyMessage& m
             pushBitsMostSignificant(bytes, bitsOffset, byte, bitsPerByte);
         }
     }
+}
+
+std::vector<uint8_t> MyMessage::Metadata::serializeWithHeader(const MyMessage& message)
+{
+    auto bytes = std::vector<uint8_t>{};
+
+    MyMessage::Metadata::serializeWithHeader(message, bytes);
 
     return bytes;
 }
@@ -202,6 +211,8 @@ struct PRALINE_EXPORT MyRequest
 
         static MyRequest deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
+        static void serializeWithHeader(const MyRequest& request, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes);
+
         static std::vector<uint8_t> serializeWithHeader(const MyRequest& request, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber);
 
         static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& request);
@@ -223,6 +234,8 @@ struct PRALINE_EXPORT MyRequest
             static void serializeHeaderless(const Response& response, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
             static Response deserializeHeaderless(const std::vector<uint8_t>& bytes, size_t& bitsOffset);
+
+            static void serializeWithHeader(const std::any& response, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes);
 
             static std::vector<uint8_t> serializeWithHeader(const std::any& response, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber);
 
@@ -271,13 +284,13 @@ MyRequest MyRequest::Metadata::deserializeHeaderless(const std::vector<uint8_t>&
     return request;
 }
 
-std::vector<uint8_t> MyRequest::Metadata::serializeWithHeader(const MyRequest& request, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber)
+void MyRequest::Metadata::serializeWithHeader(const MyRequest& request, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes)
 {
+    using ::dansandu::ballotin::binary::bitsPerByte;
     using ::dansandu::farseer::binary_serialization::BinarySerializer;
     using ::dansandu::farseer::ProtocolSequenceNumber;
 
-    auto bytes = std::vector<uint8_t>{};
-    auto bitsOffset = size_t{0};
+    auto bitsOffset = bitsPerByte * bytes.size();
 
     BinarySerializer<ProtocolIdentifier>::serialize(MyRequest::Metadata::getProtocolIdentifier(), bytes, bitsOffset);
 
@@ -306,6 +319,13 @@ std::vector<uint8_t> MyRequest::Metadata::serializeWithHeader(const MyRequest& r
             pushBitsMostSignificant(bytes, bitsOffset, byte, bitsPerByte);
         }
     }
+}
+
+std::vector<uint8_t> MyRequest::Metadata::serializeWithHeader(const MyRequest& request, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber)
+{
+    auto bytes = std::vector<uint8_t>{};
+
+    MyRequest::Metadata::serializeWithHeader(request, sequenceNumber, bytes);
 
     return bytes;
 }
@@ -363,7 +383,7 @@ MyRequest::Response MyRequest::Response::Metadata::deserializeHeaderless(const s
     return response;
 }
 
-std::vector<uint8_t> MyRequest::Response::Metadata::serializeWithHeader(const std::any& response, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber)
+void MyRequest::Response::Metadata::serializeWithHeader(const std::any& response, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes)
 {
     using ::dansandu::farseer::binary_serialization::BinarySerializer;
     using ::dansandu::ballotin::binary::bitsPerByte;
@@ -376,8 +396,7 @@ std::vector<uint8_t> MyRequest::Response::Metadata::serializeWithHeader(const st
 
     const auto& casted = std::any_cast<const Expected<MyRequest::Response>&>(response);
 
-    auto bytes = std::vector<uint8_t>{};
-    auto bitsOffset = size_t{0};
+    auto bitsOffset = bitsPerByte * bytes.size();
 
     BinarySerializer<ProtocolIdentifier>::serialize(MyRequest::Response::Metadata::getProtocolIdentifier(), bytes, bitsOffset);
 
@@ -394,6 +413,13 @@ std::vector<uint8_t> MyRequest::Response::Metadata::serializeWithHeader(const st
     {
         pushBitsMostSignificant(bytes, bitsOffset, byte, bitsPerByte);
     }
+}
+
+std::vector<uint8_t> MyRequest::Response::Metadata::serializeWithHeader(const std::any& response, const ::dansandu::farseer::ProtocolSequenceNumber sequenceNumber)
+{
+    auto bytes = std::vector<uint8_t>{};
+
+    MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber, bytes);
 
     return bytes;
 }

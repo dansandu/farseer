@@ -83,19 +83,14 @@ public:
             tempSocket.postConnect(ipAddress_, port_, &overlapped_);
 
             operationScheduler.insertSocket(
-                socketIdentifier_,
-                Socket{
-                    .socket = std::move(tempSocket),
-                    .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                         std::vector<uint8_t>&& response)
-                                                     {
-                                                         operationScheduler.scheduleSendBytesOperation(
-                                                             receivingSocketIdentifier, std::move(response)
-                                                         );
-                                                     }},
-                    .listeningSocketIdentifier = invalidSocketIdentifier,
-                    .connectionCallback = std::move(connectionCallback_),
-                }
+                socketIdentifier_, Socket{
+                                       .socket = std::move(tempSocket),
+                                       .protocolReader = ProtocolReader{},
+                                       .listeningSocketIdentifier = invalidSocketIdentifier,
+                                       .connectionCallback = std::move(connectionCallback_),
+                                       .inboundBytes = {},
+                                       .outboundBytes = {},
+                                   }
             );
 
             connectionPending_ = true;

@@ -92,17 +92,15 @@ void SocketContainer::listen(
 )
 {
     auto& socket = insertSocket(
-        EPOLLIN | EPOLLET,
-        Socket{
-            .socketIdentifier = socketIdentifier,
-            .listeningSocketIdentifier = invalidSocketIdentifier,
-            .socket = LinuxSocket::listen(ipAddress, port),
-            .protocolReader =
-                ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>&& response)
-                               { sendBytes(receivingSocketIdentifier, response); }},
-            .connectionCallback = std::move(connectionCallback),
-            .pendingBytes = {},
-        }
+        EPOLLIN | EPOLLET, Socket{
+                               .socketIdentifier = socketIdentifier,
+                               .listeningSocketIdentifier = invalidSocketIdentifier,
+                               .socket = LinuxSocket::listen(ipAddress, port),
+                               .protocolReader = ProtocolReader{},
+                               .connectionCallback = std::move(connectionCallback),
+                               .inboundBytes = {},
+                               .outboundBytes = {},
+                           }
     );
 
     socket.connectionCallback(SocketEvent::serverOpen, socket.socketIdentifier);
@@ -119,17 +117,15 @@ void SocketContainer::connect(
 )
 {
     insertSocket(
-        EPOLLOUT | EPOLLET,
-        Socket{
-            .socketIdentifier = socketIdentifier,
-            .listeningSocketIdentifier = invalidSocketIdentifier,
-            .socket = LinuxSocket::connect(ipAddress, port),
-            .protocolReader =
-                ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier, std::vector<uint8_t>&& response)
-                               { sendBytes(receivingSocketIdentifier, response); }},
-            .connectionCallback = std::move(connectionCallback),
-            .pendingBytes = {},
-        }
+        EPOLLOUT | EPOLLET, Socket{
+                                .socketIdentifier = socketIdentifier,
+                                .listeningSocketIdentifier = invalidSocketIdentifier,
+                                .socket = LinuxSocket::connect(ipAddress, port),
+                                .protocolReader = ProtocolReader{},
+                                .connectionCallback = std::move(connectionCallback),
+                                .inboundBytes = {},
+                                .outboundBytes = {},
+                            }
     );
 }
 
@@ -272,17 +268,15 @@ void SocketContainer::handleListeningSocketEvents(Socket& socket)
         const auto acceptedSocketIdentifier = socketIdentifierSequencer_.generate();
 
         auto& acceptedSocket = insertSocket(
-            EPOLLIN | EPOLLET,
-            Socket{
-                .socketIdentifier = acceptedSocketIdentifier,
-                .listeningSocketIdentifier = socket.socketIdentifier,
-                .socket = std::move(*candidateSocket),
-                .protocolReader = ProtocolReader{[&](const SocketIdentifier receivingSocketIdentifier,
-                                                     std::vector<uint8_t>&& response)
-                                                 { sendBytes(receivingSocketIdentifier, response); }},
-                .connectionCallback = {},
-                .pendingBytes = {},
-            }
+            EPOLLIN | EPOLLET, Socket{
+                                   .socketIdentifier = acceptedSocketIdentifier,
+                                   .listeningSocketIdentifier = socket.socketIdentifier,
+                                   .socket = std::move(*candidateSocket),
+                                   .protocolReader = ProtocolReader{},
+                                   .connectionCallback = {},
+                                   .inboundBytes = {},
+                                   .outboundBytes = {},
+                               }
         );
 
         socket.connectionCallback(SocketEvent::clientOpen, acceptedSocketIdentifier);
@@ -324,17 +318,24 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
             socket.socket.getIpAddress(), ":", socket.socket.getPort()
         );
 
+        socket.inboundBytes.insert(socket.inboundBytes.end(), receivedBytes.cbegin(), receivedBytes.cend());
+
         if (socket.listeningSocketIdentifier != invalidSocketIdentifier)
         {
             auto& listeningSocket = getSocketOrThrow(socket.listeningSocketIdentifier);
 
-            listeningSocket.protocolReader.readInboundBytes(
-                socket.socketIdentifier, socket.pendingBytes, receivedBytes
-            );
+            listeningSocket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
         }
         else
         {
-            socket.protocolReader.readInboundBytes(socket.socketIdentifier, socket.pendingBytes, receivedBytes);
+            socket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
+        }
+
+        if (!socket.outboundBytes.empty())
+        {
+            sendBytes(socket, socket.outboundBytes);
+
+            socket.outboundBytes.clear();
         }
 
         if (closed)

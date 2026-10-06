@@ -69,22 +69,33 @@ public:
 
             const auto listeningSocketIdentifier = socket.listeningSocketIdentifier;
 
-            const auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(receiveBuffer_), numberOfBytesTransferred);
+            const auto bytesBegin = reinterpret_cast<uint8_t*>(receiveBuffer_);
+
+            const auto bytesEnd = bytesBegin + numberOfBytesTransferred;
+
+            socket.inboundBytes.insert(socket.inboundBytes.end(), bytesBegin, bytesEnd);
 
             LOG_INFO(
                 "Socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(), ':',
-                socket.socket.getPort(), " received ", bytes.size(), " bytes"
+                socket.socket.getPort(), " received ", numberOfBytesTransferred, " bytes"
             );
 
             if (listeningSocketIdentifier != invalidSocketIdentifier)
             {
                 auto& listeningSocket = operationScheduler.getSocketOrThrow(listeningSocketIdentifier);
 
-                listeningSocket.protocolReader.readInboundBytes(socketIdentifier_, socket.pendingBytes, bytes);
+                listeningSocket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
             }
             else
             {
-                socket.protocolReader.readInboundBytes(socketIdentifier_, socket.pendingBytes, bytes);
+                socket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
+            }
+
+            if (!socket.outboundBytes.empty())
+            {
+                operationScheduler.scheduleSendBytesOperation(socketIdentifier_, std::move(socket.outboundBytes));
+
+                socket.outboundBytes.clear();
             }
 
             SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
