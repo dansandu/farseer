@@ -2,15 +2,16 @@
 #include "dansandu/farseer/internal/windows/accept_operation.hpp"
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
-using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::INonUserOperation;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
+using dansandu::farseer::internal::windows::operation::maximumReceiveBufferSize;
 using dansandu::farseer::internal::windows::operation::Socket;
 using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::accept_operation
 {
 
-class AcceptOperation : public IOperation
+class AcceptOperation : public INonUserOperation
 {
 public:
     AcceptOperation(
@@ -19,7 +20,6 @@ public:
         : listeningSocketIdentifier_{listeningSocketIdentifier},
           pendingAcceptSocketIdentifier_{pendingAcceptSocketIdentifier}
     {
-        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -32,42 +32,32 @@ public:
         return listeningSocketIdentifier_;
     }
 
-    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    Level getLoggingLevelFromErrorCode(const DWORD errorCode) const override
     {
         return Level::error;
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const override
-    {
-        return true;
-    }
-
-    LPWSAOVERLAPPED getOverlapped() override
-    {
-        return &overlapped_;
-    }
-
-    void postToCompletionPort(IOperationScheduler& operationScheduler) override
+    void schedule(IOperationScheduler& operationScheduler) override
     {
         auto& listeningSocket = operationScheduler.getSocketOrThrow(listeningSocketIdentifier_);
 
         const auto completionPort = operationScheduler.getCompletionPort();
 
         operationScheduler.insertSocket(
-            pendingAcceptSocketIdentifier_, Socket{
-                                                .socket = listeningSocket.socket.postAccept(
-                                                    receiveBuffer_, std::size(receiveBuffer_),
-                                                    pendingAcceptSocketIdentifier_, completionPort, &overlapped_
-                                                ),
-                                                .protocolReader = ProtocolReader{},
-                                                .listeningSocketIdentifier = listeningSocketIdentifier_,
-                                                .inboundBytes = {},
-                                                .outboundBytes = {},
-                                            }
+            pendingAcceptSocketIdentifier_,
+            Socket{
+                .socket = listeningSocket.socket.postAccept(
+                    receiveBuffer_, std::size(receiveBuffer_), pendingAcceptSocketIdentifier_, completionPort, this
+                ),
+                .protocolReader = ProtocolReader{},
+                .listeningSocketIdentifier = listeningSocketIdentifier_,
+                .inboundBytes = {},
+                .outboundBytes = {},
+            }
         );
     }
 
-    void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
+    bool execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
     {
         auto& acceptedSocket = operationScheduler.getSocketOrThrow(pendingAcceptSocketIdentifier_);
 
@@ -85,18 +75,17 @@ public:
             "Accepted client socket with ID ", pendingAcceptSocketIdentifier_, " and address ",
             acceptedSocket.socket.getIpAddress(), ":", acceptedSocket.socket.getPort()
         );
+
+        return true;
     }
 
 private:
-    static constexpr auto maximumReceiveBufferSize = 4096;
-
     const SocketIdentifier listeningSocketIdentifier_;
     const SocketIdentifier pendingAcceptSocketIdentifier_;
     char receiveBuffer_[maximumReceiveBufferSize];
-    WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation> createAcceptOperation(
+std::unique_ptr<INonUserOperation> createAcceptOperation(
     const SocketIdentifier listeningSocketIdentifier, const SocketIdentifier pendingAcceptSocketIdentifier
 )
 {

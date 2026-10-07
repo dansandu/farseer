@@ -28,7 +28,6 @@ public:
           port_{port},
           connectionCallback_{std::move(connectionCallback)}
     {
-        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -41,36 +40,12 @@ public:
         return socketIdentifier_;
     }
 
-    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    Level getLoggingLevelFromErrorCode(const DWORD errorCode) const override
     {
         return Level::error;
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const override
-    {
-        return true;
-    }
-
-    LPWSAOVERLAPPED getOverlapped() override
-    {
-        return &overlapped_;
-    }
-
-    void postToCompletionPort(IOperationScheduler& operationScheduler) override
-    {
-        const auto completionPort = operationScheduler.getCompletionPort();
-
-        const auto numberOfBytesTransferred = 0;
-        const auto postResult =
-            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
-
-        if (!postResult)
-        {
-            THROW(std::runtime_error, "Posting ", getName(), " failed with error ", getLastErrorMessage());
-        }
-    }
-
-    void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
+    bool execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
     {
         const auto completionPort = operationScheduler.getCompletionPort();
 
@@ -99,6 +74,8 @@ public:
             "Opened listening socket with ID ", socketIdentifier_, " and address ", socket.socket.getIpAddress(), ':',
             socket.socket.getPort()
         );
+
+        return true;
     }
 
 private:
@@ -106,7 +83,6 @@ private:
     const std::string ipAddress_;
     const int port_;
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback_;
-    WSAOVERLAPPED overlapped_;
 };
 
 std::unique_ptr<IOperation> createListenOperation(

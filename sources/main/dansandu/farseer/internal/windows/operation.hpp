@@ -8,6 +8,7 @@ namespace dansandu::farseer::internal::windows::operation
 {
 
 constexpr auto defaultCompletionKey = invalidSocketIdentifier.getUnderlying();
+constexpr auto maximumReceiveBufferSize = 4096;
 
 struct Socket
 {
@@ -47,7 +48,7 @@ public:
     virtual void scheduleSendBytesOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
 };
 
-class IOperation
+class IOperation : public WSAOVERLAPPED
 {
 public:
     IOperation(const IOperation& other) = delete;
@@ -55,7 +56,10 @@ public:
     IOperation& operator=(const IOperation& other) = delete;
     IOperation& operator=(IOperation&& other) noexcept = delete;
 
-    IOperation() = default;
+    IOperation()
+    {
+        eraseWsaOverlapped();
+    }
 
     virtual ~IOperation() noexcept = default;
 
@@ -63,15 +67,30 @@ public:
 
     virtual SocketIdentifier getSocketIdentifier() const = 0;
 
-    virtual dansandu::journey::Level getSystemErrorCodeLevel(const DWORD errorCode) const = 0;
+    virtual dansandu::journey::Level getLoggingLevelFromErrorCode(const DWORD errorCode) const = 0;
 
-    virtual bool discard(const DWORD numberOfBytesTransferred) const = 0;
+    // Always called on the operation consumer thread. Should be safe to access consumer thread resources without locks
+    // inside this method. If the method returns true, then the operation can be discarded. Otherwise, the operation
+    // was rescheduled and will be kept alive for another execution.
+    virtual bool execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) = 0;
 
-    virtual LPWSAOVERLAPPED getOverlapped() = 0;
+    void eraseWsaOverlapped()
+    {
+        SecureZeroMemory(static_cast<WSAOVERLAPPED*>(this), sizeof(WSAOVERLAPPED));
+    }
+};
 
-    virtual void postToCompletionPort(IOperationScheduler& operationScheduler) = 0;
+class INonUserOperation : public IOperation
+{
+public:
+    INonUserOperation() = default;
 
-    virtual void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) = 0;
+    virtual ~INonUserOperation() noexcept = default;
+
+    // These operations are not scheduled directly by farseer users. Instead, these operations are spawned by other
+    // operations through their IOperation::execute implementation. Therefore, it should be safe to access consumer
+    // thread resources without locks inside this method.
+    virtual void schedule(IOperationScheduler& operationScheduler) = 0;
 };
 
 }

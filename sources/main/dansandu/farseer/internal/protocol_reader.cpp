@@ -266,7 +266,7 @@ void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::v
         const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(inboundBytes, inboundBitsOffset);
 
         // Unknown identifiers will cause getProtocolDescriptor to throw. The exception is propagated up to the
-        // SocketContainer/OperationContainer which should erase the receiving socket.
+        // SocketContainer/OperationScheduler which should erase the receiving socket.
         const auto descriptor = ProtocolRegistry::getGlobalInstance().getProtocolDescriptor(identifier);
 
         auto consumed = false;

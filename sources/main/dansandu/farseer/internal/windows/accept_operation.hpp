@@ -6,7 +6,7 @@
 namespace dansandu::farseer::internal::windows::accept_operation
 {
 
-std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation> createAcceptOperation(
+std::unique_ptr<dansandu::farseer::internal::windows::operation::INonUserOperation> createAcceptOperation(
     const SocketIdentifier listeningSocketIdentifier, const SocketIdentifier pendingAcceptSocketIdentifier
 );
 

@@ -2,19 +2,19 @@
 #include "dansandu/farseer/internal/windows/receive_operation.hpp"
 #include "dansandu/journey/common.hpp"
 
-using dansandu::farseer::internal::windows::operation::IOperation;
+using dansandu::farseer::internal::windows::operation::INonUserOperation;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
+using dansandu::farseer::internal::windows::operation::maximumReceiveBufferSize;
 using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::receive_operation
 {
 
-class ReceiveOperation : public IOperation
+class ReceiveOperation : public INonUserOperation
 {
 public:
     explicit ReceiveOperation(const SocketIdentifier socketIdentifier) : socketIdentifier_{socketIdentifier}
     {
-        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -27,7 +27,7 @@ public:
         return socketIdentifier_;
     }
 
-    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    Level getLoggingLevelFromErrorCode(const DWORD errorCode) const override
     {
         if (errorCode == ERROR_NETNAME_DELETED || errorCode == ERROR_CONNECTION_ABORTED)
         {
@@ -36,24 +36,14 @@ public:
         return Level::error;
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const override
-    {
-        return numberOfBytesTransferred <= 0;
-    }
-
-    LPWSAOVERLAPPED getOverlapped() override
-    {
-        return &overlapped_;
-    }
-
-    void postToCompletionPort(IOperationScheduler& operationScheduler) override
+    void schedule(IOperationScheduler& operationScheduler) override
     {
         auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
 
-        socket.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), &overlapped_);
+        socket.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), this);
     }
 
-    void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
+    bool execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
     {
         if (numberOfBytesTransferred > 0)
         {
@@ -98,25 +88,26 @@ public:
                 socket.outboundBytes.clear();
             }
 
-            SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
+            eraseWsaOverlapped();
 
-            socket.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), &overlapped_);
+            socket.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), this);
+
+            return false;
         }
         else
         {
             operationScheduler.eraseSocket(socketIdentifier_);
+
+            return true;
         }
     }
 
 private:
-    static constexpr DWORD maximumReceiveBufferSize = 4096;
-
     const SocketIdentifier socketIdentifier_;
     char receiveBuffer_[maximumReceiveBufferSize];
-    WSAOVERLAPPED overlapped_;
 };
 
-std::unique_ptr<IOperation> createReceiveOperation(const SocketIdentifier socketIdentifier)
+std::unique_ptr<INonUserOperation> createReceiveOperation(const SocketIdentifier socketIdentifier)
 {
     return std::make_unique<ReceiveOperation>(socketIdentifier);
 }

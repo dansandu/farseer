@@ -24,7 +24,6 @@ public:
           responseConsumer_{std::move(responseConsumer)},
           sendBytesPending_{false}
     {
-        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -37,36 +36,12 @@ public:
         return socketIdentifier_;
     }
 
-    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    Level getLoggingLevelFromErrorCode(const DWORD errorCode) const override
     {
         return Level::error;
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const override
-    {
-        return sendBytesPending_;
-    }
-
-    LPWSAOVERLAPPED getOverlapped() override
-    {
-        return &overlapped_;
-    }
-
-    void postToCompletionPort(IOperationScheduler& operationScheduler) override
-    {
-        const auto completionPort = operationScheduler.getCompletionPort();
-
-        const auto numberOfBytesTransferred = 0;
-        const auto postResult =
-            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
-
-        if (!postResult)
-        {
-            THROW(std::runtime_error, "Posting ", getName(), " failed with error ", getLastErrorMessage());
-        }
-    }
-
-    void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
+    bool execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
     {
         if (!sendBytesPending_)
         {
@@ -78,15 +53,17 @@ public:
                 protocolSequenceNumber_, std::move(responseConsumer_)
             );
 
-            SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
+            eraseWsaOverlapped();
 
-            socket.socket.postSend(
-                reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()), &overlapped_
-            );
+            socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()), this);
+
+            return false;
         }
         else
         {
             LOG_INFO("Sent request bytes using socket ID ", socketIdentifier_);
+
+            return true;
         }
     }
 
@@ -96,7 +73,6 @@ private:
     std::vector<uint8_t> bytes_;
     UniqueFunction<void(std::any&&)> responseConsumer_;
     bool sendBytesPending_;
-    WSAOVERLAPPED overlapped_;
 };
 
 std::unique_ptr<IOperation> createSendRequestOperation(

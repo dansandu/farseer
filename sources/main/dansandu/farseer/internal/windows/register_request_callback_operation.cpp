@@ -22,7 +22,6 @@ public:
           protocolIdentifier_{protocolIdentifier},
           requestConsumer_{std::move(requestConsumer)}
     {
-        SecureZeroMemory(&overlapped_, sizeof(WSAOVERLAPPED));
     }
 
     const char* getName() const override
@@ -35,36 +34,12 @@ public:
         return socketIdentifier_;
     }
 
-    Level getSystemErrorCodeLevel(const DWORD errorCode) const override
+    Level getLoggingLevelFromErrorCode(const DWORD errorCode) const override
     {
         return Level::error;
     }
 
-    bool discard(const DWORD numberOfBytesTransferred) const override
-    {
-        return true;
-    }
-
-    LPWSAOVERLAPPED getOverlapped() override
-    {
-        return &overlapped_;
-    }
-
-    void postToCompletionPort(IOperationScheduler& operationScheduler) override
-    {
-        const auto completionPort = operationScheduler.getCompletionPort();
-
-        const auto numberOfBytesTransferred = 0;
-        const auto postResult =
-            ::PostQueuedCompletionStatus(completionPort, numberOfBytesTransferred, defaultCompletionKey, &overlapped_);
-
-        if (!postResult)
-        {
-            THROW(std::runtime_error, "Posting ", getName(), " failed with error ", getLastErrorMessage());
-        }
-    }
-
-    void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
+    bool execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) override
     {
         auto& socket = operationScheduler.getSocketOrThrow(socketIdentifier_);
 
@@ -73,13 +48,14 @@ public:
         LOG_INFO(
             "Registered request consumer with protocol ID ", protocolIdentifier_, " and socket ID ", socketIdentifier_
         );
+
+        return true;
     }
 
 private:
     const SocketIdentifier socketIdentifier_;
     const ProtocolIdentifier protocolIdentifier_;
     UniqueFunction<std::any(std::any&&)> requestConsumer_;
-    WSAOVERLAPPED overlapped_;
 };
 
 std::unique_ptr<IOperation> createRegisterRequestCallbackOperation(

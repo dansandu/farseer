@@ -2,7 +2,6 @@
 
 #include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/operation.hpp"
-#include "dansandu/farseer/internal/windows/operation_container.hpp"
 
 #include <map>
 #include <memory>
@@ -66,6 +65,20 @@ public:
 private:
     void scheduleAbortOperation();
 
+    void scheduleOperation(std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>&& operation);
+
+    bool handleSuccessfulOperation(
+        const std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>& operation,
+        const DWORD numberOfBytesTransferred
+    );
+
+    void handleFailedOperation(
+        std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>&& operation, const DWORD errorCode
+    );
+
+    void handleOperationExecutionFailure(
+        const char* const name, const SocketIdentifier socketIdentifier, const std::wstring_view message = {}
+    );
     void consumeOperationsWork();
 
     void consumeOperations();
@@ -73,7 +86,6 @@ private:
     const HANDLE completionPort_;
     dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier> socketIdentifierSequencer_;
     std::map<SocketIdentifier, dansandu::farseer::internal::windows::operation::Socket> sockets_;
-    dansandu::farseer::internal::windows::operation_container::OperationContainer operationContainer_;
     std::thread thread_;
 };
 
