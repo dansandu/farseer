@@ -6,10 +6,10 @@
 #include <any>
 #include <vector>
 
-namespace dansandu::farseer::internal::windows::send_request_operation
+namespace dansandu::farseer::internal::windows::send_request_user_operation
 {
 
-std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation> createSendRequestOperation(
+std::unique_ptr<dansandu::farseer::internal::windows::operation::IUserOperation> createSendRequestUserOperation(
     const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
 );

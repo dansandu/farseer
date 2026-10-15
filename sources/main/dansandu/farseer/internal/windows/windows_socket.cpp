@@ -22,6 +22,11 @@ void closeSocketOrLog(const SOCKET socket)
 
 }
 
+WindowsSocket::WindowsSocket()
+    : socket_{INVALID_SOCKET}, acceptFunction_{nullptr}, connectFunction_{nullptr}, ipAddress_{}, port_{}
+{
+}
+
 WindowsSocket::WindowsSocket(const HANDLE completionPort, const SocketIdentifier socketIdentifier)
     : socket_{::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)},
       acceptFunction_{nullptr},
@@ -136,6 +141,9 @@ void WindowsSocket::listen(const std::string& ipAddress, const int port)
         WTHROW(InternalSocketError, "Listening to socket failed with error ", getLastWsaErrorMessage());
     }
 
+    ipAddress_ = ipAddress;
+    port_ = port;
+
     const auto overlapped = LPWSAOVERLAPPED{nullptr};
     const auto completionRoutine = LPWSAOVERLAPPED_COMPLETION_ROUTINE{nullptr};
 
@@ -150,9 +158,6 @@ void WindowsSocket::listen(const std::string& ipAddress, const int port)
     {
         WTHROW(InternalSocketError, "WSAIoctl failed with error ", getLastWsaErrorMessage());
     }
-
-    ipAddress_ = ipAddress;
-    port_ = port;
 }
 
 WindowsSocket WindowsSocket::postAccept(
@@ -334,6 +339,9 @@ void WindowsSocket::postConnect(const std::string& ipAddress, const int port, co
         WTHROW(InternalSocketError, "inet_pton failed with error ", getLastWsaErrorMessage());
     }
 
+    ipAddress_ = ipAddress;
+    port_ = port;
+
     const auto sendBuffer = PVOID{nullptr};
     const auto sendBufferSize = DWORD{0};
 
@@ -349,9 +357,6 @@ void WindowsSocket::postConnect(const std::string& ipAddress, const int port, co
             WTHROW(InternalSocketError, "Connecting socket failed with error ", getErrorMessageFromCode(errorCode));
         }
     }
-
-    ipAddress_ = ipAddress;
-    port_ = port;
 }
 
 void WindowsSocket::connect()

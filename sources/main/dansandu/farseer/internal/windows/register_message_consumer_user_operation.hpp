@@ -5,10 +5,11 @@
 
 #include <any>
 
-namespace dansandu::farseer::internal::windows::register_message_consumer_operation
+namespace dansandu::farseer::internal::windows::register_message_consumer_user_operation
 {
 
-std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation> createRegisterMessageConsumerOperation(
+std::unique_ptr<dansandu::farseer::internal::windows::operation::IUserOperation>
+createRegisterMessageConsumerUserOperation(
     const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<void(std::any&&)>&& messageConsumer
 );

@@ -22,6 +22,8 @@ namespace dansandu::farseer::internal::windows::windows_socket
 class WindowsSocket
 {
 public:
+    WindowsSocket();
+
     WindowsSocket(const HANDLE completionPort, const SocketIdentifier socketIdentifier);
 
     WindowsSocket(const WindowsSocket&) = delete;

@@ -2,7 +2,6 @@
 
 #include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/operation.hpp"
-#include "dansandu/farseer/internal/windows/operation_container.hpp"
 
 #include <map>
 #include <memory>
@@ -21,59 +20,76 @@ public:
 
     HANDLE getCompletionPort() override;
 
-    dansandu::farseer::internal::windows::operation::Socket& insertSocket(
-        const SocketIdentifier socketIdentifier, dansandu::farseer::internal::windows::operation::Socket&& socket
-    ) override;
+    void scheduleAcceptSystemOperation(const SocketIdentifier listeningSocketIdentifier) override;
 
-    dansandu::farseer::internal::windows::operation::Socket&
-    getSocketOrThrow(const SocketIdentifier socketIdentifier) override;
+    void scheduleReceiveSystemOperation(const SocketIdentifier socketIdentifier) override;
 
-    void eraseSocket(const SocketIdentifier socketIdentifier) override;
+    void
+    scheduleSendBytesSystemOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) override;
 
-    SocketIdentifier scheduleConnectOperation(
+    SocketIdentifier scheduleConnectUserOperation(
         const std::string& ipAddress, const int port,
         UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
     );
 
-    SocketIdentifier scheduleListenOperation(
+    SocketIdentifier scheduleListenUserOperation(
         const std::string& ipAddress, const int port,
         UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
     );
 
-    void scheduleAcceptOperation(const SocketIdentifier listeningSocketIdentifier) override;
+    void scheduleSendBytesUserOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes);
 
-    void scheduleReceiveOperation(const SocketIdentifier socketIdentifier) override;
-
-    void scheduleSendBytesOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) override;
-
-    void scheduleSendRequestOperation(
+    void scheduleSendRequestUserOperation(
         const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
         std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
     );
 
-    void scheduleRegisterMessageConsumerOperation(
+    void scheduleRegisterMessageConsumerUserOperation(
         const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
         UniqueFunction<void(std::any&&)>&& messageConsumer
     );
 
-    void scheduleRegisterRequestCallbackOperation(
+    void scheduleRegisterRequestCallbackUserOperation(
         const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
         UniqueFunction<std::any(std::any&&)>&& requestConsumer
     );
 
-    void scheduleCloseOperation(const SocketIdentifier socketIdentifier);
+    void scheduleCloseUserOperation(const SocketIdentifier socketIdentifier);
 
 private:
     void scheduleAbortOperation();
+
+    void
+    scheduleUserOperation(std::unique_ptr<dansandu::farseer::internal::windows::operation::IUserOperation>&& operation);
+
+    void scheduleSystemOperation(
+        std::unique_ptr<dansandu::farseer::internal::windows::operation::ISystemOperation>&& operation
+    );
+
+    bool handleSuccessfulOperation(
+        const std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>& operation,
+        const DWORD numberOfBytesTransferred
+    );
+
+    void handleFailedOperation(
+        std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>&& operation, const DWORD errorCode
+    );
+
+    void handleOperationExecutionFailure(
+        const char* const name, const SocketIdentifier socketIdentifier, const std::wstring_view message = {},
+        const bool quietDiscard = false
+    );
 
     void consumeOperationsWork();
 
     void consumeOperations();
 
+    void drainOperations();
+
     const HANDLE completionPort_;
     dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier> socketIdentifierSequencer_;
-    std::map<SocketIdentifier, dansandu::farseer::internal::windows::operation::Socket> sockets_;
-    dansandu::farseer::internal::windows::operation_container::OperationContainer operationContainer_;
+    dansandu::farseer::internal::windows::socket_container::SocketContainer socketContainer_;
+    std::atomic<std::size_t> state_;
     std::thread thread_;
 };
 

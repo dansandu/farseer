@@ -2,23 +2,14 @@
 
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/internal/protocol_reader.hpp"
+#include "dansandu/farseer/internal/windows/socket_container.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
 namespace dansandu::farseer::internal::windows::operation
 {
 
 constexpr auto defaultCompletionKey = invalidSocketIdentifier.getUnderlying();
-
-struct Socket
-{
-    dansandu::farseer::internal::windows::windows_socket::WindowsSocket socket;
-    dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
-    SocketIdentifier listeningSocketIdentifier;
-    UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
-    std::vector<uint8_t> inboundBytes;
-    // The outbound bytes buffer is part of the socket to reuse capacity and reduce allocations.
-    std::vector<uint8_t> outboundBytes;
-};
+constexpr auto maximumReceiveBufferSize = 4096;
 
 class IOperationScheduler
 {
@@ -34,20 +25,15 @@ public:
 
     virtual HANDLE getCompletionPort() = 0;
 
-    virtual Socket& insertSocket(const SocketIdentifier socketIdentifier, Socket&& socket) = 0;
+    virtual void scheduleAcceptSystemOperation(const SocketIdentifier listeningSocketIdentifier) = 0;
 
-    virtual Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier) = 0;
+    virtual void scheduleReceiveSystemOperation(const SocketIdentifier socketIdentifier) = 0;
 
-    virtual void eraseSocket(const SocketIdentifier socketIdentifier) = 0;
-
-    virtual void scheduleAcceptOperation(const SocketIdentifier listeningSocketIdentifier) = 0;
-
-    virtual void scheduleReceiveOperation(const SocketIdentifier socketIdentifier) = 0;
-
-    virtual void scheduleSendBytesOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
+    virtual void
+    scheduleSendBytesSystemOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
 };
 
-class IOperation
+class IOperation : public WSAOVERLAPPED
 {
 public:
     IOperation(const IOperation& other) = delete;
@@ -55,7 +41,10 @@ public:
     IOperation& operator=(const IOperation& other) = delete;
     IOperation& operator=(IOperation&& other) noexcept = delete;
 
-    IOperation() = default;
+    IOperation()
+    {
+        eraseWsaOverlapped();
+    }
 
     virtual ~IOperation() noexcept = default;
 
@@ -63,15 +52,45 @@ public:
 
     virtual SocketIdentifier getSocketIdentifier() const = 0;
 
-    virtual dansandu::journey::Level getSystemErrorCodeLevel(const DWORD errorCode) const = 0;
+    virtual dansandu::journey::Level getLoggingLevelFromErrorCode(const DWORD errorCode) const
+    {
+        if (errorCode == ERROR_NETNAME_DELETED || errorCode == ERROR_CONNECTION_ABORTED ||
+            errorCode == ERROR_OPERATION_ABORTED)
+        {
+            return dansandu::journey::Level::info;
+        }
+        return dansandu::journey::Level::error;
+    }
 
-    virtual bool discard(const DWORD numberOfBytesTransferred) const = 0;
+    // Always called on the operation consumer thread. Should be safe to access consumer thread resources without locks
+    // inside this method. If the method returns true, then the operation can be discarded. Otherwise, the operation
+    // was rescheduled and will be kept alive for another execution.
+    virtual bool execute(
+        IOperationScheduler& operationScheduler,
+        dansandu::farseer::internal::windows::socket_container::SocketContainer& socketContainer,
+        const DWORD numberOfBytesTransferred
+    ) = 0;
 
-    virtual LPWSAOVERLAPPED getOverlapped() = 0;
+    void eraseWsaOverlapped()
+    {
+        SecureZeroMemory(static_cast<WSAOVERLAPPED*>(this), sizeof(WSAOVERLAPPED));
+    }
+};
 
-    virtual void postToCompletionPort(IOperationScheduler& operationScheduler) = 0;
+class IUserOperation : public IOperation
+{
+};
 
-    virtual void execute(IOperationScheduler& operationScheduler, const DWORD numberOfBytesTransferred) = 0;
+class ISystemOperation : public IOperation
+{
+public:
+    // These operations are not scheduled directly by farseer users. Instead, these operations are spawned by other
+    // operations through their IOperation::execute implementation. It should be safe to access consumer thread
+    // resources without locks inside this method.
+    virtual void schedule(
+        IOperationScheduler& operationScheduler,
+        dansandu::farseer::internal::windows::socket_container::SocketContainer& socketContainer
+    ) = 0;
 };
 
 }
