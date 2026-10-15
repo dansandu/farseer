@@ -5,10 +5,11 @@
 
 #include <any>
 
-namespace dansandu::farseer::internal::windows::register_request_callback_operation
+namespace dansandu::farseer::internal::windows::register_request_callback_user_operation
 {
 
-std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation> createRegisterRequestCallbackOperation(
+std::unique_ptr<dansandu::farseer::internal::windows::operation::IUserOperation>
+createRegisterRequestCallbackUserOperation(
     const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<std::any(std::any&&)>&& requestConsumer
 );

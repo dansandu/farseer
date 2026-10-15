@@ -2,36 +2,44 @@
 #include "dansandu/farseer/internal/windows/operation_scheduler.hpp"
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/ballotin/string.hpp"
-#include "dansandu/farseer/internal/windows/accept_operation.hpp"
-#include "dansandu/farseer/internal/windows/close_operation.hpp"
-#include "dansandu/farseer/internal/windows/connect_operation.hpp"
+#include "dansandu/farseer/internal/windows/accept_system_operation.hpp"
+#include "dansandu/farseer/internal/windows/close_user_operation.hpp"
+#include "dansandu/farseer/internal/windows/connect_user_operation.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
-#include "dansandu/farseer/internal/windows/listen_operation.hpp"
-#include "dansandu/farseer/internal/windows/receive_operation.hpp"
-#include "dansandu/farseer/internal/windows/register_message_consumer_operation.hpp"
-#include "dansandu/farseer/internal/windows/register_request_callback_operation.hpp"
-#include "dansandu/farseer/internal/windows/send_bytes_operation.hpp"
-#include "dansandu/farseer/internal/windows/send_request_operation.hpp"
+#include "dansandu/farseer/internal/windows/listen_user_operation.hpp"
+#include "dansandu/farseer/internal/windows/receive_system_operation.hpp"
+#include "dansandu/farseer/internal/windows/register_message_consumer_user_operation.hpp"
+#include "dansandu/farseer/internal/windows/register_request_callback_user_operation.hpp"
+#include "dansandu/farseer/internal/windows/send_bytes_system_operation.hpp"
+#include "dansandu/farseer/internal/windows/send_bytes_user_operation.hpp"
+#include "dansandu/farseer/internal/windows/send_request_user_operation.hpp"
 #include "dansandu/journey/logging.hpp"
 
 using dansandu::ballotin::string::toWideString;
 using dansandu::farseer::exception::InternalSocketError;
-using dansandu::farseer::internal::windows::accept_operation::createAcceptOperation;
-using dansandu::farseer::internal::windows::close_operation::createCloseOperation;
-using dansandu::farseer::internal::windows::connect_operation::createConnectOperation;
+using dansandu::farseer::exception::SocketNotFoundError;
+using dansandu::farseer::internal::windows::accept_system_operation::createAcceptSystemOperation;
+using dansandu::farseer::internal::windows::close_user_operation::createCloseUserOperation;
+using dansandu::farseer::internal::windows::connect_user_operation::createConnectUserOperation;
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::error::getLastErrorCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::listen_operation::createListenOperation;
+using dansandu::farseer::internal::windows::listen_user_operation::createListenUserOperation;
 using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::operation::IOperation;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
-using dansandu::farseer::internal::windows::operation::Socket;
-using dansandu::farseer::internal::windows::receive_operation::createReceiveOperation;
-using dansandu::farseer::internal::windows::register_message_consumer_operation::createRegisterMessageConsumerOperation;
-using dansandu::farseer::internal::windows::register_request_callback_operation::createRegisterRequestCallbackOperation;
-using dansandu::farseer::internal::windows::send_bytes_operation::createSendBytesOperation;
-using dansandu::farseer::internal::windows::send_request_operation::createSendRequestOperation;
+using dansandu::farseer::internal::windows::operation::ISystemOperation;
+using dansandu::farseer::internal::windows::operation::IUserOperation;
+using dansandu::farseer::internal::windows::receive_system_operation::createReceiveSystemOperation;
+using dansandu::farseer::internal::windows::register_message_consumer_user_operation::
+    createRegisterMessageConsumerUserOperation;
+using dansandu::farseer::internal::windows::register_request_callback_user_operation::
+    createRegisterRequestCallbackUserOperation;
+using dansandu::farseer::internal::windows::send_bytes_system_operation::createSendBytesSystemOperation;
+using dansandu::farseer::internal::windows::send_bytes_user_operation::createSendBytesUserOperation;
+using dansandu::farseer::internal::windows::send_request_user_operation::createSendRequestUserOperation;
+using dansandu::farseer::internal::windows::socket_container::Socket;
+using dansandu::farseer::internal::windows::socket_container::SocketContainer;
 using dansandu::journey::exception::WideException;
 
 namespace dansandu::farseer::internal::windows::operation_scheduler
@@ -39,6 +47,10 @@ namespace dansandu::farseer::internal::windows::operation_scheduler
 
 namespace
 {
+
+// state_ holds the number of outstanding operations in the low bits and the aborting flag in the top bit.
+constexpr auto abortingFlag = std::size_t{1} << (std::numeric_limits<std::size_t>::digits - 1);
+constexpr auto drainTimeoutMilliseconds = DWORD{100};
 
 HANDLE initializeIoCompletionPort()
 {
@@ -62,7 +74,8 @@ HANDLE initializeIoCompletionPort()
 OperationScheduler::OperationScheduler()
     : completionPort_{initializeIoCompletionPort()},
       socketIdentifierSequencer_{invalidSocketIdentifier.getUnderlying() + 1u},
-      operationContainer_{*this},
+      socketContainer_{},
+      state_{0uz},
       thread_{&OperationScheduler::consumeOperations, this}
 {
 }
@@ -73,8 +86,6 @@ OperationScheduler::~OperationScheduler() noexcept
 
     thread_.join();
 
-    sockets_.clear();
-
     ::CloseHandle(completionPort_);
 }
 
@@ -83,162 +94,156 @@ HANDLE OperationScheduler::getCompletionPort()
     return completionPort_;
 }
 
-Socket& OperationScheduler::insertSocket(const SocketIdentifier socketIdentifier, Socket&& socket)
+void OperationScheduler::scheduleUserOperation(std::unique_ptr<IUserOperation>&& userOperation)
 {
-    const auto [position, inserted] = sockets_.emplace(socketIdentifier, std::move(socket));
+    const auto name = userOperation->getName();
 
-    if (!inserted)
+    const auto socketIdentifier = userOperation->getSocketIdentifier();
+
+    const auto numberOfBytesTransferred = 0;
+
+    if (state_.fetch_add(1) & abortingFlag)
+    {
+        --state_;
+
+        THROW(std::logic_error, "Operation scheduler is aborting");
+    }
+
+    SCOPE_FAILURE([&] { --state_; });
+
+    const auto postResult = ::PostQueuedCompletionStatus(
+        completionPort_, numberOfBytesTransferred, defaultCompletionKey, userOperation.get()
+    );
+
+    if (!postResult)
     {
         THROW(
-            std::logic_error, "Couldn't insert socket with ID ", socketIdentifier,
-            " because the ID is used by another socket"
+            std::runtime_error, "Scheduling ", name, " with socket ID ", socketIdentifier, " failed with error ",
+            getLastErrorMessage()
         );
     }
 
-    return position->second;
+    // The completion port now owns the operation. Ownership is regained by calling GetQueuedCompletionStatus.
+    userOperation.release();
+
+    LOG_DEBUG("Scheduled ", name, " with socket ID ", socketIdentifier);
 }
 
-Socket& OperationScheduler::getSocketOrThrow(const SocketIdentifier socketIdentifier)
+void OperationScheduler::scheduleSystemOperation(std::unique_ptr<ISystemOperation>&& systemOperation)
 {
-    const auto position = sockets_.find(socketIdentifier);
+    const auto name = systemOperation->getName();
 
-    if (position != sockets_.end())
+    const auto socketIdentifier = systemOperation->getSocketIdentifier();
+
+    if (state_.fetch_add(1) & abortingFlag)
     {
-        return position->second;
+        --state_;
+
+        THROW(std::logic_error, "Operation scheduler is aborting");
     }
 
-    WTHROW(InternalSocketError, "Couldn't find socket with ID ", socketIdentifier);
+    SCOPE_FAILURE([&] { --state_; });
+
+    systemOperation->schedule(*this, socketContainer_);
+
+    // The completion port now owns the operation. Ownership is regained when calling GetQueuedCompletionStatus.
+    systemOperation.release();
+
+    LOG_DEBUG("Scheduled ", name, " with socket ID ", socketIdentifier);
 }
 
-void OperationScheduler::eraseSocket(const SocketIdentifier socketIdentifier)
-{
-    const auto position = sockets_.find(socketIdentifier);
-
-    if (position != sockets_.end())
-    {
-        SCOPE_EXIT([&] { sockets_.erase(position); });
-
-        const auto& socket = position->second;
-
-        try
-        {
-            if (socket.listeningSocketIdentifier != invalidSocketIdentifier)
-            {
-                const auto listeningSocketPosition = sockets_.find(socket.listeningSocketIdentifier);
-
-                if (listeningSocketPosition != sockets_.end())
-                {
-                    listeningSocketPosition->second.connectionCallback(SocketEvent::clientClosed, socketIdentifier);
-                }
-            }
-            else
-            {
-                socket.connectionCallback(SocketEvent::serverClosed, socketIdentifier);
-            }
-
-            LOG_INFO(
-                "Socket with ID ", socketIdentifier, " and address ", socket.socket.getIpAddress(), ":",
-                socket.socket.getPort(), " was closed"
-            );
-        }
-        catch (const WideException& wideException)
-        {
-            LOG_ERROR(
-                "Wide exception was thrown while trying to close socket with ID ", socketIdentifier,
-                " with message: ", wideException.getMessage()
-            );
-        }
-        catch (const std::exception& exception)
-        {
-            LOG_ERROR(
-                "Exception was thrown while trying to close socket with ID ", socketIdentifier,
-                " with message: ", exception.what()
-            );
-        }
-        catch (...)
-        {
-            LOG_ERROR("Unknown exception was thrown while trying to close socket with ID ", socketIdentifier);
-        }
-    }
-}
-
-SocketIdentifier OperationScheduler::scheduleConnectOperation(
+SocketIdentifier OperationScheduler::scheduleConnectUserOperation(
     const std::string& ipAddress, const int port,
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
 )
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
-    operationContainer_.insert(
-        createConnectOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback))
-    );
+
+    scheduleUserOperation(createConnectUserOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
+
     return socketIdentifier;
 }
 
-SocketIdentifier OperationScheduler::scheduleListenOperation(
+SocketIdentifier OperationScheduler::scheduleListenUserOperation(
     const std::string& ipAddress, const int port,
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
 )
 {
     const auto socketIdentifier = socketIdentifierSequencer_.generate();
-    operationContainer_.insert(createListenOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
+
+    scheduleUserOperation(createListenUserOperation(socketIdentifier, ipAddress, port, std::move(connectionCallback)));
+
     return socketIdentifier;
 }
 
-void OperationScheduler::scheduleAcceptOperation(const SocketIdentifier listeningSocketIdentifier)
+void OperationScheduler::scheduleAcceptSystemOperation(const SocketIdentifier listeningSocketIdentifier)
 {
     const auto pendingAcceptSocketIdentifier = socketIdentifierSequencer_.generate();
-    operationContainer_.insert(createAcceptOperation(listeningSocketIdentifier, pendingAcceptSocketIdentifier));
+
+    scheduleSystemOperation(createAcceptSystemOperation(listeningSocketIdentifier, pendingAcceptSocketIdentifier));
 }
 
-void OperationScheduler::scheduleReceiveOperation(const SocketIdentifier socketIdentifier)
+void OperationScheduler::scheduleReceiveSystemOperation(const SocketIdentifier socketIdentifier)
 {
-    operationContainer_.insert(createReceiveOperation(socketIdentifier));
+    scheduleSystemOperation(createReceiveSystemOperation(socketIdentifier));
 }
 
-void OperationScheduler::scheduleRegisterMessageConsumerOperation(
+void OperationScheduler::scheduleRegisterMessageConsumerUserOperation(
     const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<void(std::any&&)>&& messageConsumer
 )
 {
-    operationContainer_.insert(
-        createRegisterMessageConsumerOperation(socketIdentifier, protocolIdentifier, std::move(messageConsumer))
+    scheduleUserOperation(
+        createRegisterMessageConsumerUserOperation(socketIdentifier, protocolIdentifier, std::move(messageConsumer))
     );
 }
 
-void OperationScheduler::scheduleRegisterRequestCallbackOperation(
+void OperationScheduler::scheduleRegisterRequestCallbackUserOperation(
     const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<std::any(std::any&&)>&& requestConsumer
 )
 {
-    operationContainer_.insert(
-        createRegisterRequestCallbackOperation(socketIdentifier, protocolIdentifier, std::move(requestConsumer))
+    scheduleUserOperation(
+        createRegisterRequestCallbackUserOperation(socketIdentifier, protocolIdentifier, std::move(requestConsumer))
     );
 }
 
-void OperationScheduler::scheduleSendBytesOperation(
+void OperationScheduler::scheduleSendBytesUserOperation(
     const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes
 )
 {
-    operationContainer_.insert(createSendBytesOperation(socketIdentifier, std::move(bytes)));
+    scheduleUserOperation(createSendBytesUserOperation(socketIdentifier, std::move(bytes)));
 }
 
-void OperationScheduler::scheduleSendRequestOperation(
+void OperationScheduler::scheduleSendBytesSystemOperation(
+    const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes
+)
+{
+    scheduleSystemOperation(createSendBytesSystemOperation(socketIdentifier, std::move(bytes)));
+}
+
+void OperationScheduler::scheduleSendRequestUserOperation(
     const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
 )
 {
-    operationContainer_.insert(createSendRequestOperation(
+    scheduleUserOperation(createSendRequestUserOperation(
         socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
     ));
 }
 
-void OperationScheduler::scheduleCloseOperation(const SocketIdentifier socketIdentifier)
+void OperationScheduler::scheduleCloseUserOperation(const SocketIdentifier socketIdentifier)
 {
-    operationContainer_.insert(createCloseOperation(socketIdentifier));
+    scheduleUserOperation(createCloseUserOperation(socketIdentifier));
 }
 
 void OperationScheduler::scheduleAbortOperation()
 {
+    state_.fetch_or(abortingFlag);
+
+    // The abort packet is counted like any other packet so that every dequeued packet decrements state_.
+    ++state_;
+
     const auto numberOfBytesTransferred = 0;
     const auto overlapped = LPOVERLAPPED{nullptr};
     const auto postResult =
@@ -246,12 +251,123 @@ void OperationScheduler::scheduleAbortOperation()
 
     if (postResult == 0)
     {
-        LOG_ERROR("Couldn't post abort operation to queue: ", getLastErrorMessage());
+        --state_;
+
+        LOG_ERROR("Couldn't schedule AbortOperation to the queue: ", getLastErrorMessage());
     }
     else
     {
-        LOG_DEBUG("Posted abort operation to queue");
+        LOG_DEBUG("Scheduled AbortOperation");
     }
+}
+
+void OperationScheduler::handleOperationExecutionFailure(
+    const char* const name, const SocketIdentifier socketIdentifier, const std::wstring_view message,
+    const bool quietDiscard
+)
+{
+    if (!quietDiscard)
+    {
+        if (message.empty())
+        {
+            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed and the socket will be erased");
+        }
+        else
+        {
+            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed and the socket will be erased: ", message);
+        }
+    }
+
+    socketContainer_.eraseSocket(socketIdentifier);
+}
+
+bool OperationScheduler::handleSuccessfulOperation(
+    const std::unique_ptr<IOperation>& operation, const DWORD numberOfBytesTransferred
+)
+{
+    const auto name = operation->getName();
+
+    const auto socketIdentifier = operation->getSocketIdentifier();
+
+    LOG_DEBUG("Executing ", name, " with socket ID ", socketIdentifier);
+
+    try
+    {
+        return operation->execute(*this, socketContainer_, numberOfBytesTransferred);
+    }
+    catch (const SocketNotFoundError&)
+    {
+        const auto message = std::wstring_view{};
+        const auto quietDiscard = true;
+
+        handleOperationExecutionFailure(name, socketIdentifier, message, quietDiscard);
+    }
+    catch (const WideException& exception)
+    {
+        handleOperationExecutionFailure(name, socketIdentifier, exception.getMessage());
+    }
+    catch (const std::exception& exception)
+    {
+        handleOperationExecutionFailure(name, socketIdentifier, toWideString(exception.what()));
+    }
+    catch (...)
+    {
+        handleOperationExecutionFailure(name, socketIdentifier);
+    }
+
+    return true;
+}
+
+void OperationScheduler::handleFailedOperation(std::unique_ptr<IOperation>&& operation, const DWORD errorCode)
+{
+    const auto name = operation->getName();
+    const auto socketIdentifier = operation->getSocketIdentifier();
+    const auto level = operation->getLoggingLevelFromErrorCode(errorCode);
+    const auto message = getErrorMessageFromCode(errorCode);
+
+    LOG(level, name, " with socket ID ", socketIdentifier, " failed and the socket will be erased: ", message);
+
+    socketContainer_.eraseSocket(socketIdentifier);
+}
+
+void OperationScheduler::drainOperations()
+{
+    LOG_DEBUG("Draining all operations");
+
+    state_.fetch_or(abortingFlag);
+
+    // Cancels any pending sockets I/O, waking up GetQueuedCompletionStatus.
+    socketContainer_.eraseAllSockets();
+
+    while ((state_.load() & ~abortingFlag) > 0)
+    {
+        auto numberOfBytesTransferred = DWORD{0};
+        auto completionKey = 0ULL;
+        auto overlapped = LPOVERLAPPED{nullptr};
+
+        const auto dequeueResult = ::GetQueuedCompletionStatus(
+            completionPort_, &numberOfBytesTransferred, &completionKey, &overlapped, drainTimeoutMilliseconds
+        );
+
+        if (dequeueResult == TRUE || overlapped != nullptr)
+        {
+            // Deleting a null pointer (the abort packet) is a no-op.
+            delete static_cast<IOperation*>(overlapped);
+
+            --state_;
+        }
+        else if (const auto errorCode = getLastErrorCode(); errorCode != WAIT_TIMEOUT)
+        {
+            LOG_ERROR("Failed to drain all operations due to error: ", getErrorMessageFromCode(errorCode));
+
+            return;
+        }
+
+        // On timeout, state_ is checked again because a failed posting might have decremented it or cancelled I/O
+        // completions might still be on their way.
+    }
+
+    LOG_DEBUG("Successfully drained all operations");
 }
 
 void OperationScheduler::consumeOperationsWork()
@@ -267,15 +383,37 @@ void OperationScheduler::consumeOperationsWork()
             completionPort_, &numberOfBytesTransferred, &completionKey, &overlapped, timeout
         );
 
+        auto operation = std::unique_ptr<IOperation>{static_cast<IOperation*>(overlapped)};
+
         if (dequeueResult == TRUE)
         {
             if (completionKey == defaultCompletionKey && overlapped == nullptr)
             {
                 LOG_DEBUG("Received abort operation");
+
+                --state_;
+
                 return;
             }
 
-            operationContainer_.handleSuccessfulOperation(overlapped, numberOfBytesTransferred);
+            const auto name = operation->getName();
+
+            const auto socketIdentifier = operation->getSocketIdentifier();
+
+            const auto discard = handleSuccessfulOperation(operation, numberOfBytesTransferred);
+
+            if (discard)
+            {
+                operation.reset();
+
+                --state_;
+
+                LOG_DEBUG("Erased ", name, " with socket ID ", socketIdentifier);
+            }
+            else
+            {
+                operation.release();
+            }
         }
         else
         {
@@ -288,7 +426,9 @@ void OperationScheduler::consumeOperationsWork()
                 WTHROW(InternalSocketError, "Could not dequeue operation from completion queue: ", errorMessage);
             }
 
-            operationContainer_.handleFailedOperation(overlapped, errorCode);
+            --state_;
+
+            handleFailedOperation(std::move(operation), errorCode);
         }
     }
 }
@@ -300,8 +440,6 @@ void OperationScheduler::consumeOperations()
     try
     {
         consumeOperationsWork();
-
-        LOG_DEBUG("Gracefully exited operations consumer thread");
     }
     catch (const WideException& exception)
     {
@@ -315,6 +453,8 @@ void OperationScheduler::consumeOperations()
     {
         LOG_CRITICAL("Operations consumer thread exited with unknown exception");
     }
+
+    drainOperations();
 }
 
 }

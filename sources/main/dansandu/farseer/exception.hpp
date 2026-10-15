@@ -106,4 +106,10 @@ public:
     using WideException::WideException;
 };
 
+class SocketNotFoundError : public dansandu::journey::exception::WideException
+{
+public:
+    using WideException::WideException;
+};
+
 }

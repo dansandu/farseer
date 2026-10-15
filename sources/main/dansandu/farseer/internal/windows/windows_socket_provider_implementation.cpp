@@ -34,7 +34,7 @@ public:
         UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
     ) override
     {
-        return operationScheduler_.scheduleListenOperation(ipAddress, port, std::move(connectionCallback));
+        return operationScheduler_.scheduleListenUserOperation(ipAddress, port, std::move(connectionCallback));
     }
 
     SocketIdentifier connect(
@@ -42,12 +42,12 @@ public:
         UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
     ) override
     {
-        return operationScheduler_.scheduleConnectOperation(ipAddress, port, std::move(connectionCallback));
+        return operationScheduler_.scheduleConnectUserOperation(ipAddress, port, std::move(connectionCallback));
     }
 
     void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) override
     {
-        operationScheduler_.scheduleSendBytesOperation(socketIdentifier, std::move(bytes));
+        operationScheduler_.scheduleSendBytesUserOperation(socketIdentifier, std::move(bytes));
     }
 
     void sendRequest(
@@ -55,7 +55,7 @@ public:
         std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
     ) override
     {
-        operationScheduler_.scheduleSendRequestOperation(
+        operationScheduler_.scheduleSendRequestUserOperation(
             socketIdentifier, sequenceNumber, std::move(bytes), std::move(responseConsumer)
         );
     }
@@ -65,7 +65,7 @@ public:
         UniqueFunction<void(std::any&&)>&& messageConsumer
     ) override
     {
-        operationScheduler_.scheduleRegisterMessageConsumerOperation(
+        operationScheduler_.scheduleRegisterMessageConsumerUserOperation(
             socketIdentifier, protocolIdentifier, std::move(messageConsumer)
         );
     }
@@ -75,14 +75,14 @@ public:
         UniqueFunction<std::any(std::any&&)>&& requestCallback
     ) override
     {
-        operationScheduler_.scheduleRegisterRequestCallbackOperation(
+        operationScheduler_.scheduleRegisterRequestCallbackUserOperation(
             socketIdentifier, protocolIdentifier, std::move(requestCallback)
         );
     }
 
     void close(const SocketIdentifier socketIdentifier) override
     {
-        operationScheduler_.scheduleCloseOperation(socketIdentifier);
+        operationScheduler_.scheduleCloseUserOperation(socketIdentifier);
     }
 
     ProtocolSequenceNumber generateSequenceNumber() override
