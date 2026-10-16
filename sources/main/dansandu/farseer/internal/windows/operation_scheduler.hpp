@@ -76,8 +76,12 @@ private:
     );
 
     void handleOperationExecutionFailure(
-        const char* const name, const SocketIdentifier socketIdentifier, const std::wstring_view message = {},
+        dansandu::farseer::internal::windows::operation::IOperation& operation, const std::wstring_view message = {},
         const bool quietDiscard = false
+    );
+
+    void invokeOperationFailureHook(
+        dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD errorCode
     );
 
     void consumeOperationsWork();

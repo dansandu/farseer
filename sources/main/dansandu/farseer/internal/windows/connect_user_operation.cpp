@@ -59,6 +59,7 @@ public:
                                        .inboundBytes = {},
                                        .outboundBytes = {},
                                        .pendingAccept = false,
+                                       .consecutiveAcceptFailures = 0,
                                    }
             );
 

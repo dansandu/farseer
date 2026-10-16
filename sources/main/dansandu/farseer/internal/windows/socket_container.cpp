@@ -38,6 +38,11 @@ Socket& SocketContainer::getSocketOrThrow(const SocketIdentifier socketIdentifie
     WTHROW(SocketNotFoundError, "Couldn't find socket with ID ", socketIdentifier);
 }
 
+bool SocketContainer::containsSocket(const SocketIdentifier socketIdentifier) const
+{
+    return sockets_.contains(socketIdentifier);
+}
+
 void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
 {
     const auto position = sockets_.find(socketIdentifier);
