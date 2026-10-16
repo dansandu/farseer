@@ -20,6 +20,8 @@ struct Socket
     std::vector<uint8_t> outboundBytes;
     // Sockets waiting for AcceptEx to complete were never reported as open, so they are not reported as closed either.
     bool pendingAccept;
+    // Only used by listening sockets to stop accepting connections when AcceptEx keeps failing.
+    std::size_t consecutiveAcceptFailures;
 };
 
 class SocketContainer
@@ -28,6 +30,8 @@ public:
     Socket& insertSocket(const SocketIdentifier socketIdentifier, Socket&& socket);
 
     Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier);
+
+    bool containsSocket(const SocketIdentifier socketIdentifier) const;
 
     void eraseSocket(const SocketIdentifier socketIdentifier);
 

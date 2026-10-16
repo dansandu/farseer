@@ -258,11 +258,43 @@ void OperationScheduler::scheduleAbortOperation()
     }
 }
 
+void OperationScheduler::invokeOperationFailureHook(IOperation& operation, const DWORD errorCode)
+{
+    const auto name = operation.getName();
+
+    const auto socketIdentifier = operation.getSocketIdentifier();
+
+    try
+    {
+        operation.onFailure(*this, socketContainer_, errorCode);
+    }
+    catch (const WideException& exception)
+    {
+        LOG_ERROR(
+            "Failure hook of ", name, " with socket ID ", socketIdentifier,
+            " failed with message: ", exception.getMessage()
+        );
+    }
+    catch (const std::exception& exception)
+    {
+        LOG_ERROR(
+            "Failure hook of ", name, " with socket ID ", socketIdentifier, " failed with message: ", exception.what()
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR("Failure hook of ", name, " with socket ID ", socketIdentifier, " failed with unknown exception");
+    }
+}
+
 void OperationScheduler::handleOperationExecutionFailure(
-    const char* const name, const SocketIdentifier socketIdentifier, const std::wstring_view message,
-    const bool quietDiscard
+    IOperation& operation, const std::wstring_view message, const bool quietDiscard
 )
 {
+    const auto name = operation.getName();
+
+    const auto socketIdentifier = operation.getSocketIdentifier();
+
     if (!quietDiscard)
     {
         if (message.empty())
@@ -275,7 +307,9 @@ void OperationScheduler::handleOperationExecutionFailure(
         }
     }
 
-    socketContainer_.eraseSocket(socketIdentifier);
+    const auto errorCode = DWORD{ERROR_SUCCESS};
+
+    invokeOperationFailureHook(operation, errorCode);
 }
 
 bool OperationScheduler::handleSuccessfulOperation(
@@ -297,19 +331,19 @@ bool OperationScheduler::handleSuccessfulOperation(
         const auto message = std::wstring_view{};
         const auto quietDiscard = true;
 
-        handleOperationExecutionFailure(name, socketIdentifier, message, quietDiscard);
+        handleOperationExecutionFailure(*operation, message, quietDiscard);
     }
     catch (const WideException& exception)
     {
-        handleOperationExecutionFailure(name, socketIdentifier, exception.getMessage());
+        handleOperationExecutionFailure(*operation, exception.getMessage());
     }
     catch (const std::exception& exception)
     {
-        handleOperationExecutionFailure(name, socketIdentifier, toWideString(exception.what()));
+        handleOperationExecutionFailure(*operation, toWideString(exception.what()));
     }
     catch (...)
     {
-        handleOperationExecutionFailure(name, socketIdentifier);
+        handleOperationExecutionFailure(*operation);
     }
 
     return true;
@@ -324,7 +358,7 @@ void OperationScheduler::handleFailedOperation(std::unique_ptr<IOperation>&& ope
 
     LOG(level, name, " with socket ID ", socketIdentifier, " failed and the socket will be erased: ", message);
 
-    socketContainer_.eraseSocket(socketIdentifier);
+    invokeOperationFailureHook(*operation, errorCode);
 }
 
 void OperationScheduler::drainOperations()

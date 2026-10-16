@@ -71,6 +71,18 @@ public:
         const DWORD numberOfBytesTransferred
     ) = 0;
 
+    // Failure hook always called on the operation consumer thread when the operation failed to complete or to execute.
+    // The operation is discarded afterwards, so any follow-up work must be scheduled as a new operation. The error code
+    // is ERROR_SUCCESS if the operation completed but failed to execute. By default, the socket of the operation is
+    // erased.
+    virtual void onFailure(
+        IOperationScheduler& operationScheduler,
+        dansandu::farseer::internal::windows::socket_container::SocketContainer& socketContainer, const DWORD errorCode
+    )
+    {
+        socketContainer.eraseSocket(getSocketIdentifier());
+    }
+
     void eraseWsaOverlapped()
     {
         SecureZeroMemory(static_cast<WSAOVERLAPPED*>(this), sizeof(WSAOVERLAPPED));
