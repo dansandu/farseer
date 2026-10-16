@@ -67,12 +67,11 @@ private:
     );
 
     bool handleSuccessfulOperation(
-        const std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>& operation,
-        const DWORD numberOfBytesTransferred
+        dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD numberOfBytesTransferred
     );
 
     void handleFailedOperation(
-        std::unique_ptr<dansandu::farseer::internal::windows::operation::IOperation>&& operation, const DWORD errorCode
+        dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD errorCode
     );
 
     void handleOperationExecutionFailure(

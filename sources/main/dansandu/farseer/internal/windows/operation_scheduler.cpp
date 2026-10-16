@@ -312,53 +312,47 @@ void OperationScheduler::handleOperationExecutionFailure(
     invokeOperationFailureHook(operation, errorCode);
 }
 
-bool OperationScheduler::handleSuccessfulOperation(
-    const std::unique_ptr<IOperation>& operation, const DWORD numberOfBytesTransferred
-)
+bool OperationScheduler::handleSuccessfulOperation(IOperation& operation, const DWORD numberOfBytesTransferred)
 {
-    const auto name = operation->getName();
-
-    const auto socketIdentifier = operation->getSocketIdentifier();
-
-    LOG_DEBUG("Executing ", name, " with socket ID ", socketIdentifier);
+    LOG_DEBUG("Executing ", operation.getName(), " with socket ID ", operation.getSocketIdentifier());
 
     try
     {
-        return operation->execute(*this, socketContainer_, numberOfBytesTransferred);
+        return operation.execute(*this, socketContainer_, numberOfBytesTransferred);
     }
     catch (const SocketNotFoundError&)
     {
         const auto message = std::wstring_view{};
         const auto quietDiscard = true;
 
-        handleOperationExecutionFailure(*operation, message, quietDiscard);
+        handleOperationExecutionFailure(operation, message, quietDiscard);
     }
     catch (const WideException& exception)
     {
-        handleOperationExecutionFailure(*operation, exception.getMessage());
+        handleOperationExecutionFailure(operation, exception.getMessage());
     }
     catch (const std::exception& exception)
     {
-        handleOperationExecutionFailure(*operation, toWideString(exception.what()));
+        handleOperationExecutionFailure(operation, toWideString(exception.what()));
     }
     catch (...)
     {
-        handleOperationExecutionFailure(*operation);
+        handleOperationExecutionFailure(operation);
     }
 
     return true;
 }
 
-void OperationScheduler::handleFailedOperation(std::unique_ptr<IOperation>&& operation, const DWORD errorCode)
+void OperationScheduler::handleFailedOperation(IOperation& operation, const DWORD errorCode)
 {
-    const auto name = operation->getName();
-    const auto socketIdentifier = operation->getSocketIdentifier();
-    const auto level = operation->getLoggingLevelFromErrorCode(errorCode);
+    const auto name = operation.getName();
+    const auto socketIdentifier = operation.getSocketIdentifier();
+    const auto level = operation.getLoggingLevelFromErrorCode(errorCode);
     const auto message = getErrorMessageFromCode(errorCode);
 
     LOG(level, name, " with socket ID ", socketIdentifier, " failed and the socket will be erased: ", message);
 
-    invokeOperationFailureHook(*operation, errorCode);
+    invokeOperationFailureHook(operation, errorCode);
 }
 
 void OperationScheduler::drainOperations()
@@ -431,7 +425,7 @@ void OperationScheduler::consumeOperationsWork()
 
             const auto socketIdentifier = operation->getSocketIdentifier();
 
-            const auto discard = handleSuccessfulOperation(operation, numberOfBytesTransferred);
+            const auto discard = handleSuccessfulOperation(*operation, numberOfBytesTransferred);
 
             if (discard)
             {
@@ -459,7 +453,9 @@ void OperationScheduler::consumeOperationsWork()
 
             --state_;
 
-            handleFailedOperation(std::move(operation), errorCode);
+            handleFailedOperation(*operation, errorCode);
+
+            operation.reset();
         }
     }
 }
