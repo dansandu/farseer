@@ -58,6 +58,7 @@ public:
                                        .connectionCallback = std::move(connectionCallback_),
                                        .inboundBytes = {},
                                        .outboundBytes = {},
+                                       .pendingAccept = false,
                                    }
             );
 

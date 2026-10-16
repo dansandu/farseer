@@ -49,6 +49,7 @@ public:
                                                 .listeningSocketIdentifier = listeningSocketIdentifier_,
                                                 .inboundBytes = {},
                                                 .outboundBytes = {},
+                                                .pendingAccept = true,
                                             }
         );
 
@@ -72,6 +73,8 @@ public:
         operationScheduler.scheduleAcceptSystemOperation(listeningSocketIdentifier_);
 
         operationScheduler.scheduleReceiveSystemOperation(pendingAcceptSocketIdentifier_);
+
+        acceptedSocket.pendingAccept = false;
 
         listeningSocket.connectionCallback(SocketEvent::clientOpen, pendingAcceptSocketIdentifier_);
 
