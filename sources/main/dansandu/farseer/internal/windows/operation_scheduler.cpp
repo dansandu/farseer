@@ -135,12 +135,9 @@ void OperationScheduler::scheduleSystemOperation(std::unique_ptr<ISystemOperatio
 
     const auto socketIdentifier = systemOperation->getSocketIdentifier();
 
-    if (state_.fetch_add(1) & abortingFlag)
-    {
-        --state_;
-
-        THROW(std::logic_error, "Operation scheduler is aborting");
-    }
+    // System operations are scheduled on the consumer thread, so they are not rejected while aborting. Anything they
+    // post is cancelled and freed by drainOperations.
+    ++state_;
 
     SCOPE_FAILURE([&] { --state_; });
 

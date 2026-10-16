@@ -50,6 +50,13 @@ void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
 
         try
         {
+            if (socket.pendingAccept)
+            {
+                LOG_DEBUG("Pending accept socket with ID ", socketIdentifier, " was closed");
+
+                return;
+            }
+
             if (socket.listeningSocketIdentifier != invalidSocketIdentifier)
             {
                 const auto listeningSocketPosition = sockets_.find(socket.listeningSocketIdentifier);

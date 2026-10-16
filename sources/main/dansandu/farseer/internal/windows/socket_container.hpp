@@ -18,6 +18,8 @@ struct Socket
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
     std::vector<uint8_t> inboundBytes;
     std::vector<uint8_t> outboundBytes;
+    // Sockets waiting for AcceptEx to complete were never reported as open, so they are not reported as closed either.
+    bool pendingAccept;
 };
 
 class SocketContainer
