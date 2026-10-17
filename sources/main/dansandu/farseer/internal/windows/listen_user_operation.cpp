@@ -6,7 +6,6 @@
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::IUserOperation;
 using dansandu::farseer::internal::windows::socket_container::Socket;

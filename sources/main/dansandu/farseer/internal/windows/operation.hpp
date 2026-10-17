@@ -8,7 +8,6 @@
 namespace dansandu::farseer::internal::windows::operation
 {
 
-constexpr auto defaultCompletionKey = invalidSocketIdentifier.getUnderlying();
 constexpr auto maximumReceiveBufferSize = 4096;
 
 class IOperationScheduler

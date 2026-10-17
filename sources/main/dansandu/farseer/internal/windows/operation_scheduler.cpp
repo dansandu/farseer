@@ -15,6 +15,8 @@
 #include "dansandu/farseer/internal/windows/send_request_user_operation.hpp"
 #include "dansandu/journey/logging.hpp"
 
+#include <winternl.h>
+
 using dansandu::ballotin::string::toWideString;
 using dansandu::farseer::exception::InternalSocketError;
 using dansandu::farseer::exception::SocketNotFoundError;
@@ -25,7 +27,6 @@ using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::error::getLastErrorCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::listen_user_operation::createListenUserOperation;
-using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::operation::IOperation;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::ISystemOperation;
@@ -48,6 +49,9 @@ namespace dansandu::farseer::internal::windows::operation_scheduler
 namespace
 {
 
+constexpr auto defaultCompletionKey = invalidSocketIdentifier.getUnderlying();
+constexpr auto maximumNumberOfEntries = ULONG{1024};
+
 // state_ holds the number of outstanding operations in the low bits and the aborting flag in the top bit.
 constexpr auto abortingFlag = std::size_t{1} << (std::numeric_limits<std::size_t>::digits - 1);
 constexpr auto drainTimeoutMilliseconds = DWORD{100};
@@ -66,7 +70,7 @@ HANDLE initializeIoCompletionPort()
         return completionPort;
     }
 
-    THROW(std::runtime_error, "Couldn't create I/O completion port queue: ", getLastErrorMessage());
+    THROW(std::runtime_error, "Failed to create I/O completion port queue: ", getLastErrorMessage());
 }
 
 }
@@ -106,7 +110,7 @@ void OperationScheduler::scheduleUserOperation(std::unique_ptr<IUserOperation>&&
     {
         --state_;
 
-        THROW(std::logic_error, "Operation scheduler is aborting");
+        THROW(std::logic_error, "Failed to schedule user operation because the operation consumer thread is aborting");
     }
 
     SCOPE_FAILURE([&] { --state_; });
@@ -118,12 +122,12 @@ void OperationScheduler::scheduleUserOperation(std::unique_ptr<IUserOperation>&&
     if (!postResult)
     {
         THROW(
-            std::runtime_error, "Scheduling ", name, " with socket ID ", socketIdentifier, " failed with error ",
+            std::runtime_error, "Failed to schedule ", name, " with socket ID ", socketIdentifier, ": ",
             getLastErrorMessage()
         );
     }
 
-    // The completion port now owns the operation. Ownership is regained by calling GetQueuedCompletionStatus.
+    // The completion port now owns the operation. Ownership is regained after calling GetQueuedCompletionStatusEx.
     userOperation.release();
 
     LOG_DEBUG("Scheduled ", name, " with socket ID ", socketIdentifier);
@@ -143,7 +147,7 @@ void OperationScheduler::scheduleSystemOperation(std::unique_ptr<ISystemOperatio
 
     systemOperation->schedule(*this, socketContainer_);
 
-    // The completion port now owns the operation. Ownership is regained when calling GetQueuedCompletionStatus.
+    // The completion port now owns the operation. Ownership is regained after calling GetQueuedCompletionStatusEx.
     systemOperation.release();
 
     LOG_DEBUG("Scheduled ", name, " with socket ID ", socketIdentifier);
@@ -250,11 +254,11 @@ void OperationScheduler::scheduleAbortOperation()
     {
         --state_;
 
-        LOG_ERROR("Couldn't schedule AbortOperation to the queue: ", getLastErrorMessage());
+        LOG_ERROR("Failed to schedule the abort operation to the queue: ", getLastErrorMessage());
     }
     else
     {
-        LOG_DEBUG("Scheduled AbortOperation");
+        LOG_DEBUG("Scheduled the abort operation");
     }
 }
 
@@ -299,11 +303,11 @@ void OperationScheduler::handleOperationExecutionFailure(
     {
         if (message.empty())
         {
-            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed and the socket will be erased");
+            LOG_ERROR(name, " with socket ID ", socketIdentifier, " execution failed");
         }
         else
         {
-            LOG_ERROR(name, " with socket ID ", socketIdentifier, " failed and the socket will be erased: ", message);
+            LOG_ERROR(name, " with socket ID ", socketIdentifier, " execution failed: ", message);
         }
     }
 
@@ -350,75 +354,98 @@ void OperationScheduler::handleFailedOperation(IOperation& operation, const DWOR
     const auto level = operation.getLoggingLevelFromErrorCode(errorCode);
     const auto message = getErrorMessageFromCode(errorCode);
 
-    LOG(level, name, " with socket ID ", socketIdentifier, " failed and the socket will be erased: ", message);
+    LOG(level, name, " with socket ID ", socketIdentifier, " failed: ", message);
 
     invokeOperationFailureHook(operation, errorCode);
 }
 
-void OperationScheduler::drainOperations()
+void OperationScheduler::consumeOperationsWork()
 {
-    LOG_DEBUG("Draining all operations");
+    // Both the operation consumption and draining are implemented here because the operations are processed in batches.
+    // If the abort operation is in the middle of the batch then all operations that follow must be drained. Operations
+    // preceding the abort are consumed as usual.
+    auto draining = false;
 
-    state_.fetch_or(abortingFlag);
-
-    // Cancels any pending sockets I/O, waking up GetQueuedCompletionStatus.
-    socketContainer_.eraseAllSockets();
-
-    while ((state_.load() & ~abortingFlag) > 0)
+    while (true)
     {
-        auto numberOfBytesTransferred = DWORD{0};
-        auto completionKey = 0ULL;
-        auto overlapped = LPOVERLAPPED{nullptr};
-
-        const auto dequeueResult = ::GetQueuedCompletionStatus(
-            completionPort_, &numberOfBytesTransferred, &completionKey, &overlapped, drainTimeoutMilliseconds
-        );
-
-        if (dequeueResult == TRUE || overlapped != nullptr)
+        // All operations are drained if the abort flag is set and the operations counter is zero.
+        if (draining && state_.load() == abortingFlag)
         {
-            // Deleting a null pointer (the abort packet) is a no-op.
-            delete static_cast<IOperation*>(overlapped);
-
-            --state_;
-        }
-        else if (const auto errorCode = getLastErrorCode(); errorCode != WAIT_TIMEOUT)
-        {
-            LOG_ERROR("Failed to drain all operations due to error: ", getErrorMessageFromCode(errorCode));
+            LOG_DEBUG("Successfully drained all operations");
 
             return;
         }
 
-        // On timeout, state_ is checked again because a failed posting might have decremented it or cancelled I/O
-        // completions might still be on their way.
-    }
+        OVERLAPPED_ENTRY entries[maximumNumberOfEntries];
+        ULONG numberOfEntries = 0;
 
-    LOG_DEBUG("Successfully drained all operations");
-}
+        const DWORD timeout = draining ? drainTimeoutMilliseconds : INFINITE;
+        const BOOL alert = FALSE;
 
-void OperationScheduler::consumeOperationsWork()
-{
-    while (true)
-    {
-        auto numberOfBytesTransferred = DWORD{0};
-        auto completionKey = 0ULL;
-        auto overlapped = LPOVERLAPPED{nullptr};
-        auto timeout = INFINITE;
-
-        const auto dequeueResult = ::GetQueuedCompletionStatus(
-            completionPort_, &numberOfBytesTransferred, &completionKey, &overlapped, timeout
+        const auto dequeueResult = ::GetQueuedCompletionStatusEx(
+            completionPort_, entries, maximumNumberOfEntries, &numberOfEntries, timeout, alert
         );
 
-        auto operation = std::unique_ptr<IOperation>{static_cast<IOperation*>(overlapped)};
-
-        if (dequeueResult == TRUE)
+        if (dequeueResult == FALSE)
         {
-            if (completionKey == defaultCompletionKey && overlapped == nullptr)
+            if (const auto errorCode = getLastErrorCode(); draining && errorCode == WAIT_TIMEOUT)
             {
-                LOG_DEBUG("Received abort operation");
+                // On timeout, state_ is checked again because a failed posting might have decremented it or cancelled
+                // I/O completions might still be on their way.
+                continue;
+            }
+            else
+            {
+                LOG_ERROR("Failed to dequeue operations: ", getLastErrorMessage());
+
+                return;
+            }
+        }
+
+        for (ULONG index = 0; index < numberOfEntries; ++index)
+        {
+            const auto completionKey = entries[index].lpCompletionKey;
+            const auto overlapped = entries[index].lpOverlapped;
+            const auto internal = entries[index].Internal;
+            const auto numberOfBytesTransferred = entries[index].dwNumberOfBytesTransferred;
+
+            // Deleting a null pointer (the abort packet) is a no-op.
+            auto operation = std::unique_ptr<IOperation>{static_cast<IOperation*>(overlapped)};
+
+            if (draining)
+            {
+                operation.reset();
 
                 --state_;
 
-                return;
+                continue;
+            }
+
+            if (internal != 0)
+            {
+                const auto errorCode = RtlNtStatusToDosError(static_cast<NTSTATUS>(internal));
+
+                --state_;
+
+                handleFailedOperation(*operation, errorCode);
+
+                operation.reset();
+
+                continue;
+            }
+
+            if (completionKey == defaultCompletionKey && overlapped == nullptr)
+            {
+                LOG_DEBUG("Received the abort operation; starting to drain operations");
+
+                --state_;
+
+                draining = true;
+
+                // Cancels any pending sockets I/O, waking up GetQueuedCompletionStatusEx.
+                socketContainer_.eraseAllSockets();
+
+                continue;
             }
 
             const auto name = operation->getName();
@@ -437,25 +464,9 @@ void OperationScheduler::consumeOperationsWork()
             }
             else
             {
+                // The operation was rescheduled and awaits completion. Until then, ownership is lost.
                 operation.release();
             }
-        }
-        else
-        {
-            const auto errorCode = getLastErrorCode();
-
-            if (overlapped == nullptr)
-            {
-                const auto errorMessage = getErrorMessageFromCode(errorCode);
-
-                WTHROW(InternalSocketError, "Could not dequeue operation from completion queue: ", errorMessage);
-            }
-
-            --state_;
-
-            handleFailedOperation(*operation, errorCode);
-
-            operation.reset();
         }
     }
 }
@@ -464,24 +475,9 @@ void OperationScheduler::consumeOperations()
 {
     LOG_DEBUG("Started operations consumer thread");
 
-    try
-    {
-        consumeOperationsWork();
-    }
-    catch (const WideException& exception)
-    {
-        LOG_CRITICAL("Operations consumer thread exited with wide exception: ", exception.getMessage());
-    }
-    catch (const std::exception& exception)
-    {
-        LOG_CRITICAL("Operations consumer thread exited with exception: ", exception.what());
-    }
-    catch (...)
-    {
-        LOG_CRITICAL("Operations consumer thread exited with unknown exception");
-    }
+    consumeOperationsWork();
 
-    drainOperations();
+    LOG_DEBUG("Exiting operations consumer thread");
 }
 
 }

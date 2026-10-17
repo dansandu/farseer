@@ -3,7 +3,6 @@
 #include "dansandu/farseer/internal/windows/error.hpp"
 
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
-using dansandu::farseer::internal::windows::operation::defaultCompletionKey;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::ISystemOperation;
 using dansandu::farseer::internal::windows::socket_container::SocketContainer;
