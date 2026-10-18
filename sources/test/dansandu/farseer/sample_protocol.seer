@@ -30,10 +30,10 @@ request MyRequest
 
 request StressRequest
 {
-    u32 sent;
+    string sent;
 
     response
     {
-        u32 received;
+        string received;
     }
 }
