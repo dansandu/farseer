@@ -25,12 +25,12 @@ public:
     {
     }
 
-    const char* getName() const override
+    const char* getName() const noexcept override
     {
         return "RegisterMessageConsumerUserOperation";
     }
 
-    SocketIdentifier getSocketIdentifier() const override
+    SocketIdentifier getSocketIdentifier() const noexcept override
     {
         return socketIdentifier_;
     }

@@ -38,12 +38,12 @@ Socket& SocketContainer::getSocketOrThrow(const SocketIdentifier socketIdentifie
     WTHROW(SocketNotFoundError, "Couldn't find socket with ID ", socketIdentifier);
 }
 
-bool SocketContainer::containsSocket(const SocketIdentifier socketIdentifier) const
+bool SocketContainer::containsSocket(const SocketIdentifier socketIdentifier) const noexcept
 {
     return sockets_.contains(socketIdentifier);
 }
 
-void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
+void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier) noexcept
 {
     const auto position = sockets_.find(socketIdentifier);
 
@@ -102,7 +102,7 @@ void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
     }
 }
 
-void SocketContainer::eraseAllSockets()
+void SocketContainer::eraseAllSockets() noexcept
 {
     sockets_.clear();
 }

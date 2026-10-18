@@ -20,9 +20,9 @@ public:
     {
     }
 
-    virtual const char* getName() const = 0;
+    virtual const char* getName() const noexcept = 0;
 
-    virtual SocketIdentifier getSocketIdentifier() const = 0;
+    virtual SocketIdentifier getSocketIdentifier() const noexcept = 0;
 
     virtual void execute(dansandu::farseer::internal::linux::socket_container::SocketContainer& socketContainer) = 0;
 };

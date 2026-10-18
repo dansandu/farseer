@@ -12,12 +12,12 @@ using dansandu::ballotin::string::trim;
 namespace dansandu::farseer::internal::windows::error
 {
 
-DWORD getLastErrorCode()
+DWORD getLastErrorCode() noexcept
 {
     return ::GetLastError();
 }
 
-std::string getErrorMessageFromCode(DWORD errorCode)
+std::string getErrorMessageFromCode(DWORD errorCode) noexcept
 {
     const auto flags =
         DWORD{FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS};
@@ -42,7 +42,7 @@ std::string getErrorMessageFromCode(DWORD errorCode)
     return message;
 }
 
-std::string getLastErrorMessage()
+std::string getLastErrorMessage() noexcept
 {
     const auto errorCode = ::GetLastError();
     if (errorCode == ERROR_SUCCESS)
@@ -54,7 +54,7 @@ std::string getLastErrorMessage()
     return getErrorMessageFromCode(errorCode);
 }
 
-std::string getLastWsaErrorMessage()
+std::string getLastWsaErrorMessage() noexcept
 {
     const auto errorCode = ::WSAGetLastError();
     if (errorCode == ERROR_SUCCESS)

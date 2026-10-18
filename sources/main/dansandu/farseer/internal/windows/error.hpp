@@ -7,12 +7,12 @@
 namespace dansandu::farseer::internal::windows::error
 {
 
-DWORD getLastErrorCode();
+DWORD getLastErrorCode() noexcept;
 
-std::string getErrorMessageFromCode(DWORD errorCode);
+std::string getErrorMessageFromCode(DWORD errorCode) noexcept;
 
-std::string getLastErrorMessage();
+std::string getLastErrorMessage() noexcept;
 
-std::string getLastWsaErrorMessage();
+std::string getLastWsaErrorMessage() noexcept;
 
 }
