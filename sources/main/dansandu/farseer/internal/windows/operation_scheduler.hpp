@@ -68,30 +68,40 @@ private:
 
     bool handleSuccessfulOperation(
         dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD numberOfBytesTransferred
-    );
+    ) noexcept;
 
     void handleFailedOperation(
         dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD errorCode
-    );
+    ) noexcept;
 
     void handleOperationExecutionFailure(
         dansandu::farseer::internal::windows::operation::IOperation& operation, const std::wstring_view message = {},
         const bool quietDiscard = false
-    );
+    ) noexcept;
 
     void invokeOperationFailureHook(
         dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD errorCode
-    );
+    ) noexcept;
+
+    bool consumeOperation(
+        dansandu::farseer::internal::windows::operation::IOperation& operation, const OVERLAPPED_ENTRY& entry
+    ) noexcept;
+
+    void startDraining() noexcept;
 
     void consumeOperationsWork();
 
     void consumeOperations();
 
-    void drainOperations();
-
     const HANDLE completionPort_;
     dansandu::farseer::internal::sequencer::Sequencer<SocketIdentifier> socketIdentifierSequencer_;
     dansandu::farseer::internal::windows::socket_container::SocketContainer socketContainer_;
+    // The abort flag and the outstanding operations counter need to share the same atomic. When a user operation is
+    // scheduled, the counter must be incremented and the state is checked to see if the operation consumer thread is
+    // aborting. If the consumer thread is aborting, then the operation is not scheduled and the counter is decremented
+    // to correct, otherwise the operation is posted. It's important to first increment, and afterwards to correct if
+    // needed, to ensure that the consumer thread doesn't decrement zero. The overcounting of operations is addressed by
+    // dequeuing operations with a timeout and checking the counter again.
     std::atomic<std::size_t> state_;
     std::thread thread_;
 };
