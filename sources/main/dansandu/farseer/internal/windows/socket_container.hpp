@@ -31,11 +31,11 @@ public:
 
     Socket& getSocketOrThrow(const SocketIdentifier socketIdentifier);
 
-    bool containsSocket(const SocketIdentifier socketIdentifier) const;
+    bool containsSocket(const SocketIdentifier socketIdentifier) const noexcept;
 
-    void eraseSocket(const SocketIdentifier socketIdentifier);
+    void eraseSocket(const SocketIdentifier socketIdentifier) noexcept;
 
-    void eraseAllSockets();
+    void eraseAllSockets() noexcept;
 
 private:
     std::map<SocketIdentifier, Socket> sockets_;

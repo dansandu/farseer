@@ -48,11 +48,11 @@ public:
 
     virtual ~IOperation() noexcept = default;
 
-    virtual const char* getName() const = 0;
+    virtual const char* getName() const noexcept = 0;
 
-    virtual SocketIdentifier getSocketIdentifier() const = 0;
+    virtual SocketIdentifier getSocketIdentifier() const noexcept = 0;
 
-    virtual dansandu::journey::Level getLoggingLevelFromErrorCode(const DWORD errorCode) const
+    virtual dansandu::journey::Level getLoggingLevelFromErrorCode(const DWORD errorCode) const noexcept
     {
         if (errorCode == ERROR_NETNAME_DELETED || errorCode == ERROR_CONNECTION_ABORTED ||
             errorCode == ERROR_OPERATION_ABORTED)
@@ -83,7 +83,7 @@ public:
         socketContainer.eraseSocket(getSocketIdentifier());
     }
 
-    void eraseWsaOverlapped()
+    void eraseWsaOverlapped() noexcept
     {
         SecureZeroMemory(static_cast<WSAOVERLAPPED*>(this), sizeof(WSAOVERLAPPED));
     }

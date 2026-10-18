@@ -40,12 +40,12 @@ public:
     {
     }
 
-    const char* getName() const override
+    const char* getName() const noexcept override
     {
         return "AcceptSystemOperation";
     }
 
-    SocketIdentifier getSocketIdentifier() const override
+    SocketIdentifier getSocketIdentifier() const noexcept override
     {
         return pendingAcceptSocketIdentifier_;
     }
