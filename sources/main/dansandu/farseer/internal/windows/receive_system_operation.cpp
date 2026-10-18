@@ -1,10 +1,11 @@
 #if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/receive_system_operation.hpp"
+#include "dansandu/farseer/internal/receive_buffer.hpp"
 #include "dansandu/journey/common.hpp"
 
+using dansandu::farseer::internal::receive_buffer::maximumReceiveBufferSize;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::ISystemOperation;
-using dansandu::farseer::internal::windows::operation::maximumReceiveBufferSize;
 using dansandu::farseer::internal::windows::socket_container::SocketContainer;
 using dansandu::journey::Level;
 

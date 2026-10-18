@@ -8,8 +8,6 @@
 namespace dansandu::farseer::internal::windows::operation
 {
 
-constexpr auto maximumReceiveBufferSize = 4096;
-
 class IOperationScheduler
 {
 public:

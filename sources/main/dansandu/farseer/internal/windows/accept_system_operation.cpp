@@ -1,12 +1,13 @@
 #if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/accept_system_operation.hpp"
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/farseer/internal/receive_buffer.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
+using dansandu::farseer::internal::receive_buffer::maximumReceiveBufferSize;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::ISystemOperation;
-using dansandu::farseer::internal::windows::operation::maximumReceiveBufferSize;
 using dansandu::farseer::internal::windows::socket_container::Socket;
 using dansandu::farseer::internal::windows::socket_container::SocketContainer;
 using dansandu::farseer::internal::windows::windows_socket::WindowsSocket;

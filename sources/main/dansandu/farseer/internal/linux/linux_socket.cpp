@@ -3,6 +3,7 @@
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/linux/error.hpp"
+#include "dansandu/farseer/internal/receive_buffer.hpp"
 #include "dansandu/journey/logging.hpp"
 
 #include <arpa/inet.h>
@@ -16,6 +17,7 @@
 using dansandu::farseer::exception::InternalSocketError;
 using dansandu::farseer::internal::linux::error::getErrorMessage;
 using dansandu::farseer::internal::linux::error::getLastErrorMessage;
+using dansandu::farseer::internal::receive_buffer::maximumReceiveBufferSize;
 
 namespace dansandu::farseer::internal::linux::linux_socket
 {
@@ -284,15 +286,13 @@ std::pair<std::vector<uint8_t>, bool> LinuxSocket::receiveBytes()
 
     result.second = false;
 
-    constexpr auto maximumBufferSize = 4096uz;
-
-    uint8_t buffer[maximumBufferSize];
+    uint8_t buffer[maximumReceiveBufferSize];
 
     const auto flags = 0;
 
     while (true)
     {
-        const auto numberOfBytesReceived = ::recv(socket_, buffer, maximumBufferSize, flags);
+        const auto numberOfBytesReceived = ::recv(socket_, buffer, maximumReceiveBufferSize, flags);
 
         if (numberOfBytesReceived == 0)
         {
