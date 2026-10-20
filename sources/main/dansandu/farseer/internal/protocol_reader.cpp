@@ -6,6 +6,7 @@
 #include "dansandu/farseer/protocol_registry.hpp"
 #include "dansandu/journey/logging.hpp"
 
+using dansandu::ballotin::binary::bitsPerByte;
 using dansandu::ballotin::binary::numberOfBitsToNumberOfBytes;
 using dansandu::farseer::binary_serialization::BinarySerializer;
 using dansandu::farseer::exception::ProtocolConsumerAlreadyRegisteredError;
@@ -82,13 +83,6 @@ void ProtocolReader::registerInboundOneShotResponseConsumer(
 namespace
 {
 
-void eraseBits(std::vector<uint8_t>& bytes, const size_t bitsOffset)
-{
-    const auto numberOfBytesToErase = numberOfBitsToNumberOfBytes(bitsOffset);
-
-    bytes.erase(bytes.cbegin(), bytes.cbegin() + numberOfBytesToErase);
-}
-
 void wrapInTryCatchAndInvoke(
     const ProtocolIdentifier protocolIdentifier, const UniqueFunction<void(std::any&&)>& consumer, std::any&& protocol
 )
@@ -124,7 +118,7 @@ void wrapInTryCatchAndInvoke(
 
 bool ProtocolReader::readInboundMessage(
     const ProtocolIdentifier messageIdentifier, const ProtocolDescriptor& messageDescriptor,
-    std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
+    const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
 )
 {
     auto message = std::any{};
@@ -132,8 +126,6 @@ bool ProtocolReader::readInboundMessage(
     if (messageDescriptor.messageWithHeaderDeserializer(inboundBytes, inboundBitsOffset, message))
     {
         LOG_DEBUG("Successfully read the message protocol ", messageIdentifier);
-
-        eraseBits(inboundBytes, inboundBitsOffset);
 
         const auto consumerPosition = inboundMessageConsumers_.find(messageIdentifier);
         if (consumerPosition != inboundMessageConsumers_.cend())
@@ -160,7 +152,7 @@ bool ProtocolReader::readInboundMessage(
 
 bool ProtocolReader::readInboundRequest(
     const ProtocolIdentifier requestIdentifier, const ProtocolDescriptor& requestDescriptor,
-    std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset, std::vector<uint8_t>& outboundBytes
+    const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset, std::vector<uint8_t>& outboundBytes
 )
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
@@ -172,8 +164,6 @@ bool ProtocolReader::readInboundRequest(
         ))
     {
         LOG_DEBUG("Successfully read the request protocol ", requestIdentifier);
-
-        eraseBits(inboundBytes, inboundBitsOffset);
 
         const auto consumerPosition = inboundRequestConsumers_.find(requestIdentifier);
         if (consumerPosition != inboundRequestConsumers_.cend())
@@ -217,7 +207,7 @@ bool ProtocolReader::readInboundRequest(
 
 bool ProtocolReader::readInboundResponse(
     const ProtocolIdentifier responseIdentifier, const ProtocolDescriptor& responseDescriptor,
-    std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
+    const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
 )
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
@@ -229,8 +219,6 @@ bool ProtocolReader::readInboundResponse(
         ))
     {
         LOG_DEBUG("Successfully read the response protocol ", responseIdentifier);
-
-        eraseBits(inboundBytes, inboundBitsOffset);
 
         const auto consumerPosition = inboundOneShotResponseConsumers_.find(sequenceNumber);
         if (consumerPosition != inboundOneShotResponseConsumers_.cend())
@@ -259,11 +247,23 @@ bool ProtocolReader::readInboundResponse(
 
 void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes)
 {
-    while (inboundBytes.size() >= sizeof(ProtocolIdentifier))
-    {
-        auto inboundBitsOffset = size_t{0};
+    auto inboundBitsOffset = 0uz;
 
-        const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(inboundBytes, inboundBitsOffset);
+    SCOPE_EXIT(
+        [&]()
+        {
+            const auto numberOfBytesToErase = inboundBitsOffset / bitsPerByte;
+            // If no protocol was consumed, then the erase is a no-op.
+            inboundBytes.erase(inboundBytes.cbegin(), inboundBytes.cbegin() + numberOfBytesToErase);
+        }
+    );
+
+    while (inboundBytes.size() >= inboundBitsOffset / bitsPerByte + sizeof(ProtocolIdentifier))
+    {
+        // Use a copy of inboundBitsOffset to keep inboundBitsOffset unchanged if deserialization fails.
+        auto localInboundBitsOffset = inboundBitsOffset;
+
+        const auto identifier = BinarySerializer<ProtocolIdentifier>::deserialize(inboundBytes, localInboundBitsOffset);
 
         // Unknown identifiers will cause getProtocolDescriptor to throw. The exception is propagated up to the
         // SocketContainer/OperationScheduler which should erase the receiving socket.
@@ -273,22 +273,27 @@ void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::v
 
         if (descriptor.protocolType == ProtocolType::message)
         {
-            consumed = readInboundMessage(identifier, descriptor, inboundBytes, inboundBitsOffset);
+            consumed = readInboundMessage(identifier, descriptor, inboundBytes, localInboundBitsOffset);
         }
         else if (descriptor.protocolType == ProtocolType::request)
         {
-            consumed = readInboundRequest(identifier, descriptor, inboundBytes, inboundBitsOffset, outboundBytes);
+            consumed = readInboundRequest(identifier, descriptor, inboundBytes, localInboundBitsOffset, outboundBytes);
         }
         else if (descriptor.protocolType == ProtocolType::response)
         {
-            consumed = readInboundResponse(identifier, descriptor, inboundBytes, inboundBitsOffset);
+            consumed = readInboundResponse(identifier, descriptor, inboundBytes, localInboundBitsOffset);
         }
         else
         {
             THROW(std::logic_error, "Unknown protocol type");
         }
 
-        if (!consumed)
+        if (consumed)
+        {
+            // inboundBitsOffset must always lie on a byte boundary.
+            inboundBitsOffset = bitsPerByte * numberOfBitsToNumberOfBytes(localInboundBitsOffset);
+        }
+        else
         {
             return;
         }

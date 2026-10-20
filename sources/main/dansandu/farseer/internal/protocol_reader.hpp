@@ -39,19 +39,19 @@ private:
     bool readInboundMessage(
         const ProtocolIdentifier messageIdentifier,
         const dansandu::farseer::protocol_registry::ProtocolDescriptor& messageDescriptor,
-        std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
+        const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
     );
 
     bool readInboundRequest(
         const ProtocolIdentifier requestIdentifier,
         const dansandu::farseer::protocol_registry::ProtocolDescriptor& requestDescriptor,
-        std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset, std::vector<uint8_t>& outboundBytes
+        const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset, std::vector<uint8_t>& outboundBytes
     );
 
     bool readInboundResponse(
         const ProtocolIdentifier responseIdentifier,
         const dansandu::farseer::protocol_registry::ProtocolDescriptor& responseDescriptor,
-        std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
+        const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
     );
 
     std::map<ProtocolIdentifier, UniqueFunction<void(std::any&&)>> inboundMessageConsumers_;
