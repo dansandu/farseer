@@ -647,4 +647,87 @@ TEST_CASE("protocol_reader")
 
         REQUIRE(outboundBytes.empty());
     }
+
+    SECTION("multiple requests")
+    {
+        const auto requests = std::vector<MyRequest>{
+            MyRequest{
+                .user = "Mike",
+                .password = "teamminutebook",
+            },
+            MyRequest{
+                .user = "Luke",
+                .password = "televisionduplicatesafe",
+            },
+            MyRequest{
+                .user = "Nova",
+                .password = "mangorustfinish",
+            },
+        };
+
+        const auto sequenceNumbers = std::vector<ProtocolSequenceNumber>{
+            ProtocolSequenceNumber{102},
+            ProtocolSequenceNumber{10852},
+            ProtocolSequenceNumber{59939058},
+        };
+
+        const auto responses = std::vector<Expected<MyRequest::Response>>{
+            Expected<MyRequest::Response>::fromSuccess(
+                MyRequest::Response{
+                    .contacts = {"Billy", "Diana"},
+                    .authenticationToken = 0xC08F11BF0,
+                }
+            ),
+            Expected<MyRequest::Response>::fromFailure(12345, "invalid username"),
+            Expected<MyRequest::Response>::fromSuccess(
+                MyRequest::Response{
+                    .contacts = {"Fiona"},
+                    .authenticationToken = 0x91F838A4F,
+                }
+            ),
+        };
+
+        auto expectedOutboundBytes = std::vector<uint8_t>{};
+
+        for (auto index = 0uz; index < requests.size(); ++index)
+        {
+            MyRequest::Metadata::serializeWithHeader(requests.at(index), sequenceNumbers.at(index), inboundBytes);
+
+            MyRequest::Response::Metadata::serializeWithHeader(
+                responses.at(index), sequenceNumbers.at(index), expectedOutboundBytes
+            );
+        }
+
+        auto actualRequests = std::vector<MyRequest>{};
+
+        protocolReader.registerInboundRequestConsumer(
+            MyRequest::Metadata::getProtocolIdentifier(),
+            [&actualRequests, &responses, index = 0](std::any&& inboundRequest) mutable
+            {
+                actualRequests.push_back(std::any_cast<const MyRequest&>(inboundRequest));
+
+                return std::make_any<Expected<MyRequest::Response>>(responses.at(index++));
+            }
+        );
+
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+
+        REQUIRE(actualRequests.size() == 3uz);
+
+        REQUIRE(actualRequests.at(0).user == requests.at(0).user);
+
+        REQUIRE(actualRequests.at(0).password == requests.at(0).password);
+
+        REQUIRE(actualRequests.at(1).user == requests.at(1).user);
+
+        REQUIRE(actualRequests.at(1).password == requests.at(1).password);
+
+        REQUIRE(actualRequests.at(2).user == requests.at(2).user);
+
+        REQUIRE(actualRequests.at(2).password == requests.at(2).password);
+
+        REQUIRE(inboundBytes.empty());
+
+        REQUIRE(outboundBytes == expectedOutboundBytes);
+    }
 }
