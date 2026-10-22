@@ -1,9 +1,10 @@
 #pragma once
 
 #include "dansandu/farseer/common.hpp"
-#include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/windows/socket_container.hpp"
-#include "dansandu/farseer/internal/windows/windows_socket.hpp"
+
+#include <optional>
+#include <string>
 
 namespace dansandu::farseer::internal::windows::operation
 {
@@ -49,16 +50,6 @@ public:
 
     virtual SocketIdentifier getSocketIdentifier() const noexcept = 0;
 
-    virtual dansandu::journey::Level getLoggingLevelFromErrorCode(const DWORD errorCode) const noexcept
-    {
-        if (errorCode == ERROR_NETNAME_DELETED || errorCode == ERROR_CONNECTION_ABORTED ||
-            errorCode == ERROR_OPERATION_ABORTED)
-        {
-            return dansandu::journey::Level::info;
-        }
-        return dansandu::journey::Level::error;
-    }
-
     // Always called on the operation consumer thread. Should be safe to access consumer thread resources without locks
     // inside this method. If the method returns true, then the operation can be discarded. Otherwise, the operation
     // was rescheduled and will be kept alive for another execution.
@@ -69,21 +60,16 @@ public:
     ) = 0;
 
     // Failure hook always called on the operation consumer thread when the operation failed to complete or to execute.
-    // The operation is discarded afterwards, so any follow-up work must be scheduled as a new operation. The error code
-    // is ERROR_SUCCESS if the operation completed but failed to execute. By default, the socket of the operation is
-    // erased.
+    // The operation is discarded afterwards, so any follow-up work must be scheduled as a new operation. By default,
+    // the socket of the operation is erased and the error is logged. If both errorCode and errorMessage are empty then
+    // nothing is logged.
     virtual void onFailure(
         IOperationScheduler& operationScheduler,
-        dansandu::farseer::internal::windows::socket_container::SocketContainer& socketContainer, const DWORD errorCode
-    )
-    {
-        socketContainer.eraseSocket(getSocketIdentifier());
-    }
+        dansandu::farseer::internal::windows::socket_container::SocketContainer& socketContainer,
+        const std::optional<DWORD> errorCode, const std::optional<std::wstring_view> errorMessage
+    );
 
-    void eraseWsaOverlapped() noexcept
-    {
-        SecureZeroMemory(static_cast<WSAOVERLAPPED*>(this), sizeof(WSAOVERLAPPED));
-    }
+    void eraseWsaOverlapped() noexcept;
 };
 
 class IUserOperation : public IOperation

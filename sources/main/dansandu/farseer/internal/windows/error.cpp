@@ -3,6 +3,8 @@
 #include "dansandu/ballotin/string.hpp"
 #include "dansandu/journey/logging.hpp"
 
+#include <algorithm>
+
 #include <strsafe.h>
 #include <windows.h>
 
@@ -12,12 +14,16 @@ using dansandu::ballotin::string::trim;
 namespace dansandu::farseer::internal::windows::error
 {
 
-DWORD getLastErrorCode() noexcept
+bool isClientError(const DWORD errorCode) noexcept
 {
-    return ::GetLastError();
+    static constexpr DWORD clientErrorCodes[] = {
+        ERROR_NETNAME_DELETED, ERROR_CONNECTION_ABORTED, WSAECONNRESET, WSAECONNABORTED, WSAENOTCONN, WSAESHUTDOWN,
+    };
+
+    return std::ranges::contains(clientErrorCodes, errorCode);
 }
 
-std::string getErrorMessageFromCode(DWORD errorCode) noexcept
+std::string getErrorMessageFromCode(const DWORD errorCode) noexcept
 {
     const auto flags =
         DWORD{FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS};
@@ -32,10 +38,10 @@ std::string getErrorMessageFromCode(DWORD errorCode) noexcept
     if (formatResult == 0)
     {
         LOG_ERROR("FormatMessageA failed with error code ", ::GetLastError());
-        return {};
+        return format("Error ", errorCode);
     }
 
-    const auto message = trim(format(errorCode, ' ', messageBuffer));
+    const auto message = trim(format("Error ", errorCode, " - ", messageBuffer));
 
     ::LocalFree(messageBuffer);
 

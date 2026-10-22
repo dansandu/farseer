@@ -5,6 +5,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -71,16 +72,8 @@ private:
     ) noexcept;
 
     void handleFailedOperation(
-        dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD errorCode
-    ) noexcept;
-
-    void handleOperationExecutionFailure(
-        dansandu::farseer::internal::windows::operation::IOperation& operation, const std::wstring_view message = {},
-        const bool quietDiscard = false
-    ) noexcept;
-
-    void invokeOperationFailureHook(
-        dansandu::farseer::internal::windows::operation::IOperation& operation, const DWORD errorCode
+        dansandu::farseer::internal::windows::operation::IOperation& operation, const std::optional<DWORD> errorCode,
+        const std::optional<std::wstring_view> errorMessage
     ) noexcept;
 
     bool consumeOperation(
