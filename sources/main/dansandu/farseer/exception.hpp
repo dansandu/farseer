@@ -106,6 +106,23 @@ public:
     using WideException::WideException;
 };
 
+class InternalSocketErrorWithCode : public InternalSocketError
+{
+public:
+    InternalSocketErrorWithCode(const int errorCode, const std::wstring& message)
+        : InternalSocketError{message}, errorCode_{errorCode}
+    {
+    }
+
+    int getErrorCode() const noexcept
+    {
+        return errorCode_;
+    }
+
+private:
+    int errorCode_;
+};
+
 class SocketNotFoundError : public dansandu::journey::exception::WideException
 {
 public:

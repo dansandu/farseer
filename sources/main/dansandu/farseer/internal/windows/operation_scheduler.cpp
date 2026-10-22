@@ -18,12 +18,12 @@
 #include <winternl.h>
 
 using dansandu::ballotin::string::toWideString;
+using dansandu::farseer::exception::InternalSocketErrorWithCode;
 using dansandu::farseer::exception::SocketNotFoundError;
 using dansandu::farseer::internal::windows::accept_system_operation::createAcceptSystemOperation;
 using dansandu::farseer::internal::windows::close_user_operation::createCloseUserOperation;
 using dansandu::farseer::internal::windows::connect_user_operation::createConnectUserOperation;
 using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
-using dansandu::farseer::internal::windows::error::getLastErrorCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::listen_user_operation::createListenUserOperation;
 using dansandu::farseer::internal::windows::operation::IOperation;
@@ -261,15 +261,16 @@ void OperationScheduler::scheduleAbortOperation()
     }
 }
 
-void OperationScheduler::invokeOperationFailureHook(IOperation& operation, const DWORD errorCode) noexcept
+void OperationScheduler::handleFailedOperation(
+    IOperation& operation, const std::optional<DWORD> errorCode, const std::optional<std::wstring_view> errorMessage
+) noexcept
 {
     const auto name = operation.getName();
-
     const auto socketIdentifier = operation.getSocketIdentifier();
 
     try
     {
-        operation.onFailure(*this, socketContainer_, errorCode);
+        operation.onFailure(*this, socketContainer_, errorCode, errorMessage);
     }
     catch (const WideException& exception)
     {
@@ -290,31 +291,6 @@ void OperationScheduler::invokeOperationFailureHook(IOperation& operation, const
     }
 }
 
-void OperationScheduler::handleOperationExecutionFailure(
-    IOperation& operation, const std::wstring_view message, const bool quietDiscard
-) noexcept
-{
-    const auto name = operation.getName();
-
-    const auto socketIdentifier = operation.getSocketIdentifier();
-
-    if (!quietDiscard)
-    {
-        if (message.empty())
-        {
-            LOG_ERROR(name, " with socket ID ", socketIdentifier, " execution failed");
-        }
-        else
-        {
-            LOG_ERROR(name, " with socket ID ", socketIdentifier, " execution failed: ", message);
-        }
-    }
-
-    const auto errorCode = DWORD{ERROR_SUCCESS};
-
-    invokeOperationFailureHook(operation, errorCode);
-}
-
 bool OperationScheduler::handleSuccessfulOperation(IOperation& operation, const DWORD numberOfBytesTransferred) noexcept
 {
     LOG_DEBUG("Executing ", operation.getName(), " with socket ID ", operation.getSocketIdentifier());
@@ -325,37 +301,39 @@ bool OperationScheduler::handleSuccessfulOperation(IOperation& operation, const 
     }
     catch (const SocketNotFoundError&)
     {
-        const auto message = std::wstring_view{};
-        const auto quietDiscard = true;
+        // Discard the operation quietly.
+        const auto errorCode = std::optional<DWORD>{};
+        const auto errorMessage = std::optional<std::wstring_view>{};
 
-        handleOperationExecutionFailure(operation, message, quietDiscard);
+        handleFailedOperation(operation, errorCode, errorMessage);
+    }
+    catch (const InternalSocketErrorWithCode& exception)
+    {
+        const auto errorCode = static_cast<DWORD>(exception.getErrorCode());
+
+        handleFailedOperation(operation, errorCode, exception.getMessage());
     }
     catch (const WideException& exception)
     {
-        handleOperationExecutionFailure(operation, exception.getMessage());
+        const auto errorCode = std::optional<DWORD>{};
+
+        handleFailedOperation(operation, errorCode, exception.getMessage());
     }
     catch (const std::exception& exception)
     {
-        handleOperationExecutionFailure(operation, toWideString(exception.what()));
+        const auto errorCode = std::optional<DWORD>{};
+
+        handleFailedOperation(operation, errorCode, toWideString(exception.what()));
     }
     catch (...)
     {
-        handleOperationExecutionFailure(operation);
+        const auto errorCode = std::optional<DWORD>{};
+        const auto errorMessage = L"An unknown exception was thrown";
+
+        handleFailedOperation(operation, errorCode, errorMessage);
     }
 
     return true;
-}
-
-void OperationScheduler::handleFailedOperation(IOperation& operation, const DWORD errorCode) noexcept
-{
-    const auto name = operation.getName();
-    const auto socketIdentifier = operation.getSocketIdentifier();
-    const auto level = operation.getLoggingLevelFromErrorCode(errorCode);
-    const auto message = getErrorMessageFromCode(errorCode);
-
-    LOG(level, name, " with socket ID ", socketIdentifier, " failed: ", message);
-
-    invokeOperationFailureHook(operation, errorCode);
 }
 
 void OperationScheduler::consumeOperationsWork()
@@ -388,7 +366,7 @@ void OperationScheduler::consumeOperationsWork()
 
         if (dequeueResult == FALSE)
         {
-            const auto errorCode = getLastErrorCode();
+            const auto errorCode = ::GetLastError();
 
             if (draining && errorCode == WAIT_TIMEOUT)
             {
@@ -475,7 +453,10 @@ bool OperationScheduler::consumeOperation(IOperation& operation, const OVERLAPPE
     // GetQueuedCompletionStatus, only negative statuses (errors and warnings) are treated as failures.
     if (const auto status = static_cast<NTSTATUS>(entry.Internal); status < 0)
     {
-        handleFailedOperation(operation, RtlNtStatusToDosError(status));
+        const auto errorCode = ::RtlNtStatusToDosError(status);
+        const auto errorMessage = std::optional<std::wstring_view>{};
+
+        handleFailedOperation(operation, errorCode, errorMessage);
 
         return false;
     }

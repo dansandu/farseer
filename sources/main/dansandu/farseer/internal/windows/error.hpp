@@ -7,9 +7,9 @@
 namespace dansandu::farseer::internal::windows::error
 {
 
-DWORD getLastErrorCode() noexcept;
+bool isClientError(const DWORD errorCode) noexcept;
 
-std::string getErrorMessageFromCode(DWORD errorCode) noexcept;
+std::string getErrorMessageFromCode(const DWORD errorCode) noexcept;
 
 std::string getLastErrorMessage() noexcept;
 

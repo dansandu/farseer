@@ -6,12 +6,12 @@
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::receive_buffer::maximumReceiveBufferSize;
+using dansandu::farseer::internal::windows::error::isClientError;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::ISystemOperation;
 using dansandu::farseer::internal::windows::socket_container::Socket;
 using dansandu::farseer::internal::windows::socket_container::SocketContainer;
 using dansandu::farseer::internal::windows::windows_socket::WindowsSocket;
-using dansandu::journey::Level;
 
 namespace dansandu::farseer::internal::windows::accept_system_operation
 {
@@ -21,11 +21,6 @@ namespace
 
 // Stops the listening socket from spinning when AcceptEx keeps failing for reasons unrelated to the clients.
 constexpr auto maximumConsecutiveAcceptFailures = std::size_t{16};
-
-bool isClientFailure(const DWORD errorCode)
-{
-    return errorCode == ERROR_NETNAME_DELETED || errorCode == ERROR_CONNECTION_ABORTED || errorCode == WSAECONNRESET;
-}
 
 }
 
@@ -106,12 +101,15 @@ public:
         return true;
     }
 
-    void
-    onFailure(IOperationScheduler& operationScheduler, SocketContainer& socketContainer, const DWORD errorCode) override
+    void onFailure(
+        IOperationScheduler& operationScheduler, SocketContainer& socketContainer, const std::optional<DWORD> errorCode,
+        const std::optional<std::wstring_view> errorMessage
+    ) override
     {
         // A failed accept, such as a client resetting the connection before it was accepted, only affects the pending
         // client socket. The listening socket keeps accepting connections unless it was erased in the meantime.
-        socketContainer.eraseSocket(pendingAcceptSocketIdentifier_);
+        // Base method erases the pendingAcceptSocketIdentifier_ socket and logs the operation failure.
+        IOperation::onFailure(operationScheduler, socketContainer, errorCode, errorMessage);
 
         if (acceptRescheduled_ || !socketContainer.containsSocket(listeningSocketIdentifier_))
         {
@@ -120,7 +118,7 @@ public:
 
         // Client failures are not counted because they can only repeat as fast as clients connect. Counting them would
         // allow clients that keep resetting their connections to close the listening socket.
-        if (!isClientFailure(errorCode))
+        if (!errorCode.has_value() || !isClientError(*errorCode))
         {
             auto& listeningSocket = socketContainer.getSocketOrThrow(listeningSocketIdentifier_);
 

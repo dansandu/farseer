@@ -1,10 +1,21 @@
 #if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
+#include "dansandu/journey/exception.hpp"
 
 using dansandu::farseer::exception::InternalSocketError;
-using dansandu::farseer::internal::windows::error::getErrorMessageFromCode;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::error::getLastWsaErrorMessage;
+
+#define SOCKET_THROW_WITH_CODE(message, errorCode)                                                                     \
+    throw ::dansandu::farseer::exception::InternalSocketErrorWithCode                                                  \
+    {                                                                                                                  \
+        errorCode, ::dansandu::journey::exception::wformatException(                                                   \
+                       "InternalSocketErrorWithCode",                                                                  \
+                       ::dansandu::journey::utility::wformat(                                                          \
+                           message, ::dansandu::farseer::internal::windows::error::getErrorMessageFromCode(errorCode)  \
+                       )                                                                                               \
+                   )                                                                                                   \
+    }
 
 namespace dansandu::farseer::internal::windows::windows_socket
 {
@@ -204,7 +215,7 @@ WindowsSocket WindowsSocket::postAccept(
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != ERROR_IO_PENDING)
         {
-            WTHROW(InternalSocketError, "Accepting socket failed with error ", getErrorMessageFromCode(errorCode));
+            SOCKET_THROW_WITH_CODE("Accepting socket failed with error: ", errorCode);
         }
     }
 
@@ -354,7 +365,7 @@ void WindowsSocket::postConnect(const std::string& ipAddress, const int port, co
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != ERROR_IO_PENDING)
         {
-            WTHROW(InternalSocketError, "Connecting socket failed with error ", getErrorMessageFromCode(errorCode));
+            SOCKET_THROW_WITH_CODE("Connecting socket failed with error: ", errorCode);
         }
     }
 }
@@ -383,7 +394,7 @@ void WindowsSocket::connect()
         ::setsockopt(socket_, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, optionalValue, optionalValueLength);
     if (setsockoptResult == SOCKET_ERROR)
     {
-        WTHROW(InternalSocketError, "setsockopt failed with error ", getLastWsaErrorMessage());
+        WTHROW(InternalSocketError, "setsockopt failed with error: ", getLastWsaErrorMessage());
     }
 }
 
@@ -417,7 +428,7 @@ void WindowsSocket::postReceive(
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != WSA_IO_PENDING)
         {
-            WTHROW(InternalSocketError, "WSARecv failed with error ", getErrorMessageFromCode(errorCode));
+            SOCKET_THROW_WITH_CODE("WSARecv failed with error: ", errorCode);
         }
     }
 }
@@ -450,7 +461,7 @@ void WindowsSocket::postSend(
         const auto errorCode = ::WSAGetLastError();
         if (errorCode != WSA_IO_PENDING)
         {
-            WTHROW(InternalSocketError, "WSASend failed with error ", getErrorMessageFromCode(errorCode));
+            SOCKET_THROW_WITH_CODE("WSASend failed with error: ", errorCode);
         }
     }
 }
