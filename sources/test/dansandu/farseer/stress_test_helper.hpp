@@ -2,13 +2,10 @@
 
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/farseer/socket_provider.hpp"
-#include "dansandu/journey/exception.hpp"
 
 #include <chrono>
 #include <cstdint>
-#include <future>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -19,34 +16,9 @@ using StressResponse = dansandu::farseer::sample_protocol::StressRequest::Respon
 
 using StressResult = std::pair<dansandu::farseer::sample_protocol::StressRequest, Expected<StressResponse>>;
 
-constexpr auto serverTimeout = std::chrono::seconds(40);
+constexpr auto serverTimeout = std::chrono::seconds(30);
 
 constexpr auto numberOfClients = 64uz;
-
-template<typename T>
-T waitForFutureOrThrow(std::future<T>& future, const char* const instance, const std::chrono::milliseconds timeout)
-{
-    const auto connectionStatus = future.wait_for(timeout);
-
-    if (connectionStatus == std::future_status::timeout)
-    {
-        THROW(std::runtime_error, instance, " timed out");
-    }
-
-    if (connectionStatus == std::future_status::deferred)
-    {
-        THROW(std::runtime_error, instance, " was deferred");
-    }
-
-    if constexpr (std::is_same_v<T, void>)
-    {
-        future.get();
-    }
-    else
-    {
-        return future.get();
-    }
-}
 
 // Opens the listening socket and registers the stress request callback. The caller is responsible for closing the
 // returned listening socket.

@@ -1,12 +1,13 @@
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/ballotin/threading.hpp"
 #include "dansandu/farseer/socket_provider.hpp"
 #include "dansandu/farseer/stress_test_helper.hpp"
 #include "dansandu/journey/logging.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
 #include <future>
-#include <thread>
 
+using dansandu::ballotin::threading::waitAllFor;
 using dansandu::farseer::socket_provider::SocketProvider;
 using dansandu::farseer::stress_test_helper::getExpectedErrorCode;
 using dansandu::farseer::stress_test_helper::getExpectedErrorMessage;
@@ -17,7 +18,6 @@ using dansandu::farseer::stress_test_helper::runClient;
 using dansandu::farseer::stress_test_helper::serverTimeout;
 using dansandu::farseer::stress_test_helper::startServer;
 using dansandu::farseer::stress_test_helper::StressResult;
-using dansandu::farseer::stress_test_helper::waitForFutureOrThrow;
 
 TEST_CASE("localhost_multiple_instances")
 {
@@ -34,7 +34,7 @@ TEST_CASE("localhost_multiple_instances")
 
     LOG_INFO("Spawning ", numberOfClients, " clients...");
 
-    for (auto clientIndex = size_t{}; clientIndex < numberOfClients; ++clientIndex)
+    for (auto clientIndex = 0uz; clientIndex < numberOfClients; ++clientIndex)
     {
         futures.push_back(
             std::async(
@@ -52,9 +52,13 @@ TEST_CASE("localhost_multiple_instances")
 
     LOG_INFO("Waiting for clients to finish...");
 
-    for (auto index = size_t{}; index < futures.size(); ++index)
+    const auto clientsFinished = (waitAllFor(futures, serverTimeout) == std::future_status::ready);
+
+    REQUIRE(clientsFinished);
+
+    for (auto index = 0uz; index < futures.size(); ++index)
     {
-        const auto results = waitForFutureOrThrow(futures[index], "Client request", serverTimeout);
+        const auto results = futures[index].get();
 
         for (const auto& [request, response] : results)
         {
@@ -74,7 +78,7 @@ TEST_CASE("localhost_multiple_instances")
             }
         }
 
-        LOG_INFO(index + 1U, "/", futures.size(), " clients finished");
+        LOG_INFO(index + 1uz, "/", futures.size(), " clients finished");
     }
 
     LOG_INFO("All requests are done!");

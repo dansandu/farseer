@@ -1,8 +1,14 @@
 #include "dansandu/farseer/stress_test_helper.hpp"
 #include "dansandu/ballotin/hashing.hpp"
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/ballotin/threading.hpp"
+#include "dansandu/journey/exception.hpp"
+
+#include <future>
+#include <type_traits>
 
 using dansandu::ballotin::hashing::getHashCode32;
+using dansandu::ballotin::threading::waitAllFor;
 using dansandu::farseer::sample_protocol::StressRequest;
 using dansandu::farseer::socket_provider::SocketProvider;
 
@@ -16,7 +22,7 @@ constexpr auto localhost = "127.0.0.1";
 
 constexpr auto serverPort = 34777;
 
-constexpr auto clientTimeout = std::chrono::seconds(30);
+constexpr auto clientTimeout = std::chrono::seconds(10);
 
 constexpr auto responseErrorMessage = "error message";
 
@@ -25,6 +31,31 @@ constexpr auto requestsPerClient = 4uz;
 // Sizes close to the 16 KiB receive buffer place the end of a message right before, at or right after a read boundary,
 // while the larger sizes span multiple reads.
 constexpr size_t payloadSizes[] = {1uz, 2uz, 16383uz, 16384uz, 16385uz, 16386uz, 100000uz, 100001uz};
+
+template<typename T>
+T waitForFutureOrThrow(std::future<T>& future, const char* const instance, const std::chrono::milliseconds timeout)
+{
+    const auto connectionStatus = future.wait_for(timeout);
+
+    if (connectionStatus == std::future_status::timeout)
+    {
+        THROW(std::runtime_error, instance, " timed out");
+    }
+
+    if (connectionStatus == std::future_status::deferred)
+    {
+        THROW(std::runtime_error, instance, " was deferred");
+    }
+
+    if constexpr (std::is_same_v<T, void>)
+    {
+        future.get();
+    }
+    else
+    {
+        return future.get();
+    }
+}
 
 // Every request gets a distinct payload, so a response routed to the wrong request is detected.
 StressRequest generateRequest(const size_t clientIndex, const size_t requestIndex)
@@ -107,7 +138,7 @@ std::vector<StressResult> runClient(const SocketProvider& socketProvider, const 
     auto requests = std::vector<StressRequest>{};
     auto responseFutures = std::vector<std::future<Expected<StressResponse>>>{};
 
-    for (auto requestIndex = size_t{}; requestIndex < requestsPerClient; ++requestIndex)
+    for (auto requestIndex = 0uz; requestIndex < requestsPerClient; ++requestIndex)
     {
         auto responsePromise = std::promise<Expected<StressResponse>>{};
         responseFutures.push_back(responsePromise.get_future());
@@ -121,14 +152,16 @@ std::vector<StressResult> runClient(const SocketProvider& socketProvider, const 
         );
     }
 
+    if (waitAllFor(responseFutures, clientTimeout) != std::future_status::ready)
+    {
+        THROW(std::runtime_error, "Client responses timed out");
+    }
+
     auto results = std::vector<StressResult>{};
 
-    for (auto requestIndex = size_t{}; requestIndex < requestsPerClient; ++requestIndex)
+    for (auto requestIndex = 0uz; requestIndex < requestsPerClient; ++requestIndex)
     {
-        results.emplace_back(
-            std::move(requests[requestIndex]),
-            waitForFutureOrThrow(responseFutures[requestIndex], "Client response", clientTimeout)
-        );
+        results.emplace_back(std::move(requests[requestIndex]), responseFutures[requestIndex].get());
     }
 
     return results;
