@@ -119,7 +119,6 @@ R"(void {0}::Metadata::serializeWithHeader(const {0}& message, std::vector<uint8
     {{
         using ::dansandu::ballotin::binary::bitsPerByte;
         using ::dansandu::ballotin::binary::pushBitsMostSignificant;
-        using ::dansandu::farseer::getProtocolSizeFromStdSize;
         using ::dansandu::farseer::ProtocolSize;
 
         auto dynamicBytes = std::vector<uint8_t>{{}};
@@ -127,7 +126,7 @@ R"(void {0}::Metadata::serializeWithHeader(const {0}& message, std::vector<uint8
 
         BinarySerializer<{0}>::serialize(message, dynamicBytes, dynamicBitsOffset);
 
-        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(dynamicBitsOffset), bytes, bitsOffset);
+        BinarySerializer<ProtocolSize>::serialize(ProtocolSize::fromSizeType(dynamicBitsOffset), bytes, bitsOffset);
 
         for (const auto byte : dynamicBytes)
         {{
@@ -205,7 +204,6 @@ R"(void {0}::Metadata::serializeWithHeader(const {0}& request, const ::dansandu:
     {{
         using ::dansandu::ballotin::binary::bitsPerByte;
         using ::dansandu::ballotin::binary::pushBitsMostSignificant;
-        using ::dansandu::farseer::getProtocolSizeFromStdSize;
         using ::dansandu::farseer::ProtocolSize;
 
         auto dynamicBytes = std::vector<uint8_t>{{}};
@@ -213,7 +211,7 @@ R"(void {0}::Metadata::serializeWithHeader(const {0}& request, const ::dansandu:
 
         BinarySerializer<{0}>::serialize(request, dynamicBytes, dynamicBitsOffset);
 
-        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(dynamicBitsOffset), bytes, bitsOffset);
+        BinarySerializer<ProtocolSize>::serialize(ProtocolSize::fromSizeType(dynamicBitsOffset), bytes, bitsOffset);
 
         for (const auto byte : dynamicBytes)
         {{
@@ -281,7 +279,6 @@ R"(void {0}::Response::Metadata::serializeWithHeader(const std::any& response, c
     using ::dansandu::farseer::binary_serialization::BinarySerializer;
     using ::dansandu::ballotin::binary::bitsPerByte;
     using ::dansandu::ballotin::binary::pushBitsMostSignificant;
-    using ::dansandu::farseer::getProtocolSizeFromStdSize;
     using ::dansandu::farseer::ProtocolSize;
     using ::dansandu::farseer::ProtocolIdentifier;
     using ::dansandu::farseer::ProtocolSequenceNumber;
@@ -300,7 +297,7 @@ R"(void {0}::Response::Metadata::serializeWithHeader(const std::any& response, c
 
     BinarySerializer<Expected<{0}::Response>>::serialize(casted, dynamicBytes, dynamicBitsOffset);
 
-    BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(dynamicBitsOffset), bytes, bitsOffset);
+    BinarySerializer<ProtocolSize>::serialize(ProtocolSize::fromSizeType(dynamicBitsOffset), bytes, bitsOffset);
 
     for (const auto byte : dynamicBytes)
     {{
