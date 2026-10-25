@@ -29,10 +29,14 @@ public:
     // The inbound and outbound byte buffers belong to the receiving socket so that sockets sharing this reader (i.e.
     // the accepted sockets of a listening socket) don't interleave their byte streams.
     //
+    // If inboundBytes doesn't hold enough bytes to parse an entire protocol from the front, then the bytes are kept
+    // until the entire protocol can be read.
+    //
     // Responses are appended to the outbound bytes and should be sent by the caller once this function returns, so
-    // that all responses to a single read are sent together. If reading a protocol throws (e.g. an unknown
-    // identifier), the responses already appended are not sent; the stream is corrupt at that point and the
-    // receiving socket is erased.
+    // that all responses to a single read are sent together.
+    //
+    // If reading a protocol throws (e.g. an unknown identifier), the responses already appended are not sent; both the
+    // inbound and outbound streams are corrupt at that point and the receiving socket is erased.
     void readInboundBytes(std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes);
 
 private:

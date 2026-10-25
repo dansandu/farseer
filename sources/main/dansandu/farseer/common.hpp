@@ -95,13 +95,19 @@ enum class SocketEvent
 
 PRALINE_EXPORT const char* toString(const SocketEvent event);
 
+// If the function returns false or throws an exception, bitsOffset is unspecified. Callers must pass a copy and update
+// the original only on success. The protocol parameter is left unchanged if the function fails.
 using MessageWithHeaderDeserializer =
     bool (*)(const std::vector<uint8_t>& bytes, size_t& bitsOffset, std::any& protocol);
 
+// If the function returns false or throws an exception, bitsOffset and sequenceNumber are unspecified. Callers must
+// pass a copy and update the original only on success. The protocol parameter is left unchanged if the function fails.
 using SequencedProtocolWithHeaderDeserializer = bool (*)(
     const std::vector<uint8_t>& bytes, size_t& bitsOffset, ProtocolSequenceNumber& sequenceNumber, std::any& protocol
 );
 
+// If the function throws an exception, bytes may contain additional unspecified bytes. Callers must either erase the
+// appended bytes or discard the buffer.
 using ResponseWithHeaderSerializer =
     void (*)(const std::any& response, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes);
 

@@ -142,15 +142,11 @@ bool MyMessage::Metadata::tryDeserializeWithHeader(const std::vector<uint8_t>& b
     {
         if (bitsPerByte * bytes.size() >= bitsOffset + bitsPerByte * sizeof(ProtocolSize))
         {
-            auto localBitsOffset = bitsOffset;
+            const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
 
-            const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, localBitsOffset);
-
-            if (bitsPerByte * bytes.size() >= localBitsOffset + dynamicNumberOfBits.getUnderlying())
+            if (bitsPerByte * bytes.size() >= bitsOffset + dynamicNumberOfBits.getUnderlying())
             {
-                message = BinarySerializer<MyMessage>::deserialize(bytes, localBitsOffset);
-
-                bitsOffset = localBitsOffset;
+                message = BinarySerializer<MyMessage>::deserialize(bytes, bitsOffset);
 
                 return true;
             }
@@ -353,17 +349,13 @@ bool MyRequest::Metadata::tryDeserializeWithHeader(const std::vector<uint8_t>& b
         if (bitsPerByte * bytes.size() >=
             bitsOffset + bitsPerByte * sizeof(ProtocolSequenceNumber) + bitsPerByte * sizeof(ProtocolSize))
         {
-            auto localBitsOffset = bitsOffset;
+            sequenceNumber = BinarySerializer<ProtocolSequenceNumber>::deserialize(bytes, bitsOffset);
 
-            sequenceNumber = BinarySerializer<ProtocolSequenceNumber>::deserialize(bytes, localBitsOffset);
+            const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
 
-            const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, localBitsOffset);
-
-            if (bitsPerByte * bytes.size() >= localBitsOffset + dynamicNumberOfBits.getUnderlying())
+            if (bitsPerByte * bytes.size() >= bitsOffset + dynamicNumberOfBits.getUnderlying())
             {
-                request = BinarySerializer<MyRequest>::deserialize(bytes, localBitsOffset);
-
-                bitsOffset = localBitsOffset;
+                request = BinarySerializer<MyRequest>::deserialize(bytes, bitsOffset);
 
                 return true;
             }
@@ -442,17 +434,13 @@ bool MyRequest::Response::Metadata::tryDeserializeWithHeader(const std::vector<u
     if (bitsPerByte * bytes.size() >=
         bitsOffset + bitsPerByte * sizeof(ProtocolSequenceNumber) + bitsPerByte * sizeof(ProtocolSize))
     {
-        auto localBitsOffset = bitsOffset;
+        sequenceNumber = BinarySerializer<ProtocolSequenceNumber>::deserialize(bytes, bitsOffset);
 
-        sequenceNumber = BinarySerializer<ProtocolSequenceNumber>::deserialize(bytes, localBitsOffset);
+        const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, bitsOffset);
 
-        const auto dynamicNumberOfBits = BinarySerializer<ProtocolSize>::deserialize(bytes, localBitsOffset);
-
-        if (bitsPerByte * bytes.size() >= localBitsOffset + dynamicNumberOfBits.getUnderlying())
+        if (bitsPerByte * bytes.size() >= bitsOffset + dynamicNumberOfBits.getUnderlying())
         {
-            response = BinarySerializer<Expected<MyRequest::Response>>::deserialize(bytes, localBitsOffset);
-
-            bitsOffset = localBitsOffset;
+            response = BinarySerializer<Expected<MyRequest::Response>>::deserialize(bytes, bitsOffset);
 
             return true;
         }
