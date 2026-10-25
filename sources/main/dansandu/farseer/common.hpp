@@ -44,7 +44,8 @@ using ProtocolSize = dansandu::ballotin::type_prototype::TypePrototype<
         dansandu::ballotin::type_prototype::TypeFeature::stringConversion |
         dansandu::ballotin::type_prototype::TypeFeature::equality |
         dansandu::ballotin::type_prototype::TypeFeature::inequality |
-        dansandu::ballotin::type_prototype::TypeFeature::addition>;
+        dansandu::ballotin::type_prototype::TypeFeature::addition |
+        dansandu::ballotin::type_prototype::TypeFeature::safeSizeTypeConversion>;
 
 static_assert(
     sizeof(ProtocolSize) == sizeof(typename ProtocolSize::UnderlyingType),
@@ -91,8 +92,6 @@ enum class SocketEvent
     clientClosed,
     clientAborted,
 };
-
-PRALINE_EXPORT ProtocolSize getProtocolSizeFromStdSize(const size_t size);
 
 PRALINE_EXPORT const char* toString(const SocketEvent event);
 

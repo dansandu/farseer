@@ -168,7 +168,7 @@ struct BinarySerializer<std::string>
 
     static void serialize(const std::string& string, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(string.size()), bytes, bitsOffset);
+        BinarySerializer<ProtocolSize>::serialize(ProtocolSize::fromSizeType(string.size()), bytes, bitsOffset);
 
         for (const auto& element : string)
         {
@@ -198,7 +198,7 @@ struct BinarySerializer<std::vector<T>>
 
     static void serialize(const std::vector<T>& vector, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(vector.size()), bytes, bitsOffset);
+        BinarySerializer<ProtocolSize>::serialize(ProtocolSize::fromSizeType(vector.size()), bytes, bitsOffset);
 
         for (const auto& element : vector)
         {
@@ -228,7 +228,7 @@ struct BinarySerializer<std::map<K, V>>
 
     static void serialize(const std::map<K, V>& map, std::vector<uint8_t>& bytes, size_t& bitsOffset)
     {
-        BinarySerializer<ProtocolSize>::serialize(getProtocolSizeFromStdSize(map.size()), bytes, bitsOffset);
+        BinarySerializer<ProtocolSize>::serialize(ProtocolSize::fromSizeType(map.size()), bytes, bitsOffset);
 
         for (const auto& entry : map)
         {
