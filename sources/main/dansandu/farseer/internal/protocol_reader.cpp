@@ -295,6 +295,8 @@ void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::v
         }
         else
         {
+            // If the protocol is not consumed, then discard localInboundBitsOffset. The unconsumed bytes are kept and
+            // parsed again from the start on the next call, once more bytes have arrived.
             return;
         }
     }
