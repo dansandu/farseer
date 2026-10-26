@@ -96,7 +96,7 @@ TEST_CASE("protocol_reader")
             [&protocol](std::any&& inboundMessage) { protocol = std::move(inboundMessage); }
         );
 
-        const auto halfBytesCount = messageBytes.size() / 2;
+        const auto halfBytesCount = messageBytes.size() / 2uz;
 
         inboundBytes.insert(inboundBytes.end(), messageBytes.cbegin(), messageBytes.cbegin() + halfBytesCount);
 
@@ -150,6 +150,69 @@ TEST_CASE("protocol_reader")
             DynamicMessage::Metadata::getProtocolIdentifier(),
             [&protocol](std::any&& inboundMessage) { protocol = std::move(inboundMessage); }
         );
+
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+
+        REQUIRE(protocol.has_value());
+
+        const auto& actualMessage = std::any_cast<const DynamicMessage&>(protocol);
+
+        REQUIRE(actualMessage.messages.size() == message.messages.size());
+
+        REQUIRE(actualMessage.messages.at(0).integer == message.messages.at(0).integer);
+
+        REQUIRE(actualMessage.messages.at(0).boolean == message.messages.at(0).boolean);
+
+        REQUIRE(actualMessage.messages.at(1).integer == message.messages.at(1).integer);
+
+        REQUIRE(actualMessage.messages.at(1).boolean == message.messages.at(1).boolean);
+
+        REQUIRE(actualMessage.name == message.name);
+
+        REQUIRE(inboundBytes.empty());
+
+        REQUIRE(outboundBytes.empty());
+    }
+
+    SECTION("partial dynamic message")
+    {
+        const auto message = DynamicMessage{
+            .messages =
+                {
+                    StaticMessage{
+                        .integer = 98765,
+                        .boolean = false,
+                    },
+                    StaticMessage{
+                        .integer = 43210,
+                        .boolean = true,
+                    },
+                },
+            .name = "another dynamic message",
+        };
+
+        const auto messageBytes = DynamicMessage::Metadata::serializeWithHeader(message);
+
+        auto protocol = std::any{};
+
+        protocolReader.registerInboundMessageConsumer(
+            DynamicMessage::Metadata::getProtocolIdentifier(),
+            [&protocol](std::any&& inboundMessage) { protocol = std::move(inboundMessage); }
+        );
+
+        const auto halfBytesCount = messageBytes.size() / 2uz;
+
+        inboundBytes.insert(inboundBytes.end(), messageBytes.cbegin(), messageBytes.cbegin() + halfBytesCount);
+
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+
+        REQUIRE(!protocol.has_value());
+
+        REQUIRE(inboundBytes.size() == halfBytesCount);
+
+        REQUIRE(outboundBytes.empty());
+
+        inboundBytes.insert(inboundBytes.end(), messageBytes.cbegin() + halfBytesCount, messageBytes.cend());
 
         protocolReader.readInboundBytes(inboundBytes, outboundBytes);
 
@@ -310,6 +373,101 @@ TEST_CASE("protocol_reader")
         protocolReader.registerInboundOneShotResponseConsumer(
             sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
+
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+
+        REQUIRE(protocol.has_value());
+
+        const auto& actualResponse = std::any_cast<const Expected<MyRequest::Response>&>(protocol);
+
+        REQUIRE(actualResponse.failure());
+
+        REQUIRE(actualResponse.getErrorCode() == response.getErrorCode());
+
+        REQUIRE(actualResponse.getErrorMessage() == response.getErrorMessage());
+
+        REQUIRE(inboundBytes.empty());
+
+        REQUIRE(outboundBytes.empty());
+    }
+
+    SECTION("partial successful response")
+    {
+        const auto response = Expected<MyRequest::Response>::fromSuccess(
+            MyRequest::Response{
+                .contacts = {"James", "Susan", "Smith"},
+                .authenticationToken = 0xCD8D7D46,
+            }
+        );
+
+        const auto sequenceNumber = ProtocolSequenceNumber{2323};
+
+        const auto responseBytes = MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber);
+
+        auto protocol = std::any{};
+
+        protocolReader.registerInboundOneShotResponseConsumer(
+            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+        );
+
+        const auto halfBytesCount = responseBytes.size() / 2uz;
+
+        inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin(), responseBytes.cbegin() + halfBytesCount);
+
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+
+        REQUIRE(!protocol.has_value());
+
+        REQUIRE(inboundBytes.size() == halfBytesCount);
+
+        REQUIRE(outboundBytes.empty());
+
+        inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin() + halfBytesCount, responseBytes.cend());
+
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+
+        REQUIRE(protocol.has_value());
+
+        const auto& actualResponse = std::any_cast<const Expected<MyRequest::Response>&>(protocol);
+
+        REQUIRE(actualResponse.success());
+
+        REQUIRE(actualResponse.getValue().contacts == response.getValue().contacts);
+
+        REQUIRE(actualResponse.getValue().authenticationToken == response.getValue().authenticationToken);
+
+        REQUIRE(inboundBytes.empty());
+
+        REQUIRE(outboundBytes.empty());
+    }
+
+    SECTION("partial failed response")
+    {
+        const auto response = Expected<MyRequest::Response>::fromFailure(825828, "some error message");
+
+        const auto sequenceNumber = ProtocolSequenceNumber{2928184};
+
+        const auto responseBytes = MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber);
+
+        auto protocol = std::any{};
+
+        protocolReader.registerInboundOneShotResponseConsumer(
+            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+        );
+
+        const auto halfBytesCount = responseBytes.size() / 2uz;
+
+        inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin(), responseBytes.cbegin() + halfBytesCount);
+
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+
+        REQUIRE(!protocol.has_value());
+
+        REQUIRE(inboundBytes.size() == halfBytesCount);
+
+        REQUIRE(outboundBytes.empty());
+
+        inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin() + halfBytesCount, responseBytes.cend());
 
         protocolReader.readInboundBytes(inboundBytes, outboundBytes);
 
