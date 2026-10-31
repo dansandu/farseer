@@ -54,13 +54,13 @@ public:
 
             socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()), this);
 
-            return false;
+            return true;
         }
         else
         {
             LOG_INFO("Sent request bytes using socket ID ", socketIdentifier_);
 
-            return true;
+            return false;
         }
     }
 

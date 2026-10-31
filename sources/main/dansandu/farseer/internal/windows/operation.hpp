@@ -51,8 +51,8 @@ public:
     virtual SocketIdentifier getSocketIdentifier() const noexcept = 0;
 
     // Always called on the operation consumer thread. Should be safe to access consumer thread resources without locks
-    // inside this method. If the method returns true, then the operation can be discarded. Otherwise, the operation
-    // was rescheduled and will be kept alive for another execution.
+    // inside this method. If the method returns true, then the operation has rescheduled itself and ownership is kept
+    // alive until its next completion. Otherwise, the caller must discard the operation.
     virtual bool execute(
         IOperationScheduler& operationScheduler,
         dansandu::farseer::internal::windows::socket_container::SocketContainer& socketContainer,

@@ -333,7 +333,7 @@ bool OperationScheduler::handleSuccessfulOperation(IOperation& operation, const 
         handleFailedOperation(operation, errorCode, errorMessage);
     }
 
-    return true;
+    return false;
 }
 
 void OperationScheduler::consumeOperationsWork()
@@ -461,9 +461,7 @@ bool OperationScheduler::consumeOperation(IOperation& operation, const OVERLAPPE
         return false;
     }
 
-    const auto discard = handleSuccessfulOperation(operation, entry.dwNumberOfBytesTransferred);
-
-    return !discard;
+    return handleSuccessfulOperation(operation, entry.dwNumberOfBytesTransferred);
 }
 
 void OperationScheduler::startDraining() noexcept

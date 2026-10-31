@@ -70,7 +70,7 @@ public:
 
             connectionPending_ = true;
 
-            return false;
+            return true;
         }
         else
         {
@@ -87,7 +87,7 @@ public:
                 socket.socket.getPort()
             );
 
-            return true;
+            return false;
         }
     }
 

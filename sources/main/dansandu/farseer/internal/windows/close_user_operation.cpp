@@ -34,7 +34,7 @@ public:
     {
         socketContainer.eraseSocket(socketIdentifier_);
 
-        return true;
+        return false;
     }
 
 private:
