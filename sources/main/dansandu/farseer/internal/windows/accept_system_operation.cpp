@@ -98,7 +98,7 @@ public:
             acceptedSocket.socket.getIpAddress(), ":", acceptedSocket.socket.getPort()
         );
 
-        return true;
+        return false;
     }
 
     void onFailure(

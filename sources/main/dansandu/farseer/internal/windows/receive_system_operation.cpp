@@ -87,13 +87,13 @@ public:
 
             socket.socket.postReceive(receiveBuffer_, std::size(receiveBuffer_), this);
 
-            return false;
+            return true;
         }
         else
         {
             socketContainer.eraseSocket(socketIdentifier_);
 
-            return true;
+            return false;
         }
     }
 

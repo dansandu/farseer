@@ -45,7 +45,7 @@ public:
 
             socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()), this);
 
-            return false;
+            return true;
         }
         else
         {
@@ -61,7 +61,7 @@ public:
                 );
             }
 
-            return true;
+            return false;
         }
     }
 

@@ -46,7 +46,7 @@ public:
             "Registered message consumer with protocol ID ", protocolIdentifier_, " and socket ID ", socketIdentifier_
         );
 
-        return true;
+        return false;
     }
 
 private:
