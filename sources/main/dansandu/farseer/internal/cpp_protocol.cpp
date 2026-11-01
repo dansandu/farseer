@@ -37,7 +37,7 @@ R"(struct PRALINE_EXPORT {0}
 
         static constexpr auto hasStaticSize = {1};
 
-        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}UL}};
+        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}u}};
     }};
 
 )";
@@ -61,7 +61,7 @@ R"(struct PRALINE_EXPORT {0}
 
         static constexpr auto hasStaticSize = {1};
 
-        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}UL}};
+        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}u}};
     }};
 
 )";
@@ -87,7 +87,7 @@ R"(    struct PRALINE_EXPORT Response
 
             static constexpr auto hasStaticSize = {1};
 
-            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}UL}};
+            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}u}};
         }};
 
 )";
@@ -95,7 +95,7 @@ R"(    struct PRALINE_EXPORT Response
 constexpr auto protocolIdentifierTemplate =
 R"(::dansandu::farseer::ProtocolIdentifier {0}::Metadata::getProtocolIdentifier()
 {{
-    return ::dansandu::farseer::ProtocolIdentifier{{{1}U}};
+    return ::dansandu::farseer::ProtocolIdentifier{{{1}u}};
 }}
 
 )";

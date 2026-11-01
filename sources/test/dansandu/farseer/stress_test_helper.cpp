@@ -62,14 +62,14 @@ StressRequest generateRequest(const size_t clientIndex, const size_t requestInde
 {
     const auto size = payloadSizes[(clientIndex + requestIndex) % std::size(payloadSizes)];
 
-    auto state = static_cast<uint32_t>(clientIndex * requestsPerClient + requestIndex + 1U);
+    auto state = static_cast<uint32_t>(clientIndex * requestsPerClient + requestIndex + 1uz);
 
     auto payload = std::string(size, '\0');
 
     for (auto& character : payload)
     {
-        state = state * 1664525U + 1013904223U;
-        character = static_cast<char>('a' + (state >> 24U) % 26U);
+        state = state * 1664525u + 1013904223u;
+        character = static_cast<char>('a' + (state >> 24u) % 26u);
     }
 
     return StressRequest{.sent = std::move(payload)};
@@ -169,7 +169,7 @@ std::vector<StressResult> runClient(const SocketProvider& socketProvider, const 
 
 bool isFailing(const StressRequest& request)
 {
-    return request.sent.size() % 2U == 1U;
+    return request.sent.size() % 2uz == 1uz;
 }
 
 uint32_t getExpectedErrorCode(const StressRequest& request)
