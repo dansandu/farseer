@@ -98,7 +98,7 @@ TEST_CASE("protocol_serialization")
             const auto response = Expected<Response>::fromSuccess(
                 Response{
                     .contacts = {"mars", "pluto", "saturn"},
-                    .authenticationToken = 0xB1067FACU,
+                    .authenticationToken = 0xB1067FACu,
                 }
             );
 

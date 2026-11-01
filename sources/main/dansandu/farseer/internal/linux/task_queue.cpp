@@ -36,7 +36,7 @@ void closeEventOrLog(const int eventFileDescriptor)
 
 int createEventFileDescriptor(EventPoll& eventPoll)
 {
-    const auto initialValue = 0U;
+    const auto initialValue = 0u;
     const auto flags = EFD_NONBLOCK | EFD_CLOEXEC;
     const auto eventFileDescriptor = ::eventfd(initialValue, flags);
 

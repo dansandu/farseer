@@ -334,7 +334,7 @@ TEST_CASE("binary_serialization")
             const auto response = Expected<MyRequest::Response>::fromSuccess(
                 MyRequest::Response{
                     .contacts = {"sam", "jim", "jason"},
-                    .authenticationToken = 0x42B101C7U,
+                    .authenticationToken = 0x42B101C7u,
                 }
             );
 

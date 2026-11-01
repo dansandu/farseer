@@ -44,7 +44,7 @@ struct PRALINE_EXPORT MyMessage
 
         static constexpr auto hasStaticSize = true;
 
-        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{33UL};
+        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{33u};
     };
 
     int32_t integer;
@@ -65,7 +65,7 @@ namespace organization::artifact::protocol
 
 ::dansandu::farseer::ProtocolIdentifier MyMessage::Metadata::getProtocolIdentifier()
 {
-    return ::dansandu::farseer::ProtocolIdentifier{1986501203U};
+    return ::dansandu::farseer::ProtocolIdentifier{1986501203u};
 }
 
 void MyMessage::Metadata::serializeHeaderless(const MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsOffset)
@@ -219,7 +219,7 @@ struct PRALINE_EXPORT MyRequest
 
         static constexpr auto hasStaticSize = false;
 
-        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{0UL};
+        static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{0u};
     };
 
     std::string user;
@@ -245,7 +245,7 @@ struct PRALINE_EXPORT MyRequest
 
             static constexpr auto hasStaticSize = false;
 
-            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{64UL};
+            static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{64u};
         };
 
         std::vector<std::string> contacts;
@@ -267,7 +267,7 @@ namespace organization::artifact::protocol
 
 ::dansandu::farseer::ProtocolIdentifier MyRequest::Metadata::getProtocolIdentifier()
 {
-    return ::dansandu::farseer::ProtocolIdentifier{1356265941U};
+    return ::dansandu::farseer::ProtocolIdentifier{1356265941u};
 }
 
 void MyRequest::Metadata::serializeHeaderless(const MyRequest& request, std::vector<uint8_t>& bytes, size_t& bitsOffset)
@@ -366,7 +366,7 @@ bool MyRequest::Metadata::tryDeserializeWithHeader(const std::vector<uint8_t>& b
 
 ::dansandu::farseer::ProtocolIdentifier MyRequest::Response::Metadata::getProtocolIdentifier()
 {
-    return ::dansandu::farseer::ProtocolIdentifier{1631866348U};
+    return ::dansandu::farseer::ProtocolIdentifier{1631866348u};
 }
 
 void MyRequest::Response::Metadata::serializeHeaderless(const MyRequest::Response& response, std::vector<uint8_t>& bytes, size_t& bitsOffset)
