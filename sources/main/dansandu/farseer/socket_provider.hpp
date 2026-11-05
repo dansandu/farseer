@@ -4,7 +4,9 @@
 #include "dansandu/farseer/exception.hpp"
 
 #include <any>
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,6 +42,7 @@ public:
     template<typename Request>
     void sendRequest(
         const SocketIdentifier socketIdentifier, const Request& request,
+        const std::optional<std::chrono::milliseconds> timeout,
         UniqueFunction<void(Expected<typename Request::Response>&&)>&& responseConsumer
     ) const
     {
@@ -48,9 +51,13 @@ public:
             THROW(std::logic_error, "Cannot send request using an invalidSocketIdentifier");
         }
 
+        const auto responseIdentifier = Request::Response::Metadata::getProtocolIdentifier();
         const auto sequenceNumber = generateSequenceNumber();
+        const auto deadline = timeout.transform([](const auto& t) { return std::chrono::steady_clock::now() + t; });
+
         sendRequest(
-            socketIdentifier, sequenceNumber, Request::Metadata::serializeWithHeader(request, sequenceNumber),
+            socketIdentifier, responseIdentifier, sequenceNumber, deadline,
+            Request::Metadata::serializeWithHeader(request, sequenceNumber),
             [responseConsumer = std::move(responseConsumer)](std::any&& response)
             { responseConsumer(std::any_cast<Expected<typename Request::Response>&&>(std::move(response))); }
         );
@@ -98,8 +105,10 @@ private:
     void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) const;
 
     void sendRequest(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+        const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline, std::vector<uint8_t>&& bytes,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     ) const;
 
     void registerMessageConsumer(

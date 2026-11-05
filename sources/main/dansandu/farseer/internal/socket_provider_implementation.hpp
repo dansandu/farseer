@@ -2,7 +2,9 @@
 
 #include "dansandu/farseer/common.hpp"
 
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,8 +36,10 @@ public:
     virtual void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
 
     virtual void sendRequest(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+        const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline, std::vector<uint8_t>&& bytes,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     ) = 0;
 
     virtual void registerMessageConsumer(

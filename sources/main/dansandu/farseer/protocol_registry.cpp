@@ -42,6 +42,7 @@ void ProtocolRegistry::registerMessageProtocol(
                          .messageWithHeaderDeserializer = deserializer,
                          .sequencedProtocolWithHeaderDeserializer = nullptr,
                          .responseWithHeaderSerializer = nullptr,
+                         .failedResponseProducer = nullptr,
                      }}
     );
     if (!inserted)
@@ -55,7 +56,7 @@ void ProtocolRegistry::registerMessageProtocol(
 void ProtocolRegistry::registerRequestProtocol(
     const ProtocolIdentifier requestIdentifier, const SequencedProtocolWithHeaderDeserializer requestDeserializer,
     const ProtocolIdentifier responseIdentifier, const SequencedProtocolWithHeaderDeserializer responseDeserializer,
-    const ResponseWithHeaderSerializer responseSerializer
+    const ResponseWithHeaderSerializer responseSerializer, const FailedResponseProducer failedResponseProducer
 )
 {
     const auto lock = std::lock_guard<std::mutex>{mutex_};
@@ -65,8 +66,10 @@ void ProtocolRegistry::registerRequestProtocol(
                                 .messageWithHeaderDeserializer = nullptr,
                                 .sequencedProtocolWithHeaderDeserializer = requestDeserializer,
                                 .responseWithHeaderSerializer = responseSerializer,
+                                .failedResponseProducer = nullptr,
                             }}
     );
+
     if (!requestInserted)
     {
         THROW(
@@ -83,8 +86,10 @@ void ProtocolRegistry::registerRequestProtocol(
                                  .messageWithHeaderDeserializer = nullptr,
                                  .sequencedProtocolWithHeaderDeserializer = responseDeserializer,
                                  .responseWithHeaderSerializer = nullptr,
+                                 .failedResponseProducer = failedResponseProducer,
                              }}
     );
+
     if (!responseInserted)
     {
         THROW(

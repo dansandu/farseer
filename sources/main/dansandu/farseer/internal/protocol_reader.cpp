@@ -11,6 +11,8 @@ using dansandu::ballotin::binary::numberOfBitsToNumberOfBytes;
 using dansandu::farseer::binary_serialization::BinarySerializer;
 using dansandu::farseer::exception::ProtocolConsumerAlreadyRegisteredError;
 using dansandu::farseer::exception::ProtocolNotRegisteredError;
+using dansandu::farseer::expected::responseAbortedErrorCode;
+using dansandu::farseer::expected::responseTimeoutErrorCode;
 using dansandu::farseer::protocol_registry::ProtocolDescriptor;
 using dansandu::farseer::protocol_registry::ProtocolRegistry;
 using dansandu::farseer::protocol_registry::ProtocolType;
@@ -18,6 +20,88 @@ using dansandu::journey::exception::WideException;
 
 namespace dansandu::farseer::internal::protocol_reader
 {
+
+namespace
+{
+
+void wrapInTryCatchAndInvoke(
+    const ProtocolIdentifier protocolIdentifier, const UniqueFunction<void(std::any&&)>& consumer, std::any&& protocol
+)
+{
+    try
+    {
+        consumer(std::move(protocol));
+    }
+    catch (const WideException& exception)
+    {
+        LOG_ERROR(
+            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
+            " a wide exception was caught with the message: ", exception.getMessage()
+        );
+    }
+    catch (const std::exception& exception)
+    {
+        LOG_ERROR(
+            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
+            " an exception was caught with the message: ", exception.what()
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR(
+            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
+            " an unknown exception was caught"
+        );
+    }
+}
+
+}
+
+ProtocolReader::ProtocolReader(ProtocolReader&& other) noexcept
+    : inboundMessageConsumers_{std::move(other.inboundMessageConsumers_)},
+      inboundRequestConsumers_{std::move(other.inboundRequestConsumers_)},
+      inboundOneShotResponseConsumers_{std::move(other.inboundOneShotResponseConsumers_)}
+{
+    // A moved-from container is only guaranteed to be in a valid but unspecified state. Clear it so that the other
+    // reader's destructor doesn't abort the responses that now belong to this reader.
+    other.inboundOneShotResponseConsumers_.clear();
+}
+
+ProtocolReader& ProtocolReader::operator=(ProtocolReader&& other) noexcept
+{
+    if (this != &other)
+    {
+        abortPendingResponses();
+
+        inboundMessageConsumers_ = std::move(other.inboundMessageConsumers_);
+        inboundRequestConsumers_ = std::move(other.inboundRequestConsumers_);
+        inboundOneShotResponseConsumers_ = std::move(other.inboundOneShotResponseConsumers_);
+
+        // A moved-from container is only guaranteed to be in a valid but unspecified state. Clear it so that the
+        // other reader's destructor doesn't abort the responses that now belong to this reader.
+        other.inboundOneShotResponseConsumers_.clear();
+    }
+
+    return *this;
+}
+
+ProtocolReader::~ProtocolReader() noexcept
+{
+    abortPendingResponses();
+}
+
+void ProtocolReader::abortPendingResponses() noexcept
+{
+    for (const auto& entry : inboundOneShotResponseConsumers_)
+    {
+        wrapInTryCatchAndInvoke(
+            entry.second.responseIdentifier, entry.second.responseConsumer,
+            entry.second.failedResponseProducer(responseAbortedErrorCode, "Response was aborted")
+        );
+    }
+
+    inboundOneShotResponseConsumers_.clear();
+}
 
 void ProtocolReader::registerInboundMessageConsumer(
     const ProtocolIdentifier messageIdentifier, UniqueFunction<void(std::any&&)>&& messageConsumer
@@ -64,12 +148,23 @@ void ProtocolReader::registerInboundRequestConsumer(
 }
 
 void ProtocolReader::registerInboundOneShotResponseConsumer(
-    const ProtocolSequenceNumber sequenceNumber, UniqueFunction<void(std::any&&)>&& responseConsumer
+    const ProtocolIdentifier responseIdentifier, const ProtocolSequenceNumber sequenceNumber,
+    const std::optional<std::chrono::steady_clock::time_point> deadline,
+    UniqueFunction<void(std::any&&)>&& responseConsumer
 )
 {
+    const auto descriptor = ProtocolRegistry::getGlobalInstance().getProtocolDescriptor(responseIdentifier);
+
     if (!inboundOneShotResponseConsumers_.contains(sequenceNumber))
     {
-        inboundOneShotResponseConsumers_.insert({sequenceNumber, std::move(responseConsumer)});
+        inboundOneShotResponseConsumers_.insert(
+            {sequenceNumber, ResponseEntry{
+                                 .responseIdentifier = responseIdentifier,
+                                 .responseConsumer = std::move(responseConsumer),
+                                 .failedResponseProducer = descriptor.failedResponseProducer,
+                                 .deadline = deadline,
+                             }}
+        );
     }
     else
     {
@@ -78,42 +173,6 @@ void ProtocolReader::registerInboundOneShotResponseConsumer(
             "Another response consumer is already registered with sequence number ", sequenceNumber
         );
     }
-}
-
-namespace
-{
-
-void wrapInTryCatchAndInvoke(
-    const ProtocolIdentifier protocolIdentifier, const UniqueFunction<void(std::any&&)>& consumer, std::any&& protocol
-)
-{
-    try
-    {
-        consumer(std::move(protocol));
-    }
-    catch (const WideException& exception)
-    {
-        LOG_ERROR(
-            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-            " a wide exception was caught with the message: ", exception.getMessage()
-        );
-    }
-    catch (const std::exception& exception)
-    {
-        LOG_ERROR(
-            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-            " an exception was caught with the message: ", exception.what()
-        );
-    }
-    catch (...)
-    {
-        LOG_ERROR(
-            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-            " an unknown exception was caught"
-        );
-    }
-}
-
 }
 
 bool ProtocolReader::readInboundMessage(
@@ -225,7 +284,7 @@ bool ProtocolReader::readInboundResponse(
         {
             SCOPE_EXIT([&]() { inboundOneShotResponseConsumers_.erase(consumerPosition); });
 
-            wrapInTryCatchAndInvoke(responseIdentifier, consumerPosition->second, std::move(response));
+            wrapInTryCatchAndInvoke(responseIdentifier, consumerPosition->second.responseConsumer, std::move(response));
         }
         else
         {
@@ -300,6 +359,45 @@ void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::v
             return;
         }
     }
+}
+
+std::optional<std::chrono::steady_clock::time_point> ProtocolReader::getEarliestResponseDeadline() const noexcept
+{
+    auto earliestDeadline = std::optional<std::chrono::steady_clock::time_point>{};
+
+    for (const auto& entry : inboundOneShotResponseConsumers_)
+    {
+        if (entry.second.deadline.has_value() &&
+            (!earliestDeadline.has_value() || earliestDeadline.value() > entry.second.deadline.value()))
+        {
+            earliestDeadline = entry.second.deadline;
+        }
+    }
+
+    return earliestDeadline;
+}
+
+void ProtocolReader::eraseTimedOutResponses() noexcept
+{
+    const auto now = std::chrono::steady_clock::now();
+
+    std::erase_if(
+        inboundOneShotResponseConsumers_,
+        [now](const auto& entry)
+        {
+            if (entry.second.deadline.has_value() && entry.second.deadline.value() <= now)
+            {
+                wrapInTryCatchAndInvoke(
+                    entry.second.responseIdentifier, entry.second.responseConsumer,
+                    entry.second.failedResponseProducer(responseTimeoutErrorCode, "Response has timed out")
+                );
+
+                return true;
+            }
+
+            return false;
+        }
+    );
 }
 
 }

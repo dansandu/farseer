@@ -26,7 +26,7 @@ public:
 
     void unsubscribe(const int fileDescriptor);
 
-    int wait(std::vector<::epoll_event>& events);
+    int wait(std::vector<::epoll_event>& events, const int timeoutMilliseconds);
 
 private:
     const int eventPollFileDescriptor_;

@@ -243,6 +243,8 @@ struct PRALINE_EXPORT MyRequest
 
             static std::any invokeCallback(const UniqueFunction<Response(MyRequest&&)>& callback, std::any&& request);
 
+            static std::any getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept;
+
             static constexpr auto hasStaticSize = false;
 
             static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{64u};
@@ -469,6 +471,11 @@ std::any MyRequest::Response::Metadata::invokeCallback(const UniqueFunction<Resp
     {
         return Expected<Response>::fromInternalServerError();
     }
+}
+
+std::any MyRequest::Response::Metadata::getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept
+{
+    return ::dansandu::farseer::Expected<Response>::fromFailure(errorCode, errorMessage);
 }
 
 }

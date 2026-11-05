@@ -7,6 +7,7 @@
 
 #include <any>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace dansandu::farseer
@@ -110,5 +111,8 @@ using SequencedProtocolWithHeaderDeserializer = bool (*)(
 // appended bytes or discard the buffer.
 using ResponseWithHeaderSerializer =
     void (*)(const std::any& response, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes);
+
+// Constructs a std::any from an object of type Expected<Response> with a given error code and error message.
+using FailedResponseProducer = std::any (*)(const uint32_t errorCode, const std::string& errorMessage) noexcept;
 
 }

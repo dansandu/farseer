@@ -85,6 +85,8 @@ R"(    struct PRALINE_EXPORT Response
 
             static std::any invokeCallback(const UniqueFunction<Response({0}&&)>& callback, std::any&& request);
 
+            static std::any getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept;
+
             static constexpr auto hasStaticSize = {1};
 
             static constexpr auto staticNumberOfBits = ::dansandu::farseer::ProtocolSize{{{2}u}};
@@ -361,6 +363,14 @@ R"(std::any {0}::Response::Metadata::invokeCallback(const UniqueFunction<Respons
 }}
 
 )";
+
+constexpr auto getFailedResponseTemplate =
+R"(std::any {0}::Response::Metadata::getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept
+{{
+    return ::dansandu::farseer::Expected<Response>::fromFailure(errorCode, errorMessage);
+}}
+
+)";
 // clang-format on
 
 void generateMessages(const std::vector<MessageProtocolDefinition>& messages, std::ostream& stream)
@@ -569,7 +579,7 @@ void generateResponseMetadataDefinition(const RequestProtocolDefinition& request
 
     stream << std::format(responseSerializationWithHeaderTemplate, request.name)
            << std::format(responseDeserializationWithHeaderTemplate, request.name)
-           << std::format(invokeCallbackTemplate, request.name);
+           << std::format(invokeCallbackTemplate, request.name) << std::format(getFailedResponseTemplate, request.name);
 }
 
 }

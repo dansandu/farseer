@@ -92,12 +92,10 @@ void EventPoll::unsubscribe(const int fileDescriptor)
     }
 }
 
-int EventPoll::wait(std::vector<::epoll_event>& events)
+int EventPoll::wait(std::vector<::epoll_event>& events, const int timeoutMilliseconds)
 {
-    const auto timeout = -1;
-
     const auto numberOfPendingEvents =
-        ::epoll_wait(eventPollFileDescriptor_, events.data(), static_cast<int>(events.size()), timeout);
+        ::epoll_wait(eventPollFileDescriptor_, events.data(), static_cast<int>(events.size()), timeoutMilliseconds);
 
     if (numberOfPendingEvents == -1)
     {

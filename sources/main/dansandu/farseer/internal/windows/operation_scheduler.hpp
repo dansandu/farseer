@@ -3,6 +3,7 @@
 #include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/windows/operation.hpp"
 
+#include <chrono>
 #include <map>
 #include <memory>
 #include <optional>
@@ -41,8 +42,10 @@ public:
     void scheduleSendBytesUserOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes);
 
     void scheduleSendRequestUserOperation(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+        const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline, std::vector<uint8_t>&& bytes,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     );
 
     void scheduleRegisterMessageConsumerUserOperation(

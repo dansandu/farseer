@@ -4,6 +4,7 @@
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/linux/error.hpp"
 #include "dansandu/farseer/internal/protocol_reader.hpp"
+#include "dansandu/farseer/internal/utility.hpp"
 #include "dansandu/journey/logging.hpp"
 
 #include <sys/epoll.h>
@@ -180,13 +181,16 @@ void SocketContainer::sendBytes(const SocketIdentifier socketIdentifier, const s
 }
 
 void SocketContainer::sendRequest(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+    const ProtocolSequenceNumber sequenceNumber, const std::optional<std::chrono::steady_clock::time_point> deadline,
     const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
 )
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
-    socket.protocolReader.registerInboundOneShotResponseConsumer(protocolSequenceNumber, std::move(responseConsumer));
+    socket.protocolReader.registerInboundOneShotResponseConsumer(
+        responseIdentifier, sequenceNumber, deadline, std::move(responseConsumer)
+    );
 
     sendBytes(socket, bytes);
 }
@@ -350,6 +354,19 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
     if (socketEvents & EPOLLOUT)
     {
         sendBytes(socket, {});
+    }
+}
+
+std::optional<std::chrono::steady_clock::time_point> SocketContainer::getEarliestResponseDeadline() const noexcept
+{
+    return dansandu::farseer::internal::utility::getEarliestResponseDeadline(sockets_);
+}
+
+void SocketContainer::eraseTimedOutResponses() noexcept
+{
+    for (auto& entry : sockets_)
+    {
+        entry.second.protocolReader.eraseTimedOutResponses();
     }
 }
 

@@ -4,7 +4,9 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
+#include <chrono>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace dansandu::farseer::internal::windows::socket_container
@@ -36,6 +38,10 @@ public:
     void eraseSocket(const SocketIdentifier socketIdentifier) noexcept;
 
     void eraseAllSockets() noexcept;
+
+    std::optional<std::chrono::steady_clock::time_point> getEarliestResponseDeadline() const noexcept;
+
+    void eraseTimedOutResponses() noexcept;
 
 private:
     std::map<SocketIdentifier, Socket> sockets_;

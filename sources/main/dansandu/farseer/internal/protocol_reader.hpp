@@ -4,15 +4,36 @@
 #include "dansandu/farseer/protocol_registry.hpp"
 
 #include <any>
+#include <chrono>
 #include <map>
+#include <optional>
 
 namespace dansandu::farseer::internal::protocol_reader
 {
+
+struct ResponseEntry
+{
+    ProtocolIdentifier responseIdentifier;
+    UniqueFunction<void(std::any&&)> responseConsumer;
+    FailedResponseProducer failedResponseProducer;
+    std::optional<std::chrono::steady_clock::time_point> deadline;
+};
 
 class ProtocolReader
 {
 public:
     ProtocolReader() = default;
+
+    ProtocolReader(const ProtocolReader&) = delete;
+
+    ProtocolReader(ProtocolReader&& other) noexcept;
+
+    ProtocolReader& operator=(const ProtocolReader&) = delete;
+
+    // Pending response callbacks of the assigned-to reader are aborted before taking over the other reader's state.
+    ProtocolReader& operator=(ProtocolReader&& other) noexcept;
+
+    ~ProtocolReader() noexcept;
 
     void registerInboundMessageConsumer(
         const ProtocolIdentifier messageIdentifier, UniqueFunction<void(std::any&&)>&& messageConsumer
@@ -23,7 +44,9 @@ public:
     );
 
     void registerInboundOneShotResponseConsumer(
-        const ProtocolSequenceNumber sequenceNumber, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const ProtocolIdentifier responseIdentifier, const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     );
 
     // The inbound and outbound byte buffers belong to the receiving socket so that sockets sharing this reader (i.e.
@@ -39,7 +62,13 @@ public:
     // inbound and outbound streams are corrupt at that point and the receiving socket is erased.
     void readInboundBytes(std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes);
 
+    std::optional<std::chrono::steady_clock::time_point> getEarliestResponseDeadline() const noexcept;
+
+    void eraseTimedOutResponses() noexcept;
+
 private:
+    void abortPendingResponses() noexcept;
+
     bool readInboundMessage(
         const ProtocolIdentifier messageIdentifier,
         const dansandu::farseer::protocol_registry::ProtocolDescriptor& messageDescriptor,
@@ -60,7 +89,7 @@ private:
 
     std::map<ProtocolIdentifier, UniqueFunction<void(std::any&&)>> inboundMessageConsumers_;
     std::map<ProtocolIdentifier, UniqueFunction<std::any(std::any&&)>> inboundRequestConsumers_;
-    std::map<ProtocolSequenceNumber, UniqueFunction<void(std::any&&)>> inboundOneShotResponseConsumers_;
+    std::map<ProtocolSequenceNumber, ResponseEntry> inboundOneShotResponseConsumers_;
 };
 
 }

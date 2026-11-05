@@ -4,6 +4,9 @@
 #include "dansandu/journey/common.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
+#include <chrono>
+#include <optional>
+
 using dansandu::farseer::Expected;
 using dansandu::farseer::ProtocolIdentifier;
 using dansandu::farseer::ProtocolSequenceNumber;
@@ -24,6 +27,8 @@ TEST_CASE("protocol_reader")
     auto outboundBytes = std::vector<uint8_t>{};
 
     auto protocolReader = ProtocolReader{};
+
+    const auto noDeadline = std::optional<std::chrono::steady_clock::time_point>{};
 
     SECTION("empty message")
     {
@@ -333,6 +338,8 @@ TEST_CASE("protocol_reader")
             }
         );
 
+        const auto responseIdentifier = MyRequest::Response::Metadata::getProtocolIdentifier();
+
         const auto sequenceNumber = ProtocolSequenceNumber{1111};
 
         MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber, inboundBytes);
@@ -340,7 +347,8 @@ TEST_CASE("protocol_reader")
         auto protocol = std::any{};
 
         protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+            responseIdentifier, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
         protocolReader.readInboundBytes(inboundBytes, outboundBytes);
@@ -364,6 +372,8 @@ TEST_CASE("protocol_reader")
     {
         const auto response = Expected<MyRequest::Response>::fromFailure(13, "Invalid password");
 
+        const auto responseIdentifier = MyRequest::Response::Metadata::getProtocolIdentifier();
+
         const auto sequenceNumber = ProtocolSequenceNumber{68958};
 
         MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber, inboundBytes);
@@ -371,7 +381,8 @@ TEST_CASE("protocol_reader")
         auto protocol = std::any{};
 
         protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+            responseIdentifier, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
         protocolReader.readInboundBytes(inboundBytes, outboundBytes);
@@ -400,6 +411,8 @@ TEST_CASE("protocol_reader")
             }
         );
 
+        const auto responseIdentifier = MyRequest::Response::Metadata::getProtocolIdentifier();
+
         const auto sequenceNumber = ProtocolSequenceNumber{2323};
 
         const auto responseBytes = MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber);
@@ -407,7 +420,8 @@ TEST_CASE("protocol_reader")
         auto protocol = std::any{};
 
         protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+            responseIdentifier, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
         const auto halfBytesCount = responseBytes.size() / 2uz;
@@ -445,6 +459,8 @@ TEST_CASE("protocol_reader")
     {
         const auto response = Expected<MyRequest::Response>::fromFailure(825828, "some error message");
 
+        const auto responseIdentifier = MyRequest::Response::Metadata::getProtocolIdentifier();
+
         const auto sequenceNumber = ProtocolSequenceNumber{2928184};
 
         const auto responseBytes = MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber);
@@ -452,7 +468,8 @@ TEST_CASE("protocol_reader")
         auto protocol = std::any{};
 
         protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+            responseIdentifier, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
         const auto halfBytesCount = responseBytes.size() / 2uz;
@@ -555,6 +572,8 @@ TEST_CASE("protocol_reader")
             }
         );
 
+        const auto responseIdentifier = MyRequest::Response::Metadata::getProtocolIdentifier();
+
         const auto sequenceNumber = ProtocolSequenceNumber{3030};
 
         const auto responseBytes = MyRequest::Response::Metadata::serializeWithHeader(response, sequenceNumber);
@@ -573,11 +592,12 @@ TEST_CASE("protocol_reader")
 
         const auto consumer = [&consumerCalls](std::any&&) { ++consumerCalls; };
 
-        protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, consumer);
+        protocolReader.registerInboundOneShotResponseConsumer(responseIdentifier, sequenceNumber, noDeadline, consumer);
 
         REQUIRE_THROW(
-            ProtocolConsumerAlreadyRegisteredError,
-            protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, consumer)
+            ProtocolConsumerAlreadyRegisteredError, protocolReader.registerInboundOneShotResponseConsumer(
+                                                        responseIdentifier, sequenceNumber, noDeadline, consumer
+                                                    )
         );
 
         inboundBytes = responseBytes;

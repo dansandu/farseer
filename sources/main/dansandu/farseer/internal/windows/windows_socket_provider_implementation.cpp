@@ -7,7 +7,9 @@
 #include "dansandu/farseer/internal/windows/wsa_scope_guard.hpp"
 #include "dansandu/journey/logging.hpp"
 
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -51,12 +53,15 @@ public:
     }
 
     void sendRequest(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+        const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline, std::vector<uint8_t>&& bytes,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     ) override
     {
         operationScheduler_.scheduleSendRequestUserOperation(
-            socketIdentifier, sequenceNumber, std::move(bytes), std::move(responseConsumer)
+            socketIdentifier, responseIdentifier, sequenceNumber, deadline, std::move(bytes),
+            std::move(responseConsumer)
         );
     }
 

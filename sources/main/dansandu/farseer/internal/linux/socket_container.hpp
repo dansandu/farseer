@@ -7,8 +7,10 @@
 #include "dansandu/farseer/internal/sequencer.hpp"
 
 #include <any>
+#include <chrono>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -68,13 +70,19 @@ public:
     void sendBytes(const SocketIdentifier socketIdentifier, const std::span<const uint8_t> bytes);
 
     void sendRequest(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+        const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline, const std::span<const uint8_t> bytes,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     );
 
     void eraseSocket(const SocketIdentifier socketIdentifier);
 
     void handleSocketEvents(const int socketFileDescriptor, const uint32_t socketEvents);
+
+    std::optional<std::chrono::steady_clock::time_point> getEarliestResponseDeadline() const noexcept;
+
+    void eraseTimedOutResponses() noexcept;
 
 private:
     Socket& insertSocket(const uint32_t events, Socket&& socket);

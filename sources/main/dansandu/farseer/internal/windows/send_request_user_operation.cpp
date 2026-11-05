@@ -2,6 +2,11 @@
 #include "dansandu/farseer/internal/windows/send_request_user_operation.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 
+#include <any>
+#include <chrono>
+#include <optional>
+#include <vector>
+
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::IUserOperation;
@@ -15,11 +20,15 @@ class SendRequestUserOperation : public IUserOperation
 {
 public:
     SendRequestUserOperation(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+        const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline, std::vector<uint8_t>&& bytes,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     )
         : socketIdentifier_{socketIdentifier},
-          protocolSequenceNumber_{protocolSequenceNumber},
+          responseIdentifier_{responseIdentifier},
+          sequenceNumber_{sequenceNumber},
+          deadline_{deadline},
           bytes_{std::move(bytes)},
           responseConsumer_{std::move(responseConsumer)},
           sendBytesPending_{false}
@@ -47,7 +56,7 @@ public:
             auto& socket = socketContainer.getSocketOrThrow(socketIdentifier_);
 
             socket.protocolReader.registerInboundOneShotResponseConsumer(
-                protocolSequenceNumber_, std::move(responseConsumer_)
+                responseIdentifier_, sequenceNumber_, deadline_, std::move(responseConsumer_)
             );
 
             eraseWsaOverlapped();
@@ -66,19 +75,22 @@ public:
 
 private:
     const SocketIdentifier socketIdentifier_;
-    const ProtocolSequenceNumber protocolSequenceNumber_;
+    const ProtocolIdentifier responseIdentifier_;
+    const ProtocolSequenceNumber sequenceNumber_;
+    const std::optional<std::chrono::steady_clock::time_point> deadline_;
     std::vector<uint8_t> bytes_;
     UniqueFunction<void(std::any&&)> responseConsumer_;
     bool sendBytesPending_;
 };
 
 std::unique_ptr<IUserOperation> createSendRequestUserOperation(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+    const ProtocolSequenceNumber sequenceNumber, const std::optional<std::chrono::steady_clock::time_point> deadline,
     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
 )
 {
     return std::make_unique<SendRequestUserOperation>(
-        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+        socketIdentifier, responseIdentifier, sequenceNumber, deadline, std::move(bytes), std::move(responseConsumer)
     );
 }
 

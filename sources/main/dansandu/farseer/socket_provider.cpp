@@ -47,13 +47,16 @@ void SocketProvider::sendBytes(const SocketIdentifier socketIdentifier, std::vec
 }
 
 void SocketProvider::sendRequest(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>&& bytes,
-    UniqueFunction<void(std::any&&)>&& responseConsumer
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+    const ProtocolSequenceNumber sequenceNumber, const std::optional<std::chrono::steady_clock::time_point> deadline,
+    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
 ) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());
 
-    impl->sendRequest(socketIdentifier, sequenceNumber, std::move(bytes), std::move(responseConsumer));
+    impl->sendRequest(
+        socketIdentifier, responseIdentifier, sequenceNumber, deadline, std::move(bytes), std::move(responseConsumer)
+    );
 }
 
 void SocketProvider::registerMessageConsumer(

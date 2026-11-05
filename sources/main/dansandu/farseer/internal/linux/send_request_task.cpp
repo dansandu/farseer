@@ -12,11 +12,15 @@ class SendRequestTask : public ITask
 {
 public:
     SendRequestTask(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+        const ProtocolSequenceNumber sequenceNumber,
+        const std::optional<std::chrono::steady_clock::time_point> deadline, std::vector<uint8_t>&& bytes,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
     )
         : socketIdentifier_{socketIdentifier},
-          protocolSequenceNumber_{protocolSequenceNumber},
+          responseIdentifier_{responseIdentifier},
+          sequenceNumber_{sequenceNumber},
+          deadline_{deadline},
           bytes_{std::move(bytes)},
           responseConsumer_{std::move(responseConsumer)}
     {
@@ -34,23 +38,28 @@ public:
 
     void execute(SocketContainer& socketContainer) override
     {
-        socketContainer.sendRequest(socketIdentifier_, protocolSequenceNumber_, bytes_, std::move(responseConsumer_));
+        socketContainer.sendRequest(
+            socketIdentifier_, responseIdentifier_, sequenceNumber_, deadline_, bytes_, std::move(responseConsumer_)
+        );
     }
 
 private:
     const SocketIdentifier socketIdentifier_;
-    const ProtocolSequenceNumber protocolSequenceNumber_;
+    const ProtocolIdentifier responseIdentifier_;
+    const ProtocolSequenceNumber sequenceNumber_;
+    const std::optional<std::chrono::steady_clock::time_point> deadline_;
     const std::vector<uint8_t> bytes_;
     UniqueFunction<void(std::any&&)> responseConsumer_;
 };
 
 std::unique_ptr<ITask> createSendRequestTask(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
+    const SocketIdentifier socketIdentifier, const ProtocolIdentifier responseIdentifier,
+    const ProtocolSequenceNumber sequenceNumber, const std::optional<std::chrono::steady_clock::time_point> deadline,
     std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
 )
 {
     return std::make_unique<SendRequestTask>(
-        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+        socketIdentifier, responseIdentifier, sequenceNumber, deadline, std::move(bytes), std::move(responseConsumer)
     );
 }
 

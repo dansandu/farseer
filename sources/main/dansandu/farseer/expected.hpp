@@ -8,6 +8,8 @@ namespace dansandu::farseer::expected
 {
 
 constexpr uint32_t internalServerErrorCode = 0;
+constexpr uint32_t responseTimeoutErrorCode = 1;
+constexpr uint32_t responseAbortedErrorCode = 2;
 
 template<typename T>
 class Expected
