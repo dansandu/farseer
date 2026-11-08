@@ -30,7 +30,7 @@ struct PRALINE_EXPORT MyMessage
 {
     struct PRALINE_EXPORT Metadata
     {
-        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
+        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier() noexcept;
 
         static void serializeHeaderless(const MyMessage& message, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
@@ -63,7 +63,7 @@ struct PRALINE_EXPORT MyMessage
 namespace organization::artifact::protocol
 {
 
-::dansandu::farseer::ProtocolIdentifier MyMessage::Metadata::getProtocolIdentifier()
+::dansandu::farseer::ProtocolIdentifier MyMessage::Metadata::getProtocolIdentifier() noexcept
 {
     return ::dansandu::farseer::ProtocolIdentifier{1986501203u};
 }
@@ -205,7 +205,7 @@ struct PRALINE_EXPORT MyRequest
 {
     struct PRALINE_EXPORT Metadata
     {
-        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
+        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier() noexcept;
 
         static void serializeHeaderless(const MyRequest& request, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
@@ -229,7 +229,7 @@ struct PRALINE_EXPORT MyRequest
     {
         struct PRALINE_EXPORT Metadata
         {
-            static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
+            static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier() noexcept;
 
             static void serializeHeaderless(const Response& response, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
@@ -241,7 +241,9 @@ struct PRALINE_EXPORT MyRequest
 
             static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& response);
 
-            static std::any invokeCallback(const UniqueFunction<Response(MyRequest&&)>& callback, std::any&& request);
+            static std::any invokeRequestCallback(const UniqueFunction<Response(MyRequest&&)>& callback, std::any&& request);
+
+            static std::any getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept;
 
             static constexpr auto hasStaticSize = false;
 
@@ -265,7 +267,7 @@ struct PRALINE_EXPORT MyRequest
 namespace organization::artifact::protocol
 {
 
-::dansandu::farseer::ProtocolIdentifier MyRequest::Metadata::getProtocolIdentifier()
+::dansandu::farseer::ProtocolIdentifier MyRequest::Metadata::getProtocolIdentifier() noexcept
 {
     return ::dansandu::farseer::ProtocolIdentifier{1356265941u};
 }
@@ -364,7 +366,7 @@ bool MyRequest::Metadata::tryDeserializeWithHeader(const std::vector<uint8_t>& b
     return false;
 }
 
-::dansandu::farseer::ProtocolIdentifier MyRequest::Response::Metadata::getProtocolIdentifier()
+::dansandu::farseer::ProtocolIdentifier MyRequest::Response::Metadata::getProtocolIdentifier() noexcept
 {
     return ::dansandu::farseer::ProtocolIdentifier{1631866348u};
 }
@@ -449,7 +451,7 @@ bool MyRequest::Response::Metadata::tryDeserializeWithHeader(const std::vector<u
     return false;
 }
 
-std::any MyRequest::Response::Metadata::invokeCallback(const UniqueFunction<Response(MyRequest&&)>& callback, std::any&& request)
+std::any MyRequest::Response::Metadata::invokeRequestCallback(const UniqueFunction<Response(MyRequest&&)>& callback, std::any&& request)
 {
     using ::dansandu::farseer::Expected;
 
@@ -469,6 +471,11 @@ std::any MyRequest::Response::Metadata::invokeCallback(const UniqueFunction<Resp
     {
         return Expected<Response>::fromInternalServerError();
     }
+}
+
+std::any MyRequest::Response::Metadata::getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept
+{
+    return ::dansandu::farseer::Expected<Response>::fromFailure(errorCode, errorMessage);
 }
 
 }

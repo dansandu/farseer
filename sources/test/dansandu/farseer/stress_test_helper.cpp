@@ -138,6 +138,8 @@ std::vector<StressResult> runClient(const SocketProvider& socketProvider, const 
     auto requests = std::vector<StressRequest>{};
     auto responseFutures = std::vector<std::future<Expected<StressResponse>>>{};
 
+    const auto noTimeout = std::optional<std::chrono::milliseconds>{};
+
     for (auto requestIndex = 0uz; requestIndex < requestsPerClient; ++requestIndex)
     {
         auto responsePromise = std::promise<Expected<StressResponse>>{};
@@ -146,7 +148,7 @@ std::vector<StressResult> runClient(const SocketProvider& socketProvider, const 
         requests.push_back(generateRequest(clientIndex, requestIndex));
 
         socketProvider.sendRequest(
-            connectionId, requests.back(),
+            connectionId, requests.back(), noTimeout,
             [responsePromise = std::move(responsePromise)](Expected<StressResponse>&& response) mutable
             { responsePromise.set_value(std::move(response)); }
         );

@@ -6,7 +6,10 @@
 #include "dansandu/farseer/expected.hpp"
 
 #include <any>
+#include <chrono>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace dansandu::farseer
@@ -110,5 +113,56 @@ using SequencedProtocolWithHeaderDeserializer = bool (*)(
 // appended bytes or discard the buffer.
 using ResponseWithHeaderSerializer =
     void (*)(const std::any& response, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>& bytes);
+
+// Constructs a std::any from an object of type Expected<Response> with a given error code and error message.
+using FailedResponseProducer = std::any (*)(const uint32_t errorCode, const std::string& errorMessage) noexcept;
+
+class PRALINE_EXPORT OneShotResponseConsumer
+{
+public:
+    OneShotResponseConsumer(
+        const ProtocolIdentifier responseIdentifier, const FailedResponseProducer failedResponseProducer,
+        const std::optional<std::chrono::steady_clock::time_point> deadline,
+        UniqueFunction<void(std::any&&)>&& responseConsumer
+    );
+
+    OneShotResponseConsumer(const OneShotResponseConsumer&) = delete;
+
+    OneShotResponseConsumer(OneShotResponseConsumer&&) noexcept;
+
+    OneShotResponseConsumer& operator=(const OneShotResponseConsumer&) = delete;
+
+    OneShotResponseConsumer& operator=(OneShotResponseConsumer&&) noexcept;
+
+    ~OneShotResponseConsumer() noexcept;
+
+    std::optional<std::chrono::steady_clock::time_point> getDeadline() const noexcept;
+
+    bool hasTimedOut() const noexcept;
+
+    // If the response consumer was previously invoked then the response consumer is not invoked and the function
+    // returns false. If the deadline has passed then the response consumer is invoked with a failed timeout response
+    // and the function returns true. Otherwise, the response consumer is invoked with the passed response parameter and
+    // the function returns true.
+    bool invoke(std::any&& response) noexcept;
+
+private:
+    void invokeFailedResponse() noexcept;
+
+    ProtocolIdentifier responseIdentifier_;
+    FailedResponseProducer failedResponseProducer_;
+    std::optional<std::chrono::steady_clock::time_point> deadline_;
+    UniqueFunction<void(std::any&&)> responseConsumer_;
+};
+
+// Returns the time point that lies the given timeout away from now. A negative timeout is treated as zero and a timeout
+// which would overflow the time point is clamped to the latest representable deadline.
+PRALINE_EXPORT std::chrono::steady_clock::time_point
+getDeadlineFromTimeout(const std::chrono::milliseconds timeout) noexcept;
+
+void wrapInTryCatchAndInvokeProtocolConsumer(
+    const ProtocolIdentifier protocolIdentifier, const UniqueFunction<void(std::any&&)>& protocolConsumer,
+    std::any&& protocol
+);
 
 }

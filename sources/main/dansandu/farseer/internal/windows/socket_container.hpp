@@ -2,9 +2,12 @@
 
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/internal/protocol_reader.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
+#include <chrono>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace dansandu::farseer::internal::windows::socket_container
@@ -13,6 +16,7 @@ namespace dansandu::farseer::internal::windows::socket_container
 struct Socket
 {
     dansandu::farseer::internal::windows::windows_socket::WindowsSocket socket;
+    dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer responseConsumerContainer;
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
     SocketIdentifier listeningSocketIdentifier;
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
@@ -36,6 +40,8 @@ public:
     void eraseSocket(const SocketIdentifier socketIdentifier) noexcept;
 
     void eraseAllSockets() noexcept;
+
+    std::optional<std::chrono::steady_clock::time_point> eraseTimedOutResponses() noexcept;
 
 private:
     std::map<SocketIdentifier, Socket> sockets_;

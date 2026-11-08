@@ -1,6 +1,7 @@
 #if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/socket_container.hpp"
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/farseer/internal/utility.hpp"
 #include "dansandu/journey/exception.hpp"
 #include "dansandu/journey/logging.hpp"
 
@@ -105,6 +106,11 @@ void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier) noexc
 void SocketContainer::eraseAllSockets() noexcept
 {
     sockets_.clear();
+}
+
+std::optional<std::chrono::steady_clock::time_point> SocketContainer::eraseTimedOutResponses() noexcept
+{
+    return dansandu::farseer::internal::utility::eraseTimedOutResponses(sockets_);
 }
 
 }

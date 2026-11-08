@@ -4,7 +4,9 @@
 #include "dansandu/farseer/exception.hpp"
 
 #include <any>
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,25 +36,37 @@ public:
             THROW(std::logic_error, "Cannot send message using an invalidSocketIdentifier");
         }
 
-        sendBytes(socketIdentifier, Message::Metadata::serializeWithHeader(message));
+        sendMessageWork(socketIdentifier, Message::Metadata::serializeWithHeader(message));
     }
 
+    // The response consumer is guaranteed to be invoked. If the consumer doesn't reach the socket provider internal
+    // thread, then the response consumer will be invoked on the caller thread. Future consideration: add a dedicated
+    // thread to invoke callbacks for consistency, or switch to std::future<T> instead of callbacks.
     template<typename Request>
     void sendRequest(
         const SocketIdentifier socketIdentifier, const Request& request,
+        const std::optional<std::chrono::milliseconds> timeout,
         UniqueFunction<void(Expected<typename Request::Response>&&)>&& responseConsumer
     ) const
     {
+        const auto deadline = timeout.transform(getDeadlineFromTimeout);
+
+        auto oneShotResponseConsumer = OneShotResponseConsumer{
+            Request::Response::Metadata::getProtocolIdentifier(), Request::Response::Metadata::getFailedResponse,
+            deadline, [responseConsumer = std::move(responseConsumer)](std::any&& response)
+            { responseConsumer(std::any_cast<Expected<typename Request::Response>&&>(std::move(response))); }
+        };
+
         if (socketIdentifier == invalidSocketIdentifier)
         {
             THROW(std::logic_error, "Cannot send request using an invalidSocketIdentifier");
         }
 
         const auto sequenceNumber = generateSequenceNumber();
-        sendRequest(
+
+        sendRequestWork(
             socketIdentifier, sequenceNumber, Request::Metadata::serializeWithHeader(request, sequenceNumber),
-            [responseConsumer = std::move(responseConsumer)](std::any&& response)
-            { responseConsumer(std::any_cast<Expected<typename Request::Response>&&>(std::move(response))); }
+            std::move(oneShotResponseConsumer)
         );
     }
 
@@ -66,7 +80,7 @@ public:
             THROW(std::logic_error, "Cannot register message consumer using an invalidSocketIdentifier");
         }
 
-        registerMessageConsumer(
+        registerMessageConsumerWork(
             socketIdentifier, Message::Metadata::getProtocolIdentifier(),
             [messageConsumer = std::move(messageConsumer)](std::any&& message)
             { messageConsumer(std::any_cast<Message&&>(std::move(message))); }
@@ -83,10 +97,10 @@ public:
             THROW(std::logic_error, "Cannot register request callback using an invalidSocketIdentifier");
         }
 
-        registerRequestCallback(
+        registerRequestCallbackWork(
             socketIdentifier, Request::Metadata::getProtocolIdentifier(),
             [requestCallback = std::move(requestCallback)](std::any&& request)
-            { return Request::Response::Metadata::invokeCallback(requestCallback, std::move(request)); }
+            { return Request::Response::Metadata::invokeRequestCallback(requestCallback, std::move(request)); }
         );
     }
 
@@ -95,19 +109,19 @@ public:
 private:
     ProtocolSequenceNumber generateSequenceNumber() const;
 
-    void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) const;
+    void sendMessageWork(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& messageBytes) const;
 
-    void sendRequest(
+    void sendRequestWork(
         const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     ) const;
 
-    void registerMessageConsumer(
+    void registerMessageConsumerWork(
         const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
         UniqueFunction<void(std::any&&)>&& messageConsumer
     ) const;
 
-    void registerRequestCallback(
+    void registerRequestCallbackWork(
         const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
         UniqueFunction<std::any(std::any&&)>&& requestCallback
     ) const;

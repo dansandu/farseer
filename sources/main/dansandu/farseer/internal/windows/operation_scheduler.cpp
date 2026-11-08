@@ -2,6 +2,7 @@
 #include "dansandu/farseer/internal/windows/operation_scheduler.hpp"
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/ballotin/string.hpp"
+#include "dansandu/farseer/internal/utility.hpp"
 #include "dansandu/farseer/internal/windows/accept_system_operation.hpp"
 #include "dansandu/farseer/internal/windows/close_user_operation.hpp"
 #include "dansandu/farseer/internal/windows/connect_user_operation.hpp"
@@ -16,6 +17,11 @@
 #include "dansandu/journey/logging.hpp"
 
 #include <winternl.h>
+
+#include <algorithm>
+#include <chrono>
+#include <limits>
+#include <optional>
 
 using dansandu::ballotin::string::toWideString;
 using dansandu::farseer::exception::InternalSocketErrorWithCode;
@@ -49,11 +55,29 @@ namespace
 {
 
 constexpr auto defaultCompletionKey = invalidSocketIdentifier.getUnderlying();
-constexpr auto maximumNumberOfEntries = ULONG{1024};
+constexpr auto maximumNumberOfDequeuedEntries = ULONG{1024};
 
 // state_ holds the number of outstanding operations in the low bits and the aborting flag in the top bit.
 constexpr auto abortingFlag = std::size_t{1} << (std::numeric_limits<std::size_t>::digits - 1);
 constexpr auto drainTimeoutMilliseconds = DWORD{100};
+
+// Returns the GetQueuedCompletionStatusEx timeout for the given deadline. The remaining time is rounded up so that the
+// wait doesn't end before the deadline and it is clamped to [0, INFINITE - 1] because INFINITE means waiting forever.
+DWORD getRemainingMilliseconds(const std::chrono::steady_clock::time_point deadline) noexcept
+{
+    const auto now = std::chrono::steady_clock::now();
+
+    if (deadline <= now)
+    {
+        return 0;
+    }
+
+    const auto remainingMilliseconds = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+    const auto maximumMilliseconds = std::chrono::milliseconds::rep{INFINITE - 1};
+
+    // Wrap std::min in parentheses to avoid macro substitution.
+    return static_cast<DWORD>((std::min)(remainingMilliseconds, maximumMilliseconds));
+}
 
 HANDLE initializeIoCompletionPort()
 {
@@ -223,12 +247,12 @@ void OperationScheduler::scheduleSendBytesSystemOperation(
 }
 
 void OperationScheduler::scheduleSendRequestUserOperation(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+    std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
 )
 {
     scheduleUserOperation(createSendRequestUserOperation(
-        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+        socketIdentifier, sequenceNumber, std::move(requestBytes), std::move(responseConsumer)
     ));
 }
 
@@ -343,7 +367,7 @@ void OperationScheduler::consumeOperationsWork()
     // preceding the abort are consumed as usual.
     auto draining = false;
 
-    OVERLAPPED_ENTRY entries[maximumNumberOfEntries];
+    OVERLAPPED_ENTRY entries[maximumNumberOfDequeuedEntries];
 
     while (true)
     {
@@ -355,47 +379,70 @@ void OperationScheduler::consumeOperationsWork()
             return;
         }
 
-        ULONG numberOfEntries = 0;
+        ULONG numberOfDequeuedEntries = 0;
 
-        const DWORD timeout = draining ? drainTimeoutMilliseconds : INFINITE;
+        DWORD timeoutMilliseconds;
+
+        if (draining)
+        {
+            timeoutMilliseconds = drainTimeoutMilliseconds;
+        }
+        else
+        {
+            const auto earliestResponseDeadline = socketContainer_.eraseTimedOutResponses();
+
+            timeoutMilliseconds =
+                earliestResponseDeadline
+                    .transform([](const auto& deadline) { return getRemainingMilliseconds(deadline); })
+                    .value_or(INFINITE);
+        }
+
         const BOOL alert = FALSE;
 
         const auto dequeueResult = ::GetQueuedCompletionStatusEx(
-            completionPort_, entries, maximumNumberOfEntries, &numberOfEntries, timeout, alert
+            completionPort_, entries, maximumNumberOfDequeuedEntries, &numberOfDequeuedEntries, timeoutMilliseconds,
+            alert
         );
 
         if (dequeueResult == FALSE)
         {
             const auto errorCode = ::GetLastError();
 
-            if (draining && errorCode == WAIT_TIMEOUT)
+            if (errorCode == WAIT_TIMEOUT)
             {
-                // On timeout, state_ is checked again because a failed posting might have decremented it or cancelled
-                // I/O completions might still be on their way.
+                if (draining)
+                {
+                    // On timeout, state_ is checked again because a failed posting might have decremented it or
+                    // cancelled I/O completions might still be on their way.
+                    continue;
+                }
+
+                // Currently not draining and the timeout signals that some responses have timed out.
+            }
+            else
+            {
+                if (draining)
+                {
+                    LOG_ERROR("Failed to drain all operations: ", getErrorMessageFromCode(errorCode));
+
+                    return;
+                }
+
+                LOG_ERROR(
+                    "Failed to dequeue operations; starting to drain operations: ", getErrorMessageFromCode(errorCode)
+                );
+
+                // The operation consumer thread cannot continue, so new user operations must be rejected and the
+                // outstanding ones drained, otherwise they would be posted to a queue that is never read.
+                draining = true;
+
+                startDraining();
+
                 continue;
             }
-
-            if (draining)
-            {
-                LOG_ERROR("Failed to drain all operations: ", getErrorMessageFromCode(errorCode));
-
-                return;
-            }
-
-            LOG_ERROR(
-                "Failed to dequeue operations; starting to drain operations: ", getErrorMessageFromCode(errorCode)
-            );
-
-            // The operation consumer thread cannot continue, so new user operations must be rejected and the
-            // outstanding ones drained, otherwise they would be posted to a queue that is never read.
-            draining = true;
-
-            startDraining();
-
-            continue;
         }
 
-        for (ULONG index = 0; index < numberOfEntries; ++index)
+        for (ULONG index = 0; index < numberOfDequeuedEntries; ++index)
         {
             const auto& entry = entries[index];
 

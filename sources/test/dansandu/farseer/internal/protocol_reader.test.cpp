@@ -1,15 +1,23 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/exception.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
 #include "dansandu/farseer/sample_protocol.g.hpp"
 #include "dansandu/journey/common.hpp"
 #include "dansandu/radiance/radiance.hpp"
 
+#include <chrono>
+#include <optional>
+
 using dansandu::farseer::Expected;
+using dansandu::farseer::OneShotResponseConsumer;
 using dansandu::farseer::ProtocolIdentifier;
 using dansandu::farseer::ProtocolSequenceNumber;
 using dansandu::farseer::SocketIdentifier;
+using dansandu::farseer::UniqueFunction;
 using dansandu::farseer::exception::ProtocolConsumerAlreadyRegisteredError;
+using dansandu::farseer::expected::responseAbortedErrorCode;
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
+using dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer;
 using dansandu::farseer::sample_protocol::DynamicMessage;
 using dansandu::farseer::sample_protocol::EmptyMessage;
 using dansandu::farseer::sample_protocol::MyRequest;
@@ -17,13 +25,37 @@ using dansandu::farseer::sample_protocol::StaticMessage;
 using dansandu::journey::Level;
 using dansandu::radiance::Log;
 
+namespace
+{
+
+template<typename Request>
+void insertResponseConsumer(
+    ResponseConsumerContainer& responseConsumerContainer, const ProtocolSequenceNumber sequenceNumber,
+    const std::optional<std::chrono::steady_clock::time_point> deadline,
+    UniqueFunction<void(std::any&&)>&& responseConsumer
+)
+{
+    responseConsumerContainer.insert(
+        sequenceNumber, OneShotResponseConsumer{
+                            Request::Response::Metadata::getProtocolIdentifier(),
+                            Request::Response::Metadata::getFailedResponse, deadline, std::move(responseConsumer)
+                        }
+    );
+}
+
+}
+
 TEST_CASE("protocol_reader")
 {
     auto inboundBytes = std::vector<uint8_t>{};
 
     auto outboundBytes = std::vector<uint8_t>{};
 
+    auto responseConsumerContainer = ResponseConsumerContainer{};
+
     auto protocolReader = ProtocolReader{};
+
+    const auto noDeadline = std::optional<std::chrono::steady_clock::time_point>{};
 
     SECTION("empty message")
     {
@@ -36,7 +68,7 @@ TEST_CASE("protocol_reader")
             [&protocol](std::any&& inboundMessage) { protocol = std::move(inboundMessage); }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -65,7 +97,7 @@ TEST_CASE("protocol_reader")
             [&protocol](std::any&& inboundMessage) { protocol = std::move(inboundMessage); }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -100,7 +132,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), messageBytes.cbegin(), messageBytes.cbegin() + halfBytesCount);
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(!protocol.has_value());
 
@@ -110,7 +142,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), messageBytes.cbegin() + halfBytesCount, messageBytes.cend());
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -151,7 +183,7 @@ TEST_CASE("protocol_reader")
             [&protocol](std::any&& inboundMessage) { protocol = std::move(inboundMessage); }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -204,7 +236,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), messageBytes.cbegin(), messageBytes.cbegin() + halfBytesCount);
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(!protocol.has_value());
 
@@ -214,7 +246,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), messageBytes.cbegin() + halfBytesCount, messageBytes.cend());
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -268,7 +300,7 @@ TEST_CASE("protocol_reader")
             }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -309,7 +341,7 @@ TEST_CASE("protocol_reader")
             }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -339,11 +371,12 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+        insertResponseConsumer<MyRequest>(
+            responseConsumerContainer, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -370,11 +403,12 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+        insertResponseConsumer<MyRequest>(
+            responseConsumerContainer, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -406,15 +440,16 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+        insertResponseConsumer<MyRequest>(
+            responseConsumerContainer, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
         const auto halfBytesCount = responseBytes.size() / 2uz;
 
         inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin(), responseBytes.cbegin() + halfBytesCount);
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(!protocol.has_value());
 
@@ -424,7 +459,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin() + halfBytesCount, responseBytes.cend());
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -451,15 +486,16 @@ TEST_CASE("protocol_reader")
 
         auto protocol = std::any{};
 
-        protocolReader.registerInboundOneShotResponseConsumer(
-            sequenceNumber, [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
+        insertResponseConsumer<MyRequest>(
+            responseConsumerContainer, sequenceNumber, noDeadline,
+            [&protocol](std::any&& inboundResponse) { protocol = std::move(inboundResponse); }
         );
 
         const auto halfBytesCount = responseBytes.size() / 2uz;
 
         inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin(), responseBytes.cbegin() + halfBytesCount);
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(!protocol.has_value());
 
@@ -469,7 +505,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), responseBytes.cbegin() + halfBytesCount, responseBytes.cend());
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -521,7 +557,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), requestBytes.cbegin(), requestBytes.cbegin() + halfBytesCount);
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(!protocol.has_value());
 
@@ -531,7 +567,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), requestBytes.cbegin() + halfBytesCount, requestBytes.cend());
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(protocol.has_value());
 
@@ -561,30 +597,41 @@ TEST_CASE("protocol_reader")
 
         const auto noConsumerLogs = std::vector<Log>{
             Log{Level::debug, L"Successfully read the response protocol 1498178261"},
-            Log{Level::error, L"The response protocol with identifier 1498178261 and sequence number 3030 has no "
-                              L"consumer registered and will be skipped"},
+            Log{Level::warning, L"The response protocol with identifier 1498178261 and sequence number 3030 will be "
+                                L"skipped because no consumer was found possibly due to a timeout"},
         };
 
         inboundBytes = responseBytes;
 
-        REQUIRE_LOG(noConsumerLogs, protocolReader.readInboundBytes(inboundBytes, outboundBytes));
+        REQUIRE_LOG(
+            noConsumerLogs, protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer)
+        );
 
-        auto consumerCalls = 0;
+        auto responses = std::vector<Expected<MyRequest::Response>>{};
 
-        const auto consumer = [&consumerCalls](std::any&&) { ++consumerCalls; };
+        const auto consumer = [&responses](std::any&& response)
+        { responses.push_back(std::any_cast<Expected<MyRequest::Response>>(response)); };
 
-        protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, consumer);
+        insertResponseConsumer<MyRequest>(responseConsumerContainer, sequenceNumber, noDeadline, consumer);
 
         REQUIRE_THROW(
             ProtocolConsumerAlreadyRegisteredError,
-            protocolReader.registerInboundOneShotResponseConsumer(sequenceNumber, consumer)
+            insertResponseConsumer<MyRequest>(responseConsumerContainer, sequenceNumber, noDeadline, consumer)
         );
+
+        REQUIRE(responses.size() == 1uz);
+
+        REQUIRE(responses.at(0).failure());
+
+        REQUIRE(responses.at(0).getErrorCode() == responseAbortedErrorCode);
 
         inboundBytes = responseBytes;
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
-        REQUIRE(consumerCalls == 1);
+        REQUIRE(responses.size() == 2uz);
+
+        REQUIRE(responses.at(1).success());
 
         REQUIRE(inboundBytes.empty());
 
@@ -592,7 +639,9 @@ TEST_CASE("protocol_reader")
 
         inboundBytes = responseBytes;
 
-        REQUIRE_LOG(noConsumerLogs, protocolReader.readInboundBytes(inboundBytes, outboundBytes));
+        REQUIRE_LOG(
+            noConsumerLogs, protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer)
+        );
     }
 
     SECTION("interleaved partial messages from sockets sharing a reader")
@@ -638,9 +687,9 @@ TEST_CASE("protocol_reader")
             secondInboundBytes.end(), secondBytes.cbegin(), secondBytes.cbegin() + secondHalfBytesCount
         );
 
-        protocolReader.readInboundBytes(firstInboundBytes, firstOutboundBytes);
+        protocolReader.readInboundBytes(firstInboundBytes, firstOutboundBytes, responseConsumerContainer);
 
-        protocolReader.readInboundBytes(secondInboundBytes, secondOutboundBytes);
+        protocolReader.readInboundBytes(secondInboundBytes, secondOutboundBytes, responseConsumerContainer);
 
         REQUIRE(firstInboundBytes.size() == firstHalfBytesCount);
 
@@ -652,9 +701,9 @@ TEST_CASE("protocol_reader")
             secondInboundBytes.end(), secondBytes.cbegin() + secondHalfBytesCount, secondBytes.cend()
         );
 
-        protocolReader.readInboundBytes(firstInboundBytes, firstOutboundBytes);
+        protocolReader.readInboundBytes(firstInboundBytes, firstOutboundBytes, responseConsumerContainer);
 
-        protocolReader.readInboundBytes(secondInboundBytes, secondOutboundBytes);
+        protocolReader.readInboundBytes(secondInboundBytes, secondOutboundBytes, responseConsumerContainer);
 
         REQUIRE(messages.size() == 2uz);
 
@@ -713,7 +762,7 @@ TEST_CASE("protocol_reader")
             { messages.push_back(std::any_cast<const StaticMessage&>(inboundMessage)); }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(messages.size() == 2uz);
 
@@ -731,7 +780,7 @@ TEST_CASE("protocol_reader")
 
         inboundBytes.insert(inboundBytes.end(), thirdBytes.cbegin() + thirdHalfBytesCount, thirdBytes.cend());
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(messages.size() == 3uz);
 
@@ -791,7 +840,9 @@ TEST_CASE("protocol_reader")
             Log{Level::debug, L"Successfully read the message protocol 3028821238"},
         };
 
-        REQUIRE_LOG(expectedLogs, protocolReader.readInboundBytes(inboundBytes, outboundBytes));
+        REQUIRE_LOG(
+            expectedLogs, protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer)
+        );
 
         REQUIRE(expectedMessages.at(0).integer == actualMessages.at(0).integer);
 
@@ -868,7 +919,7 @@ TEST_CASE("protocol_reader")
             }
         );
 
-        protocolReader.readInboundBytes(inboundBytes, outboundBytes);
+        protocolReader.readInboundBytes(inboundBytes, outboundBytes, responseConsumerContainer);
 
         REQUIRE(actualRequests.size() == 3uz);
 

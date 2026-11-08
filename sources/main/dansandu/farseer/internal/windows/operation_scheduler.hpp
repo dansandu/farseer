@@ -41,8 +41,8 @@ public:
     void scheduleSendBytesUserOperation(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes);
 
     void scheduleSendRequestUserOperation(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     );
 
     void scheduleRegisterMessageConsumerUserOperation(

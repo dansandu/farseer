@@ -22,6 +22,7 @@ struct ProtocolDescriptor
     MessageWithHeaderDeserializer messageWithHeaderDeserializer;
     SequencedProtocolWithHeaderDeserializer sequencedProtocolWithHeaderDeserializer;
     ResponseWithHeaderSerializer responseWithHeaderSerializer;
+    FailedResponseProducer failedResponseProducer;
 };
 
 class PRALINE_EXPORT ProtocolRegistry
@@ -49,7 +50,7 @@ public:
         registerRequestProtocol(
             Request::Metadata::getProtocolIdentifier(), Request::Metadata::tryDeserializeWithHeader,
             Request::Response::Metadata::getProtocolIdentifier(), Request::Response::Metadata::tryDeserializeWithHeader,
-            Request::Response::Metadata::serializeWithHeader
+            Request::Response::Metadata::serializeWithHeader, Request::Response::Metadata::getFailedResponse
         );
         return 0;
     }
@@ -66,7 +67,7 @@ private:
     void registerRequestProtocol(
         const ProtocolIdentifier requestIdentifier, const SequencedProtocolWithHeaderDeserializer requestDeserializer,
         const ProtocolIdentifier responseIdentifier, const SequencedProtocolWithHeaderDeserializer responseDeserializer,
-        const ResponseWithHeaderSerializer responseSerializer
+        const ResponseWithHeaderSerializer responseSerializer, const FailedResponseProducer failedResponseProducer
     );
 
     std::map<ProtocolIdentifier, ProtocolDescriptor> protocolDescriptors_;
