@@ -4,6 +4,8 @@
 #include "dansandu/farseer/exception.hpp"
 #include "dansandu/farseer/internal/linux/error.hpp"
 #include "dansandu/farseer/internal/protocol_reader.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
+#include "dansandu/farseer/internal/utility.hpp"
 #include "dansandu/journey/logging.hpp"
 
 #include <sys/epoll.h>
@@ -14,6 +16,7 @@ using dansandu::farseer::internal::linux::event_poll::EventPoll;
 using dansandu::farseer::internal::linux::linux_socket::LinuxSocket;
 using dansandu::farseer::internal::linux::linux_socket::SocketType;
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
+using dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer;
 using dansandu::farseer::internal::sequencer::Sequencer;
 using dansandu::journey::exception::WideException;
 
@@ -96,6 +99,7 @@ void SocketContainer::listen(
                                .socketIdentifier = socketIdentifier,
                                .listeningSocketIdentifier = invalidSocketIdentifier,
                                .socket = LinuxSocket::listen(ipAddress, port),
+                               .responseConsumerContainer = ResponseConsumerContainer{},
                                .protocolReader = ProtocolReader{},
                                .connectionCallback = std::move(connectionCallback),
                                .inboundBytes = {},
@@ -121,6 +125,7 @@ void SocketContainer::connect(
                                 .socketIdentifier = socketIdentifier,
                                 .listeningSocketIdentifier = invalidSocketIdentifier,
                                 .socket = LinuxSocket::connect(ipAddress, port),
+                                .responseConsumerContainer = ResponseConsumerContainer{},
                                 .protocolReader = ProtocolReader{},
                                 .connectionCallback = std::move(connectionCallback),
                                 .inboundBytes = {},
@@ -180,15 +185,17 @@ void SocketContainer::sendBytes(const SocketIdentifier socketIdentifier, const s
 }
 
 void SocketContainer::sendRequest(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-    const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+    std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
 )
 {
     auto& socket = getSocketOrThrow(socketIdentifier);
 
-    socket.protocolReader.registerInboundOneShotResponseConsumer(protocolSequenceNumber, std::move(responseConsumer));
+    socket.responseConsumerContainer.insert(sequenceNumber, std::move(responseConsumer));
 
-    sendBytes(socket, bytes);
+    SCOPE_FAILURE([&]() { socket.responseConsumerContainer.erase(sequenceNumber); });
+
+    sendBytes(socket, requestBytes);
 }
 
 void SocketContainer::eraseSocket(const SocketIdentifier socketIdentifier)
@@ -272,6 +279,7 @@ void SocketContainer::handleListeningSocketEvents(Socket& socket)
                                    .socketIdentifier = acceptedSocketIdentifier,
                                    .listeningSocketIdentifier = socket.socketIdentifier,
                                    .socket = std::move(*candidateSocket),
+                                   .responseConsumerContainer = ResponseConsumerContainer{},
                                    .protocolReader = ProtocolReader{},
                                    .connectionCallback = {},
                                    .inboundBytes = {},
@@ -324,11 +332,15 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
         {
             auto& listeningSocket = getSocketOrThrow(socket.listeningSocketIdentifier);
 
-            listeningSocket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
+            listeningSocket.protocolReader.readInboundBytes(
+                socket.inboundBytes, socket.outboundBytes, socket.responseConsumerContainer
+            );
         }
         else
         {
-            socket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
+            socket.protocolReader.readInboundBytes(
+                socket.inboundBytes, socket.outboundBytes, socket.responseConsumerContainer
+            );
         }
 
         if (!socket.outboundBytes.empty())
@@ -351,6 +363,11 @@ void SocketContainer::handleConnectedSocketEvents(Socket& socket, const uint32_t
     {
         sendBytes(socket, {});
     }
+}
+
+std::optional<std::chrono::steady_clock::time_point> SocketContainer::eraseTimedOutResponses() noexcept
+{
+    return dansandu::farseer::internal::utility::eraseTimedOutResponses(sockets_);
 }
 
 void SocketContainer::handleSocketEventsWork(Socket& socket, const uint32_t socketEvents)

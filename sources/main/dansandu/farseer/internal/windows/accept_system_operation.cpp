@@ -2,10 +2,12 @@
 #include "dansandu/farseer/internal/windows/accept_system_operation.hpp"
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/internal/receive_buffer.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
 using dansandu::farseer::internal::receive_buffer::maximumReceiveBufferSize;
+using dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer;
 using dansandu::farseer::internal::windows::error::isClientError;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::ISystemOperation;
@@ -55,6 +57,7 @@ public:
         auto& socket = socketContainer.insertSocket(
             pendingAcceptSocketIdentifier_, Socket{
                                                 .socket = WindowsSocket{},
+                                                .responseConsumerContainer = ResponseConsumerContainer{},
                                                 .protocolReader = ProtocolReader{},
                                                 .listeningSocketIdentifier = listeningSocketIdentifier_,
                                                 .inboundBytes = {},

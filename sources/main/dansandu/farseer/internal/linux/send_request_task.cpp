@@ -12,12 +12,12 @@ class SendRequestTask : public ITask
 {
 public:
     SendRequestTask(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     )
         : socketIdentifier_{socketIdentifier},
-          protocolSequenceNumber_{protocolSequenceNumber},
-          bytes_{std::move(bytes)},
+          sequenceNumber_{sequenceNumber},
+          requestBytes_{std::move(requestBytes)},
           responseConsumer_{std::move(responseConsumer)}
     {
     }
@@ -34,23 +34,25 @@ public:
 
     void execute(SocketContainer& socketContainer) override
     {
-        socketContainer.sendRequest(socketIdentifier_, protocolSequenceNumber_, bytes_, std::move(responseConsumer_));
+        socketContainer.sendRequest(
+            socketIdentifier_, sequenceNumber_, std::move(requestBytes_), std::move(responseConsumer_)
+        );
     }
 
 private:
     const SocketIdentifier socketIdentifier_;
-    const ProtocolSequenceNumber protocolSequenceNumber_;
-    const std::vector<uint8_t> bytes_;
-    UniqueFunction<void(std::any&&)> responseConsumer_;
+    const ProtocolSequenceNumber sequenceNumber_;
+    std::vector<uint8_t> requestBytes_;
+    OneShotResponseConsumer responseConsumer_;
 };
 
 std::unique_ptr<ITask> createSendRequestTask(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+    std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
 )
 {
     return std::make_unique<SendRequestTask>(
-        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+        socketIdentifier, sequenceNumber, std::move(requestBytes), std::move(responseConsumer)
     );
 }
 

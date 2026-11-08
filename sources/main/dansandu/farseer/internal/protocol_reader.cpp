@@ -3,6 +3,7 @@
 #include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/binary_serialization.hpp"
 #include "dansandu/farseer/exception.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"
 #include "dansandu/journey/logging.hpp"
 
@@ -11,10 +12,10 @@ using dansandu::ballotin::binary::numberOfBitsToNumberOfBytes;
 using dansandu::farseer::binary_serialization::BinarySerializer;
 using dansandu::farseer::exception::ProtocolConsumerAlreadyRegisteredError;
 using dansandu::farseer::exception::ProtocolNotRegisteredError;
+using dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer;
 using dansandu::farseer::protocol_registry::ProtocolDescriptor;
 using dansandu::farseer::protocol_registry::ProtocolRegistry;
 using dansandu::farseer::protocol_registry::ProtocolType;
-using dansandu::journey::exception::WideException;
 
 namespace dansandu::farseer::internal::protocol_reader
 {
@@ -63,59 +64,6 @@ void ProtocolReader::registerInboundRequestConsumer(
     }
 }
 
-void ProtocolReader::registerInboundOneShotResponseConsumer(
-    const ProtocolSequenceNumber sequenceNumber, UniqueFunction<void(std::any&&)>&& responseConsumer
-)
-{
-    if (!inboundOneShotResponseConsumers_.contains(sequenceNumber))
-    {
-        inboundOneShotResponseConsumers_.insert({sequenceNumber, std::move(responseConsumer)});
-    }
-    else
-    {
-        THROW(
-            ProtocolConsumerAlreadyRegisteredError,
-            "Another response consumer is already registered with sequence number ", sequenceNumber
-        );
-    }
-}
-
-namespace
-{
-
-void wrapInTryCatchAndInvoke(
-    const ProtocolIdentifier protocolIdentifier, const UniqueFunction<void(std::any&&)>& consumer, std::any&& protocol
-)
-{
-    try
-    {
-        consumer(std::move(protocol));
-    }
-    catch (const WideException& exception)
-    {
-        LOG_ERROR(
-            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-            " a wide exception was caught with the message: ", exception.getMessage()
-        );
-    }
-    catch (const std::exception& exception)
-    {
-        LOG_ERROR(
-            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-            " an exception was caught with the message: ", exception.what()
-        );
-    }
-    catch (...)
-    {
-        LOG_ERROR(
-            "While invoking the consumer for the protocol with identifier ", protocolIdentifier,
-            " an unknown exception was caught"
-        );
-    }
-}
-
-}
-
 bool ProtocolReader::readInboundMessage(
     const ProtocolIdentifier messageIdentifier, const ProtocolDescriptor& messageDescriptor,
     const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
@@ -130,7 +78,7 @@ bool ProtocolReader::readInboundMessage(
         const auto consumerPosition = inboundMessageConsumers_.find(messageIdentifier);
         if (consumerPosition != inboundMessageConsumers_.cend())
         {
-            wrapInTryCatchAndInvoke(messageIdentifier, consumerPosition->second, std::move(message));
+            wrapInTryCatchAndInvokeProtocolConsumer(messageIdentifier, consumerPosition->second, std::move(message));
         }
         else
         {
@@ -169,19 +117,19 @@ bool ProtocolReader::readInboundRequest(
         if (consumerPosition != inboundRequestConsumers_.cend())
         {
             // There is no need to wrap the inbound request consumer inside a try/catch.
-            // The inbound request consumer calls the protocol's implementation of Metadata::invokeCallback which wraps
-            // the user callback inside a try/catch. If the user callback throws, then the request consumer returns an
-            // std::any containing an Expected<Response> such that Expected<Response>::failure() == true.
+            // The inbound request consumer calls the protocol's implementation of Metadata::invokeRequestCallback
+            // which wraps the user callback inside a try/catch. If the user callback throws, then the request consumer
+            // returns an std::any containing an Expected<Response> such that Expected<Response>::failure() == true.
             //
-            // +----------------------------------------+
-            // |        Inbound request consumer        |
-            // | +------------------------------------+ |
-            // | | Response::Metadata::invokeCallback | |
-            // | |          +---------------+         | |
-            // | |          | User callback |         | |
-            // | |          +---------------+         | |
-            // | +------------------------------------+ |
-            // +----------------------------------------+
+            // +-----------------------------------------------+
+            // |           Inbound request consumer            |
+            // | +-------------------------------------------+ |
+            // | | Response::Metadata::invokeRequestCallback | |
+            // | |             +---------------+             | |
+            // | |             | User callback |             | |
+            // | |             +---------------+             | |
+            // | +-------------------------------------------+ |
+            // +-----------------------------------------------+
             //
             const auto response = consumerPosition->second(std::move(request));
 
@@ -207,7 +155,8 @@ bool ProtocolReader::readInboundRequest(
 
 bool ProtocolReader::readInboundResponse(
     const ProtocolIdentifier responseIdentifier, const ProtocolDescriptor& responseDescriptor,
-    const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
+    const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset,
+    ResponseConsumerContainer& responseConsumerContainer
 )
 {
     auto sequenceNumber = ProtocolSequenceNumber{};
@@ -220,20 +169,7 @@ bool ProtocolReader::readInboundResponse(
     {
         LOG_DEBUG("Successfully read the response protocol ", responseIdentifier);
 
-        const auto consumerPosition = inboundOneShotResponseConsumers_.find(sequenceNumber);
-        if (consumerPosition != inboundOneShotResponseConsumers_.cend())
-        {
-            SCOPE_EXIT([&]() { inboundOneShotResponseConsumers_.erase(consumerPosition); });
-
-            wrapInTryCatchAndInvoke(responseIdentifier, consumerPosition->second, std::move(response));
-        }
-        else
-        {
-            LOG_ERROR(
-                "The response protocol with identifier ", responseIdentifier, " and sequence number ", sequenceNumber,
-                " has no consumer registered and will be skipped"
-            );
-        }
+        responseConsumerContainer.invoke(responseIdentifier, sequenceNumber, std::move(response));
 
         return true;
     }
@@ -245,7 +181,10 @@ bool ProtocolReader::readInboundResponse(
     }
 }
 
-void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes)
+void ProtocolReader::readInboundBytes(
+    std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes,
+    ResponseConsumerContainer& responseConsumerContainer
+)
 {
     auto inboundBitsOffset = 0uz;
 
@@ -281,7 +220,9 @@ void ProtocolReader::readInboundBytes(std::vector<uint8_t>& inboundBytes, std::v
         }
         else if (descriptor.protocolType == ProtocolType::response)
         {
-            consumed = readInboundResponse(identifier, descriptor, inboundBytes, localInboundBitsOffset);
+            consumed = readInboundResponse(
+                identifier, descriptor, inboundBytes, localInboundBitsOffset, responseConsumerContainer
+            );
         }
         else
         {

@@ -1,6 +1,9 @@
 #if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/send_request_user_operation.hpp"
+#include "dansandu/ballotin/scope.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
+
+#include <vector>
 
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
@@ -15,12 +18,12 @@ class SendRequestUserOperation : public IUserOperation
 {
 public:
     SendRequestUserOperation(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     )
         : socketIdentifier_{socketIdentifier},
-          protocolSequenceNumber_{protocolSequenceNumber},
-          bytes_{std::move(bytes)},
+          sequenceNumber_{sequenceNumber},
+          requestBytes_{std::move(requestBytes)},
           responseConsumer_{std::move(responseConsumer)},
           sendBytesPending_{false}
     {
@@ -46,13 +49,15 @@ public:
 
             auto& socket = socketContainer.getSocketOrThrow(socketIdentifier_);
 
-            socket.protocolReader.registerInboundOneShotResponseConsumer(
-                protocolSequenceNumber_, std::move(responseConsumer_)
-            );
+            socket.responseConsumerContainer.insert(sequenceNumber_, std::move(responseConsumer_));
+
+            SCOPE_FAILURE([&]() { socket.responseConsumerContainer.erase(sequenceNumber_); });
 
             eraseWsaOverlapped();
 
-            socket.socket.postSend(reinterpret_cast<CHAR*>(bytes_.data()), static_cast<ULONG>(bytes_.size()), this);
+            socket.socket.postSend(
+                reinterpret_cast<CHAR*>(requestBytes_.data()), static_cast<ULONG>(requestBytes_.size()), this
+            );
 
             return true;
         }
@@ -66,19 +71,19 @@ public:
 
 private:
     const SocketIdentifier socketIdentifier_;
-    const ProtocolSequenceNumber protocolSequenceNumber_;
-    std::vector<uint8_t> bytes_;
-    UniqueFunction<void(std::any&&)> responseConsumer_;
+    const ProtocolSequenceNumber sequenceNumber_;
+    std::vector<uint8_t> requestBytes_;
+    OneShotResponseConsumer responseConsumer_;
     bool sendBytesPending_;
 };
 
 std::unique_ptr<IUserOperation> createSendRequestUserOperation(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+    std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
 )
 {
     return std::make_unique<SendRequestUserOperation>(
-        socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+        socketIdentifier, sequenceNumber, std::move(requestBytes), std::move(responseConsumer)
     );
 }
 

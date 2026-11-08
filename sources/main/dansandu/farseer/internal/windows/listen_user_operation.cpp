@@ -1,10 +1,12 @@
 #if defined(_WIN32)
 #include "dansandu/farseer/internal/windows/listen_user_operation.hpp"
 #include "dansandu/ballotin/scope.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
 #include "dansandu/farseer/internal/windows/error.hpp"
 #include "dansandu/farseer/internal/windows/windows_socket.hpp"
 
 using dansandu::farseer::internal::protocol_reader::ProtocolReader;
+using dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer;
 using dansandu::farseer::internal::windows::error::getLastErrorMessage;
 using dansandu::farseer::internal::windows::operation::IOperationScheduler;
 using dansandu::farseer::internal::windows::operation::IUserOperation;
@@ -53,6 +55,7 @@ public:
         auto& socket = socketContainer.insertSocket(
             socketIdentifier_, Socket{
                                    .socket = std::move(tempSocket),
+                                   .responseConsumerContainer = ResponseConsumerContainer{},
                                    .protocolReader = ProtocolReader{},
                                    .listeningSocketIdentifier = invalidSocketIdentifier,
                                    .connectionCallback = std::move(connectionCallback_),

@@ -3,15 +3,14 @@
 #include "dansandu/farseer/common.hpp"
 #include "dansandu/farseer/internal/windows/operation.hpp"
 
-#include <any>
 #include <vector>
 
 namespace dansandu::farseer::internal::windows::send_request_user_operation
 {
 
 std::unique_ptr<dansandu::farseer::internal::windows::operation::IUserOperation> createSendRequestUserOperation(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-    std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+    std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
 );
 
 }

@@ -39,24 +39,24 @@ ProtocolSequenceNumber SocketProvider::generateSequenceNumber() const
     return impl->generateSequenceNumber();
 }
 
-void SocketProvider::sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) const
+void SocketProvider::sendMessageWork(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& messageBytes) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());
 
-    impl->sendBytes(socketIdentifier, std::move(bytes));
+    impl->sendMessage(socketIdentifier, std::move(messageBytes));
 }
 
-void SocketProvider::sendRequest(
-    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber, std::vector<uint8_t>&& bytes,
-    UniqueFunction<void(std::any&&)>&& responseConsumer
+void SocketProvider::sendRequestWork(
+    const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+    std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
 ) const
 {
     const auto impl = static_cast<ISocketProviderImplementation*>(implementation_.get());
 
-    impl->sendRequest(socketIdentifier, sequenceNumber, std::move(bytes), std::move(responseConsumer));
+    impl->sendRequest(socketIdentifier, sequenceNumber, std::move(requestBytes), std::move(responseConsumer));
 }
 
-void SocketProvider::registerMessageConsumer(
+void SocketProvider::registerMessageConsumerWork(
     const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<void(std::any&&)>&& messageConsumer
 ) const
@@ -66,7 +66,7 @@ void SocketProvider::registerMessageConsumer(
     impl->registerMessageConsumer(socketIdentifier, protocolIdentifier, std::move(messageConsumer));
 }
 
-void SocketProvider::registerRequestCallback(
+void SocketProvider::registerRequestCallbackWork(
     const SocketIdentifier socketIdentifier, const ProtocolIdentifier protocolIdentifier,
     UniqueFunction<std::any(std::any&&)>&& requestCallback
 ) const

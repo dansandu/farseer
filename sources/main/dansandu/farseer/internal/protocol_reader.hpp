@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dansandu/farseer/common.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
 #include "dansandu/farseer/protocol_registry.hpp"
 
 #include <any>
@@ -12,18 +13,12 @@ namespace dansandu::farseer::internal::protocol_reader
 class ProtocolReader
 {
 public:
-    ProtocolReader() = default;
-
     void registerInboundMessageConsumer(
         const ProtocolIdentifier messageIdentifier, UniqueFunction<void(std::any&&)>&& messageConsumer
     );
 
     void registerInboundRequestConsumer(
         const ProtocolIdentifier requestIdentifier, UniqueFunction<std::any(std::any&&)>&& requestConsumer
-    );
-
-    void registerInboundOneShotResponseConsumer(
-        const ProtocolSequenceNumber sequenceNumber, UniqueFunction<void(std::any&&)>&& responseConsumer
     );
 
     // The inbound and outbound byte buffers belong to the receiving socket so that sockets sharing this reader (i.e.
@@ -37,7 +32,14 @@ public:
     //
     // If reading a protocol throws (e.g. an unknown identifier), the responses already appended are not sent; both the
     // inbound and outbound streams are corrupt at that point and the receiving socket is erased.
-    void readInboundBytes(std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes);
+    //
+    // Reads messages and requests using the consumers of this reader and responses using the consumers of
+    // responseConsumerContainer. An accepted socket shares the message and request consumers of its listening socket,
+    // but the responses it is waiting for are its own so that they are aborted when the accepted socket is erased.
+    void readInboundBytes(
+        std::vector<uint8_t>& inboundBytes, std::vector<uint8_t>& outboundBytes,
+        dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer& responseConsumerContainer
+    );
 
 private:
     bool readInboundMessage(
@@ -55,12 +57,12 @@ private:
     bool readInboundResponse(
         const ProtocolIdentifier responseIdentifier,
         const dansandu::farseer::protocol_registry::ProtocolDescriptor& responseDescriptor,
-        const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset
+        const std::vector<uint8_t>& inboundBytes, size_t& inboundBitsOffset,
+        dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer& responseConsumerContainer
     );
 
     std::map<ProtocolIdentifier, UniqueFunction<void(std::any&&)>> inboundMessageConsumers_;
     std::map<ProtocolIdentifier, UniqueFunction<std::any(std::any&&)>> inboundRequestConsumers_;
-    std::map<ProtocolSequenceNumber, UniqueFunction<void(std::any&&)>> inboundOneShotResponseConsumers_;
 };
 
 }

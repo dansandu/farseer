@@ -31,11 +31,11 @@ public:
         UniqueFunction<void(const SocketEvent, const SocketIdentifier)>&& connectionCallback
     ) = 0;
 
-    virtual void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) = 0;
+    virtual void sendMessage(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& messageBytes) = 0;
 
     virtual void sendRequest(
         const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     ) = 0;
 
     virtual void registerMessageConsumer(

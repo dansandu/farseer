@@ -23,7 +23,7 @@ R"(struct PRALINE_EXPORT {0}
 {{
     struct PRALINE_EXPORT Metadata
     {{
-        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
+        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier() noexcept;
 
         static void serializeHeaderless(const {0}& message, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
@@ -47,7 +47,7 @@ R"(struct PRALINE_EXPORT {0}
 {{
     struct PRALINE_EXPORT Metadata
     {{
-        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
+        static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier() noexcept;
 
         static void serializeHeaderless(const {0}& request, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
@@ -71,7 +71,7 @@ R"(    struct PRALINE_EXPORT Response
     {{
         struct PRALINE_EXPORT Metadata
         {{
-            static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier();
+            static ::dansandu::farseer::ProtocolIdentifier getProtocolIdentifier() noexcept;
 
             static void serializeHeaderless(const Response& response, std::vector<uint8_t>& bytes, size_t& bitsOffset);
 
@@ -83,7 +83,9 @@ R"(    struct PRALINE_EXPORT Response
 
             static bool tryDeserializeWithHeader(const std::vector<uint8_t>& bytes, size_t& bitsOffset, ::dansandu::farseer::ProtocolSequenceNumber& sequenceNumber, std::any& response);
 
-            static std::any invokeCallback(const UniqueFunction<Response({0}&&)>& callback, std::any&& request);
+            static std::any invokeRequestCallback(const UniqueFunction<Response({0}&&)>& callback, std::any&& request);
+
+            static std::any getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept;
 
             static constexpr auto hasStaticSize = {1};
 
@@ -93,7 +95,7 @@ R"(    struct PRALINE_EXPORT Response
 )";
 
 constexpr auto protocolIdentifierTemplate =
-R"(::dansandu::farseer::ProtocolIdentifier {0}::Metadata::getProtocolIdentifier()
+R"(::dansandu::farseer::ProtocolIdentifier {0}::Metadata::getProtocolIdentifier() noexcept
 {{
     return ::dansandu::farseer::ProtocolIdentifier{{{1}u}};
 }}
@@ -337,8 +339,8 @@ R"(bool {0}::Response::Metadata::tryDeserializeWithHeader(const std::vector<uint
 
 )";
 
-constexpr auto invokeCallbackTemplate =
-R"(std::any {0}::Response::Metadata::invokeCallback(const UniqueFunction<Response({0}&&)>& callback, std::any&& request)
+constexpr auto invokeRequestCallbackTemplate =
+R"(std::any {0}::Response::Metadata::invokeRequestCallback(const UniqueFunction<Response({0}&&)>& callback, std::any&& request)
 {{
     using ::dansandu::farseer::Expected;
 
@@ -358,6 +360,14 @@ R"(std::any {0}::Response::Metadata::invokeCallback(const UniqueFunction<Respons
     {{
         return Expected<Response>::fromInternalServerError();
     }}
+}}
+
+)";
+
+constexpr auto getFailedResponseTemplate =
+R"(std::any {0}::Response::Metadata::getFailedResponse(const uint32_t errorCode, const std::string& errorMessage) noexcept
+{{
+    return ::dansandu::farseer::Expected<Response>::fromFailure(errorCode, errorMessage);
 }}
 
 )";
@@ -569,7 +579,8 @@ void generateResponseMetadataDefinition(const RequestProtocolDefinition& request
 
     stream << std::format(responseSerializationWithHeaderTemplate, request.name)
            << std::format(responseDeserializationWithHeaderTemplate, request.name)
-           << std::format(invokeCallbackTemplate, request.name);
+           << std::format(invokeRequestCallbackTemplate, request.name)
+           << std::format(getFailedResponseTemplate, request.name);
 }
 
 }

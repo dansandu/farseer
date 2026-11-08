@@ -45,18 +45,18 @@ public:
         return operationScheduler_.scheduleConnectUserOperation(ipAddress, port, std::move(connectionCallback));
     }
 
-    void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) override
+    void sendMessage(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& messageBytes) override
     {
-        operationScheduler_.scheduleSendBytesUserOperation(socketIdentifier, std::move(bytes));
+        operationScheduler_.scheduleSendBytesUserOperation(socketIdentifier, std::move(messageBytes));
     }
 
     void sendRequest(
         const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     ) override
     {
         operationScheduler_.scheduleSendRequestUserOperation(
-            socketIdentifier, sequenceNumber, std::move(bytes), std::move(responseConsumer)
+            socketIdentifier, sequenceNumber, std::move(requestBytes), std::move(responseConsumer)
         );
     }
 
@@ -98,8 +98,7 @@ private:
 
 }
 
-std::shared_ptr<dansandu::farseer::internal::socket_provider_implementation::ISocketProviderImplementation>
-createWindowsSocketProviderImplementation(const bool initializeWsa)
+std::shared_ptr<ISocketProviderImplementation> createWindowsSocketProviderImplementation(const bool initializeWsa)
 {
     return std::make_shared<WindowsSocketProviderImplementation>(initializeWsa);
 }

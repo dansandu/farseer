@@ -18,11 +18,16 @@
 #include "dansandu/farseer/internal/protocol_reader.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
 #include "dansandu/farseer/internal/socket_provider_implementation.hpp"
+#include "dansandu/farseer/internal/utility.hpp"
 #include "dansandu/journey/logging.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 #include <thread>
@@ -51,6 +56,23 @@ namespace dansandu::farseer::internal::linux::linux_socket_provider_implementati
 
 namespace
 {
+
+// Returns the epoll_wait timeout for the given deadline. The remaining time is rounded up so that epoll_wait doesn't
+// wake up before the deadline and it is clamped to [0, INT_MAX] because epoll_wait waits forever on negative values.
+int getRemainingMilliseconds(const std::chrono::steady_clock::time_point deadline) noexcept
+{
+    const auto now = std::chrono::steady_clock::now();
+
+    if (deadline <= now)
+    {
+        return 0;
+    }
+
+    const auto remainingMilliseconds = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+    const auto maximumMilliseconds = std::chrono::milliseconds::rep{std::numeric_limits<int>::max()};
+
+    return static_cast<int>(std::min(remainingMilliseconds, maximumMilliseconds));
+}
 
 class LinuxSocketProviderImplementation : public ISocketProviderImplementation
 {
@@ -92,18 +114,18 @@ public:
         return socketIdentifier;
     }
 
-    void sendBytes(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& bytes) override
+    void sendMessage(const SocketIdentifier socketIdentifier, std::vector<uint8_t>&& messageBytes) override
     {
-        taskQueue_.insert(createSendBytesTask(socketIdentifier, std::move(bytes)));
+        taskQueue_.insert(createSendBytesTask(socketIdentifier, std::move(messageBytes)));
     }
 
     void sendRequest(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        std::vector<uint8_t>&& bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     ) override
     {
         taskQueue_.insert(createSendRequestTask(
-            socketIdentifier, protocolSequenceNumber, std::move(bytes), std::move(responseConsumer)
+            socketIdentifier, sequenceNumber, std::move(requestBytes), std::move(responseConsumer)
         ));
     }
 
@@ -203,7 +225,14 @@ private:
 
             events.resize(numberOfEvents);
 
-            const auto numberOfPendingEvents = eventPoll_.wait(events);
+            const auto earliestResponseDeadline = socketContainer_.eraseTimedOutResponses();
+
+            const auto timeoutMilliseconds =
+                earliestResponseDeadline
+                    .transform([](const auto& deadline) { return getRemainingMilliseconds(deadline); })
+                    .value_or(-1);
+
+            const auto numberOfPendingEvents = eventPoll_.wait(events, timeoutMilliseconds);
 
             for (auto index = 0; index < numberOfPendingEvents; ++index)
             {

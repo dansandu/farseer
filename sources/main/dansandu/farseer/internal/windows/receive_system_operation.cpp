@@ -69,11 +69,15 @@ public:
             {
                 auto& listeningSocket = socketContainer.getSocketOrThrow(listeningSocketIdentifier);
 
-                listeningSocket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
+                listeningSocket.protocolReader.readInboundBytes(
+                    socket.inboundBytes, socket.outboundBytes, socket.responseConsumerContainer
+                );
             }
             else
             {
-                socket.protocolReader.readInboundBytes(socket.inboundBytes, socket.outboundBytes);
+                socket.protocolReader.readInboundBytes(
+                    socket.inboundBytes, socket.outboundBytes, socket.responseConsumerContainer
+                );
             }
 
             if (!socket.outboundBytes.empty())

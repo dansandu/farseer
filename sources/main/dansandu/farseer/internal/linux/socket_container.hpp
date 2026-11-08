@@ -4,11 +4,14 @@
 #include "dansandu/farseer/internal/linux/event_poll.hpp"
 #include "dansandu/farseer/internal/linux/linux_socket.hpp"
 #include "dansandu/farseer/internal/protocol_reader.hpp"
+#include "dansandu/farseer/internal/response_consumer_container.hpp"
 #include "dansandu/farseer/internal/sequencer.hpp"
 
 #include <any>
+#include <chrono>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -21,6 +24,7 @@ struct Socket
     SocketIdentifier socketIdentifier;
     SocketIdentifier listeningSocketIdentifier;
     dansandu::farseer::internal::linux::linux_socket::LinuxSocket socket;
+    dansandu::farseer::internal::response_consumer_container::ResponseConsumerContainer responseConsumerContainer;
     dansandu::farseer::internal::protocol_reader::ProtocolReader protocolReader;
     UniqueFunction<void(const SocketEvent, const SocketIdentifier)> connectionCallback;
     std::vector<uint8_t> inboundBytes;
@@ -68,13 +72,15 @@ public:
     void sendBytes(const SocketIdentifier socketIdentifier, const std::span<const uint8_t> bytes);
 
     void sendRequest(
-        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber protocolSequenceNumber,
-        const std::span<const uint8_t> bytes, UniqueFunction<void(std::any&&)>&& responseConsumer
+        const SocketIdentifier socketIdentifier, const ProtocolSequenceNumber sequenceNumber,
+        std::vector<uint8_t>&& requestBytes, OneShotResponseConsumer&& responseConsumer
     );
 
     void eraseSocket(const SocketIdentifier socketIdentifier);
 
     void handleSocketEvents(const int socketFileDescriptor, const uint32_t socketEvents);
+
+    std::optional<std::chrono::steady_clock::time_point> eraseTimedOutResponses() noexcept;
 
 private:
     Socket& insertSocket(const uint32_t events, Socket&& socket);
